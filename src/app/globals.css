@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-arabic: 'Amiri', 'Scheherazade New', serif;
+    --font-heading: 'Cinzel', serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+.font-arabic {
+  font-family: 'Amiri', 'Scheherazade New', 'Traditional Arabic', serif;
+  font-feature-settings: "cv01", "cv02", "liga" 1;
+}
+
+.font-heading {
+  font-family: 'Cinzel', serif;
+}
+
+/* Print Styles for PDF Export */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  header, nav, footer, button, input {
+    display: none !important;
+  }
+}

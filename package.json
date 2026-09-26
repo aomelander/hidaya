@@ -4,7 +4,10 @@
   "private": true,
   "packageManager": "npm@10.9.8",
   "dependencies": {
+    "@google/genai": "^2.24.0",
     "@vinext/cloudflare": "latest",
+    "lucide-react": "^1.48.0",
+    "pptxgenjs": "^4.0.1",
     "react": "latest",
     "react-dom": "latest",
     "react-server-dom-webpack": "latest",
