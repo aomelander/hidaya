@@ -16,15 +16,15 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'mock_key' })
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { query?: string, emotionId?: string, lifeDomainId?: string };
-    const { query, emotionId, lifeDomainId } = body;
+    const body = await req.json() as { query?: string, emotionId?: string, lifeDomainId?: string, forceLLM?: boolean };
+    const { query, emotionId, lifeDomainId, forceLLM } = body;
     
     if (!query && !emotionId && !lifeDomainId) {
       return NextResponse.json({ error: 'Missing query parameters' }, { status: 400 });
     }
 
-    // Stage 1: Direct Category Lookup
-    if (emotionId || lifeDomainId) {
+    // Stage 1: Direct Category Lookup (skipped when forceLLM=true)
+    if (!forceLLM && (emotionId || lifeDomainId)) {
       const directMatches = await RetrievalService.findDirectMatches(emotionId, lifeDomainId);
       if (directMatches && directMatches.length > 0) {
         return NextResponse.json({
@@ -35,35 +35,38 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Stage 2: Cache Check
+    // Stage 2: Cache Check (skipped when forceLLM=true)
     const queryHash = await hashString(query || '');
-    const cached = await RetrievalService.getCachedReflection(queryHash);
-    
-    if (cached) {
-      return NextResponse.json({
-        status: 'matched',
-        source: 'cache',
-        data: cached
-      });
+    if (!forceLLM) {
+      const cached = await RetrievalService.getCachedReflection(queryHash);
+      if (cached) {
+        return NextResponse.json({
+          status: 'matched',
+          source: 'cache',
+          data: cached
+        });
+      }
     }
 
-    // Stage 3: Semantic Retrieval
-    const vectorMatches = await RetrievalService.findVectorMatches(query || '');
-    const isLowConfidence = !vectorMatches || vectorMatches.length === 0;
+    // Stage 3: Semantic Retrieval (skipped when forceLLM=true)
+    if (!forceLLM) {
+      const vectorMatches = await RetrievalService.findVectorMatches(query || '');
+      const isLowConfidence = !vectorMatches || vectorMatches.length === 0;
 
-    if (!isLowConfidence) {
-      // Good enough matches from Semantic DB
-      return NextResponse.json({
-        status: 'matched',
-        source: 'semantic_search',
-        matches: vectorMatches
-      });
+      if (!isLowConfidence) {
+        return NextResponse.json({
+          status: 'matched',
+          source: 'semantic_search',
+          matches: vectorMatches
+        });
+      }
     }
+
 
     // Stage 4: Bounded Gemini Synthesis
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.8-flash',
         contents: `Analyze this query for Quranic reflection: "${query}". Respond ONLY with valid JSON in this exact structure: {"reasoning": "string", "selectedAyahIds": [1, 2], "reflectionPrompt": "string"}`,
         config: {
           responseMimeType: 'application/json',
