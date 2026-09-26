@@ -11,5 +11,6 @@
 - [x] API route integration completed
 - [x] Frontend UI connected to /api/guidance retrieval pipeline
 - [x] Milestone 3: Audio Recitation & Multi-Language Translation (sv/en) completed
+- [x] Milestone 4: Export Capabilities (PPTX/PDF) completed
 
-**Next Milestone:** Milestone 4: Production Deployment
+**Next Milestone:** Milestone 5: Production Deployment
