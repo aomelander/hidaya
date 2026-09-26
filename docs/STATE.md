@@ -12,5 +12,6 @@
 - [x] Frontend UI connected to /api/guidance retrieval pipeline
 - [x] Milestone 3: Audio Recitation & Multi-Language Translation (sv/en) completed
 - [x] Milestone 4: Export Capabilities (PPTX/PDF) completed
+- [x] Milestone 5: Reflection Journal & Bookmarks completed
 
-**Next Milestone:** Milestone 5: Production Deployment
+**Next Milestone:** Milestone 6: User Authentication and Cloud Sync

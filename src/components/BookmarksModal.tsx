@@ -1,7 +1,8 @@
-import React from 'react';
-import { X, Bookmark, BookOpen, Trash2, ArrowRight, Sparkles } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Bookmark, BookOpen, Trash2, ArrowRight, Sparkles, Download, Upload, Search, Filter } from 'lucide-react';
 import { QuranVerseFixture, Language } from '../types';
 import { StorageService } from '../services/storage';
+import { JournalStorage } from '../lib/storage/journalStorage';
 
 interface BookmarksModalProps {
   isOpen: boolean;
@@ -22,61 +23,150 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
   onRemoveBookmark,
   onOpenReflection,
 }) => {
+  const [activeTab, setActiveTab] = useState<'bookmarks' | 'journey'>('bookmarks');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   if (!isOpen) return null;
 
   const bookmarkIds = StorageService.getBookmarks();
   const bookmarkedVerses = allVerses.filter((v) => bookmarkIds.includes(v.id));
   const reflections = StorageService.getReflections();
 
+  // Extract all unique topics from bookmarked verses
+  const allTopics = Array.from(new Set(bookmarkedVerses.flatMap((v) => v.topics)));
+
+  const handleExport = () => {
+    JournalStorage.exportJournalBackup();
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      const success = JournalStorage.importJournalBackup(content);
+      if (success) {
+        alert('Journal imported successfully!');
+        window.location.reload(); // Quick way to refresh state
+      } else {
+        alert('Failed to import journal. Please check the file format.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const filteredVerses = bookmarkedVerses.filter((verse) => {
+    const matchesSearch = verse.arabicText.includes(searchQuery) || 
+      verse.translations.en.text.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (verse.translations[language]?.text || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      verse.id.includes(searchQuery);
+      
+    const matchesTopic = selectedTopic ? verse.topics.includes(selectedTopic) : true;
+    
+    // For journey tab, only show verses that have reflections
+    const hasReflection = !!reflections[verse.id]?.reflectNotes || !!reflections[verse.id]?.applyNotes;
+    const matchesTab = activeTab === 'bookmarks' ? true : hasReflection;
+
+    return matchesSearch && matchesTopic && matchesTab;
+  });
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-xs transition-opacity"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="bookmarks-modal-title"
     >
-      <div className="relative w-full max-w-2xl max-h-[85vh] bg-[#FAF8F5] dark:bg-[#071913] text-slate-900 dark:text-slate-100 rounded-3xl shadow-2xl border border-emerald-900/20 dark:border-emerald-700/40 flex flex-col overflow-hidden">
+      <div className="w-full max-w-md h-full bg-[#FAF8F5] dark:bg-[#071913] text-slate-900 dark:text-slate-100 shadow-2xl border-l border-emerald-900/20 dark:border-emerald-700/40 flex flex-col transform transition-transform">
         {/* Header */}
         <div className="p-5 border-b border-emerald-900/10 dark:border-emerald-800/30 flex items-center justify-between bg-emerald-900/5 dark:bg-emerald-950/40">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <Bookmark className="w-5 h-5 fill-current" />
-            </div>
-            <div>
-              <h2 id="bookmarks-modal-title" className="text-base font-bold text-emerald-950 dark:text-emerald-50">
-                Saved Verses & Reflections ({bookmarkedVerses.length})
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Personal spiritual bookmarks stored in browser memory
-              </p>
-            </div>
+          <div>
+            <h2 className="text-lg font-bold text-emerald-950 dark:text-emerald-50">
+              Journal & Bookmarks
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Your personal reflection space
+            </p>
           </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleExport} className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/40 transition" title="Backup Journal">
+              <Download className="w-5 h-5" />
+            </button>
+            <button onClick={() => fileInputRef.current?.click()} className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/40 transition" title="Restore Journal">
+              <Upload className="w-5 h-5" />
+            </button>
+            <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImport} />
+            <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white transition">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-emerald-900/40 transition-colors"
-            aria-label="Close bookmarks modal"
+        {/* Tabs */}
+        <div className="flex border-b border-emerald-900/10 dark:border-emerald-800/30">
+          <button 
+            className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'bookmarks' ? 'border-emerald-600 text-emerald-800 dark:text-emerald-300' : 'border-transparent text-slate-500'}`}
+            onClick={() => setActiveTab('bookmarks')}
           >
-            <X className="w-5 h-5" />
+            Saved Verses
+          </button>
+          <button 
+            className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'journey' ? 'border-emerald-600 text-emerald-800 dark:text-emerald-300' : 'border-transparent text-slate-500'}`}
+            onClick={() => setActiveTab('journey')}
+          >
+            Reflection Journey
           </button>
         </div>
 
+        {/* Filters */}
+        <div className="p-4 space-y-3 bg-white dark:bg-emerald-950/20 border-b border-emerald-900/10 dark:border-emerald-800/30">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Search verses or reflections..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-emerald-950/40 border border-slate-200 dark:border-emerald-800/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+            />
+          </div>
+          {allTopics.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <button 
+                onClick={() => setSelectedTopic(null)}
+                className={`px-3 py-1 rounded-full text-xs whitespace-nowrap transition-colors ${!selectedTopic ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' : 'bg-slate-100 text-slate-600 dark:bg-emerald-950 dark:text-slate-400'}`}
+              >
+                All Topics
+              </button>
+              {allTopics.map(topic => (
+                <button 
+                  key={topic}
+                  onClick={() => setSelectedTopic(topic)}
+                  className={`px-3 py-1 rounded-full text-xs whitespace-nowrap transition-colors ${selectedTopic === topic ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' : 'bg-slate-100 text-slate-600 dark:bg-emerald-950 dark:text-slate-400'}`}
+                >
+                  {topic}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* List Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {bookmarkedVerses.length === 0 ? (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {filteredVerses.length === 0 ? (
             <div className="text-center py-12 space-y-3">
               <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-emerald-950/40 text-slate-400 flex items-center justify-center mx-auto">
                 <Bookmark className="w-6 h-6" />
               </div>
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                No saved verses yet
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                Click the bookmark icon on any Quran passage to keep it handy for morning or evening reflection.
+                {activeTab === 'bookmarks' ? 'No saved verses found' : 'No reflections found'}
               </p>
             </div>
           ) : (
-            bookmarkedVerses.map((verse) => {
+            filteredVerses.map((verse) => {
               const translationObj = verse.translations[language] || verse.translations.en;
               const hasReflection = !!reflections[verse.id]?.reflectNotes || !!reflections[verse.id]?.applyNotes;
 
@@ -90,17 +180,12 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
                       <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
                         Surah {verse.surahNameTransliterated} ({verse.id})
                       </span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-2">
-                        {verse.surahNameMeaning}
-                      </span>
                     </div>
 
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => onRemoveBookmark(verse.id)}
                         className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                        title="Remove bookmark"
-                        aria-label={`Remove bookmark for verse ${verse.id}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -116,11 +201,19 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
                   </p>
 
                   {hasReflection && (
-                    <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300/40 dark:border-amber-800/40 text-[11px] text-amber-900 dark:text-amber-200">
-                      <span className="font-semibold block mb-0.5">My Saved Reflection:</span>
-                      <p className="italic line-clamp-1">
-                        &quot;{reflections[verse.id]?.reflectNotes || reflections[verse.id]?.applyNotes}&quot;
-                      </p>
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300/40 dark:border-amber-800/40 text-xs text-amber-900 dark:text-amber-200">
+                      {reflections[verse.id]?.reflectNotes && (
+                        <div className="mb-2">
+                          <span className="font-semibold block mb-0.5">Reflection:</span>
+                          <p className="italic">&quot;{reflections[verse.id]?.reflectNotes}&quot;</p>
+                        </div>
+                      )}
+                      {reflections[verse.id]?.applyNotes && (
+                        <div>
+                          <span className="font-semibold block mb-0.5">Action:</span>
+                          <p className="italic">&quot;{reflections[verse.id]?.applyNotes}&quot;</p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -151,16 +244,6 @@ export const BookmarksModal: React.FC<BookmarksModalProps> = ({
               );
             })
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-emerald-900/10 dark:border-emerald-800/30 bg-[#FAF8F5] dark:bg-[#071913] flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 text-xs font-semibold rounded-xl bg-slate-200 dark:bg-emerald-950 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-emerald-900 transition-colors"
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>
