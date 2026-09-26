@@ -5,6 +5,7 @@
   "packageManager": "npm@10.9.8",
   "dependencies": {
     "@google/genai": "^2.24.0",
+    "@supabase/supabase-js": "^2.117.2",
     "@vinext/cloudflare": "latest",
     "lucide-react": "^1.48.0",
     "pptxgenjs": "^4.0.1",
