@@ -81,6 +81,7 @@ export interface QuickPill {
 
 export interface QueryAnalysisResponse {
   status: 'matched' | 'off-topic' | 'clarification';
+  source?: 'direct_lookup' | 'cache' | 'semantic_search' | 'gemini_synthesis' | 'offline_fallback';
   detectedSituation?: string;
   detectedEmotion?: string;
   underlyingNeed?: string;

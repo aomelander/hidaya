@@ -28,6 +28,7 @@ interface VerseCardProps {
   onToggleBookmark: (verseId: string) => void;
   onOpenTafsir: (verse: QuranVerseFixture) => void;
   onOpenReflection: (verse: QuranVerseFixture) => void;
+  sourceIndicator?: string;
 }
 
 export const VerseCard: React.FC<VerseCardProps> = ({
@@ -39,6 +40,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   onToggleBookmark,
   onOpenTafsir,
   onOpenReflection,
+  sourceIndicator,
 }) => {
   const [showWhyVerse, setShowWhyVerse] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -131,6 +133,14 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Grounding Indicator Badge */}
+      {sourceIndicator && (
+        <div className="px-6 py-2 bg-slate-50 border-b border-emerald-900/10 text-[10px] font-mono tracking-wide text-slate-500 uppercase flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3" />
+          <span>{sourceIndicator}</span>
+        </div>
+      )}
 
       {/* Main Content Body */}
       <div className="p-6 sm:p-8 space-y-6">

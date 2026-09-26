@@ -144,22 +144,47 @@ export default function App() {
 
     try {
       // Call server-side API endpoint
-      const response = await fetch('/api/analyze-query', {
+      const response = await fetch('/api/guidance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: queryText, mode }),
+        body: JSON.stringify({ query: queryText }),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: QueryAnalysisResponse = await response.json();
+      type GuidanceAPIResponse = {
+        status: 'matched' | 'off-topic' | 'clarification';
+        source?: QueryAnalysisResponse['source'];
+        matches?: Array<{ id?: string | number; ayah_id?: string | number }>;
+        data?: { selectedAyahIds?: number[]; reasoning?: string; reflectionPrompt?: string };
+      };
+      const rawData = await response.json() as GuidanceAPIResponse;
+      let passageIds: string[] = [];
+
+      if (rawData.data && rawData.data.selectedAyahIds) {
+        passageIds = rawData.data.selectedAyahIds.map((id) => String(id));
+      } else if (rawData.matches) {
+        // For mock DB matches, we can use id. In real DB, maybe ayah_id.
+        passageIds = rawData.matches.map((m) => String(m.id || m.ayah_id));
+      }
+
+      const data: QueryAnalysisResponse = {
+        status: rawData.status || 'matched',
+        source: rawData.source,
+        detectedSituation: rawData.data?.reasoning || 'Derived from similarity matches',
+        detectedEmotion: 'Reflective',
+        underlyingNeed: rawData.data?.reflectionPrompt || 'Seeking guidance',
+        matchedPassageIds: passageIds
+      };
+
       setAnalysisResult(data);
 
       if (data.status === 'matched' && data.matchedPassageIds?.length > 0) {
+        // For prototype mock, the backend returned full fixtures in .matches. But we map to QURAN_FIXTURES
         const matches = data.matchedPassageIds
-          .map((id) => QURAN_FIXTURES.find((f) => f.id === id))
+          .map((id) => QURAN_FIXTURES.find((f) => f.id === id || f.id.startsWith(id)))
           .filter(Boolean) as QuranVerseFixture[];
         setSelectedPassages(matches.length > 0 ? matches : [QURAN_FIXTURES[0]]);
       } else if (data.status === 'off-topic') {
@@ -586,6 +611,13 @@ export default function App() {
                 onToggleBookmark={handleToggleBookmark}
                 onOpenTafsir={(v) => setSelectedTafsirVerse(v)}
                 onOpenReflection={(v) => setSelectedReflectionVerse(v)}
+                sourceIndicator={
+                  analysisResult?.source === 'cache'
+                    ? 'Cached Reflection (0 LLM Calls)'
+                    : analysisResult?.source === 'gemini_synthesis'
+                    ? 'AI Sourced Synthesis'
+                    : 'Direct Database Match (0 LLM Calls)'
+                }
               />
             ))}
           </section>
