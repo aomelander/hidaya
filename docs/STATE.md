@@ -7,5 +7,6 @@
 
 ## Verification
 - [x] Directory structure and tracked files verified
+- [x] Database schema design completed
 
 **Next Milestone:** Milestone 2: Supabase Database Migration & Retrieval Engine Integration
