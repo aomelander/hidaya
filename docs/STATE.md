@@ -10,5 +10,6 @@
 - [x] Database schema design completed
 - [x] API route integration completed
 - [x] Frontend UI connected to /api/guidance retrieval pipeline
+- [x] Milestone 3: Audio Recitation & Multi-Language Translation (sv/en) completed
 
-**Next Milestone:** Milestone 3: Supabase Production Environment Configuration
+**Next Milestone:** Milestone 4: Production Deployment
