@@ -2,6 +2,20 @@ export type Language = 'en' | 'sv' | 'fr';
 
 export type EntryMode = 'moment' | 'questions' | 'growth';
 
+export type LifeSphere = 'all' | 'individual' | 'family' | 'society';
+
+export type SessionDepth = '2min' | '10min' | '30min' | '60min';
+
+export type ReciterId = 'alafasy' | 'abdulbasit' | 'husary' | 'ghamadi';
+
+export interface ReciterInfo {
+  id: ReciterId;
+  name: string;
+  subname: string;
+  style: string;
+  baseUrl: string;
+}
+
 export interface TafsirCitation {
   scholar: 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar';
   century?: string;
@@ -9,10 +23,40 @@ export interface TafsirCitation {
   text: string;
 }
 
+export interface LinguisticRoot {
+  termArabic: string;
+  termTransliterated: string;
+  root: string;
+  literalImagery: {
+    en: string;
+    sv: string;
+    fr: string;
+  };
+  spiritualDepth: {
+    en: string;
+    sv: string;
+    fr: string;
+  };
+}
+
+export interface HalaqahPrompts {
+  discussionQuestions: {
+    en: string[];
+    sv: string[];
+    fr: string[];
+  };
+  familyCommitment: {
+    en: string;
+    sv: string;
+    fr: string;
+  };
+}
+
 export interface ReflectionFramework {
   understand: string;
   reflectPrompt: string;
   applyAction: string;
+  livePrompt?: string; // Step 4: Live & Carry ("How can this show in how you live?")
 }
 
 export interface WhyThisVerse {
@@ -22,6 +66,16 @@ export interface WhyThisVerse {
   spiritualPrinciple: string;
   mappingExplanation: string;
   topics: string[];
+}
+
+export interface SurroundingVerse {
+  verseNumber: string;
+  arabicText: string;
+  translations: {
+    en: string;
+    sv: string;
+    fr: string;
+  };
 }
 
 export interface QuranVerseFixture {
@@ -58,6 +112,18 @@ export interface QuranVerseFixture {
   whyThisVerse: WhyThisVerse;
   tafsirCitations: TafsirCitation[];
   reflectionFramework: ReflectionFramework;
+  notSaying?: {
+    en: string;
+    sv: string;
+    fr: string;
+  };
+  surroundingVerses?: {
+    before?: SurroundingVerse;
+    after?: SurroundingVerse;
+  };
+  lifeSphere?: 'individual' | 'family' | 'society';
+  linguisticRoots?: LinguisticRoot[];
+  halaqahPrompts?: HalaqahPrompts;
 }
 
 export interface UserReflection {
@@ -66,6 +132,7 @@ export interface UserReflection {
   understandNotes: string;
   reflectNotes: string;
   applyNotes: string;
+  liveNotes?: string; // Step 4: One thing I will carry today
   userSituation?: string;
 }
 

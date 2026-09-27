@@ -107,6 +107,19 @@ export const PrintableReflection: React.FC<PrintableReflectionProps> = ({
             My Commitment: {reflection?.applyNotes || '—'}
           </p>
         </div>
+
+        {/* 4. Live & Carry */}
+        <div className="p-3 bg-gray-50 rounded">
+          <p className="text-xs font-sans font-bold text-teal-800 mb-1">
+            4. Live & Carry (Continuous Living with Quran):
+          </p>
+          <p className="text-xs text-gray-700 italic mb-2">
+            What will show in your life? {verse.reflectionFramework.livePrompt || 'One thing I will carry with me today.'}
+          </p>
+          <p className="text-sm text-gray-900 font-sans font-medium whitespace-pre-line">
+            What I Carry: {reflection?.liveNotes || '—'}
+          </p>
+        </div>
       </div>
 
       {/* Footer Ethics Note */}

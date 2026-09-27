@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   Mic,
@@ -29,6 +29,7 @@ import {
 import {
   Language,
   EntryMode,
+  LifeSphere,
   QuranVerseFixture,
   QuickPill,
   QueryAnalysisResponse,
@@ -36,6 +37,10 @@ import {
 import { QURAN_FIXTURES, QUICK_CHOICE_PILLS } from '../data/quranFixtures';
 import { StorageService } from '../services/storage';
 import { Header } from '../components/Header';
+import { DailyNorthStar } from '../components/DailyNorthStar';
+import { UnsureGuidanceModal } from '../components/UnsureGuidanceModal';
+import { SphereFilter } from '../components/SphereFilter';
+import { HalaqahModal } from '../components/HalaqahModal';
 import { VerseCard } from '../components/VerseCard';
 import { TafsirDrawer } from '../components/TafsirDrawer';
 import { ReflectionDrawer } from '../components/ReflectionDrawer';
@@ -78,6 +83,7 @@ export default function App() {
   // Search & Navigation state
   const [activeMode, setActiveMode] = useState<EntryMode>('moment');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeSphere, setActiveSphere] = useState<LifeSphere>('all');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<QueryAnalysisResponse | null>(null);
   const [selectedPassages, setSelectedPassages] = useState<QuranVerseFixture[]>([]);
@@ -86,8 +92,20 @@ export default function App() {
   // Modals & Drawers state
   const [selectedTafsirVerse, setSelectedTafsirVerse] = useState<QuranVerseFixture | null>(null);
   const [selectedReflectionVerse, setSelectedReflectionVerse] = useState<QuranVerseFixture | null>(null);
+  const [selectedHalaqahVerse, setSelectedHalaqahVerse] = useState<QuranVerseFixture | null>(null);
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
+  const [isUnsureModalOpen, setIsUnsureModalOpen] = useState(false);
+
+  // Filter passages according to active life sphere
+  const displayedPassages = useMemo(() => {
+    if (activeSphere === 'all') return selectedPassages;
+    const filtered = selectedPassages.filter((p) => p.lifeSphere === activeSphere);
+    if (filtered.length > 0) return filtered;
+    // Fall back to fixtures matching this sphere if user switches to a sphere without matches in the current selection
+    const sphereFixtures = QURAN_FIXTURES.filter((p) => p.lifeSphere === activeSphere);
+    return sphereFixtures.length > 0 ? sphereFixtures.slice(0, 3) : selectedPassages;
+  }, [selectedPassages, activeSphere]);
 
   // Sync dark mode class on document
   useEffect(() => {
@@ -133,6 +151,22 @@ export default function App() {
   const handleToggleBookmark = (verseId: string) => {
     StorageService.toggleBookmark(verseId);
     setBookmarks(StorageService.getBookmarks());
+  };
+
+  const handleSelectNorthStarVerse = (verse: QuranVerseFixture) => {
+    setSelectedPassages([verse]);
+    setAnalysisResult({
+      status: 'matched',
+      detectedSituation: verse.whyThisVerse.situation,
+      detectedEmotion: verse.whyThisVerse.emotion,
+      underlyingNeed: verse.whyThisVerse.coreNeed,
+      matchedPassageIds: [verse.id],
+      relevanceExplanation: verse.whyThisVerse.mappingExplanation,
+    });
+    const element = document.getElementById('passages-section');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   // Perform search / analysis query
@@ -368,12 +402,21 @@ export default function App() {
           </p>
         </section>
 
+        {/* Daily North Star (Ledstjärna) */}
+        <DailyNorthStar
+          language={language}
+          arabicScale={arabicScale}
+          showTransliteration={showTransliteration}
+          onSelectVerse={handleSelectNorthStarVerse}
+          onOpenReflection={(v) => setSelectedReflectionVerse(v)}
+        />
+
         {/* 3 Entry Modes Navigation Tabs */}
-        <section aria-label="Guidance Entry Modes">
-          <div className="flex p-1.5 rounded-2xl bg-emerald-900/5 dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 max-w-xl mx-auto shadow-xs">
+        <section aria-label="Guidance Entry Modes" className="space-y-3">
+          <div className="flex p-1.5 rounded-2xl bg-emerald-900/5 dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 max-w-2xl mx-auto shadow-xs">
             <button
               onClick={() => setActiveMode('moment')}
-              className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
                 activeMode === 'moment'
                   ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-sm'
                   : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
@@ -381,12 +424,17 @@ export default function App() {
               aria-selected={activeMode === 'moment'}
               role="tab"
             >
-              1. In This Moment
+              <span className="block font-bold">
+                {language === 'sv' ? '1. I stunden' : language === 'fr' ? '1. En ce moment' : '1. In This Moment'}
+              </span>
+              <span className={`text-[10px] hidden sm:block ${activeMode === 'moment' ? 'text-emerald-100' : 'text-slate-400'}`}>
+                {language === 'sv' ? 'Känslor & situationer' : language === 'fr' ? 'Émotions & situations' : 'Emotions & Situations'}
+              </span>
             </button>
 
             <button
               onClick={() => setActiveMode('questions')}
-              className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
                 activeMode === 'questions'
                   ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-sm'
                   : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
@@ -394,12 +442,17 @@ export default function App() {
               aria-selected={activeMode === 'questions'}
               role="tab"
             >
-              2. Big Questions
+              <span className="block font-bold">
+                {language === 'sv' ? '2. Stora frågor' : language === 'fr' ? '2. Grandes questions' : '2. Big Questions'}
+              </span>
+              <span className={`text-[10px] hidden sm:block ${activeMode === 'questions' ? 'text-emerald-100' : 'text-slate-400'}`}>
+                {language === 'sv' ? 'Syfte, rättvisa, död' : language === 'fr' ? 'Sens, justice, mort' : 'Purpose, Justice, Death'}
+              </span>
             </button>
 
             <button
               onClick={() => setActiveMode('growth')}
-              className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
                 activeMode === 'growth'
                   ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-sm'
                   : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
@@ -407,9 +460,40 @@ export default function App() {
               aria-selected={activeMode === 'growth'}
               role="tab"
             >
-              3. Character & Growth
+              <span className="block font-bold">
+                {language === 'sv' ? '3. Karaktär & växande' : language === 'fr' ? '3. Caractère & élévation' : '3. Character & Growth'}
+              </span>
+              <span className={`text-[10px] hidden sm:block ${activeMode === 'growth' ? 'text-emerald-100' : 'text-slate-400'}`}>
+                {language === 'sv' ? 'Tålamod, ödmjukhet, gott tal' : language === 'fr' ? 'Patience, humilité, bonté' : 'Patience, Humility, Speech'}
+              </span>
             </button>
           </div>
+
+          {/* "I don't know what I need" helper button */}
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setIsUnsureModalOpen(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-600/30 transition-all cursor-pointer shadow-2xs"
+            >
+              <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>
+                {language === 'sv'
+                  ? 'Osäker på vad du behöver? Låt Hidaya guida ditt hjärta'
+                  : language === 'fr'
+                  ? 'Vous ne savez pas par où commencer ? Laissez Hidaya vous guider'
+                  : 'Unsure where to start? Let Hidaya guide your heart'}
+              </span>
+              <ArrowRight className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+            </button>
+          </div>
+
+          {/* 3 Human Spheres (Life Domains): Individual, Family, Society */}
+          <SphereFilter
+            activeSphere={activeSphere}
+            onSelectSphere={setActiveSphere}
+            language={language}
+          />
         </section>
 
         {/* Search Input Bar (Text + Voice) */}
@@ -606,9 +690,9 @@ export default function App() {
         )}
 
         {/* Verse Presentation Cards */}
-        {!isAnalyzing && selectedPassages.length > 0 && (
-          <section aria-label="Quranic Passages" className="space-y-8">
-            {selectedPassages.map((verse) => (
+        {!isAnalyzing && displayedPassages.length > 0 && (
+          <section id="passages-section" aria-label="Quranic Passages" className="space-y-8 scroll-mt-20">
+            {displayedPassages.map((verse) => (
               <VerseCard
                 key={verse.id}
                 verse={verse}
@@ -619,6 +703,7 @@ export default function App() {
                 onToggleBookmark={handleToggleBookmark}
                 onOpenTafsir={(v) => setSelectedTafsirVerse(v)}
                 onOpenReflection={(v) => setSelectedReflectionVerse(v)}
+                onOpenHalaqah={(v) => setSelectedHalaqahVerse(v)}
                 sourceIndicator={
                   analysisResult?.source === 'cache'
                     ? 'Cached Reflection (0 LLM Calls)'
@@ -687,6 +772,26 @@ export default function App() {
       <DisclaimerModal
         isOpen={isDisclaimerOpen}
         onClose={() => setIsDisclaimerOpen(false)}
+      />
+
+      {/* "I don't know what I need" Guided Compass Modal */}
+      <UnsureGuidanceModal
+        isOpen={isUnsureModalOpen}
+        onClose={() => setIsUnsureModalOpen(false)}
+        language={language}
+        onComplete={(query, mode) => {
+          setActiveMode(mode);
+          setSearchQuery(query);
+          executeQuery(query, mode);
+        }}
+      />
+
+      {/* Halaqah Circle Modal */}
+      <HalaqahModal
+        verse={selectedHalaqahVerse}
+        isOpen={!!selectedHalaqahVerse}
+        onClose={() => setSelectedHalaqahVerse(null)}
+        language={language}
       />
 
       {/* Hidden Print Container for PDF Export */}

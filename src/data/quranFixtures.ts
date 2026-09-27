@@ -63,7 +63,90 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
     reflectionFramework: {
       understand: "The Arabic term 'Kadhama' is used when a water-skin is tightly tied shut so not a single drop leaks out. The verse acknowledges anger as a natural human emotion, but commands you to seal its release so it does not spill into hurtful speech or rash emails.",
       reflectPrompt: "In your current conflict at work or home, what would it look like right now to 'tie the waterskin'—to delay your reply, soften your tone, and view the provoking party with compassion rather than vindication?",
-      applyAction: "Implement the 10-minute pause: step away from your desk, make fresh wudu or wash your hands with cool water, and commit to not sending any confrontational response until tomorrow morning."
+      applyAction: "Implement the 10-minute pause: step away from your desk, make fresh wudu or wash your hands with cool water, and commit to not sending any confrontational response until tomorrow morning.",
+      livePrompt: "How can this show in how you live? What is the one thing you will carry with you today when dealing with difficult colleagues or family?"
+    },
+    notSaying: {
+      en: "This verse is NOT asking you to tolerate ongoing abuse, physical danger, or toxic exploitation. Forgiving an individual error or restraining a sudden outburst does not mean abandoning healthy professional boundaries or legal rights.",
+      sv: "Denna vers ber dig INTE att acceptera upprepat förtryck, fysisk fara eller skadlig behandling. Att behärska vreden och förlåta en enskild oförrätt innebär inte att avstå från sunda professionella gränser eller rättsliga rättigheter.",
+      fr: "Ce verset ne vous demande PAS de tolérer des violences continues ou une injustice destructrice. Maîtriser son emportement et pardonner n'exclut nullement d'établir des limites fermes et de faire respecter ses droits."
+    },
+    surroundingVerses: {
+      before: {
+        verseNumber: "133",
+        arabicText: "وَسَارِعُوا إِلَىٰ مَغْفِرَةٍ مِّن رَّبِّكُمْ وَجَنَّةٍ عَرْضُهَا السَّمَاوَاتُ وَالْأَرْضُ أُعِدَّتْ لِلْمُتَّقِينَ",
+        translations: {
+          en: "And hasten to forgiveness from your Lord and a garden as wide as the heavens and earth, prepared for the righteous.",
+          sv: "Och tävla med varandra om er Herres förlåtelse och ett paradis, vars vidd är som himlarnas och jordens, berett för de gudfruktiga.",
+          fr: "Et empressez-vous vers le pardon de votre Seigneur ainsi qu'un Jardin large comme les cieux et la terre, préparé pour les pieux."
+        }
+      },
+      after: {
+        verseNumber: "135",
+        arabicText: "وَالَّذِينَ إِذَا فَعَلُوا فَاحِشَةً أَوْ ظَلَمُوا أَنفُسَهُمْ ذَكَرُوا اللَّهَ فَاسْتَغْفَرُوا لِذُنُوبِهِمْ وَمَن يَغْفِرُ الذُّنُوبَ إِلَّا اللَّهُ",
+        translations: {
+          en: "And those who, when they commit an immorality or wrong themselves, remember Allah and seek forgiveness for their sins - and who can forgive sins except Allah?",
+          sv: "Och de som, om de har begått en skamlig handling eller gjort orätt mot sig själva, minns Gud och ber om förlåtelse för sina synder.",
+          fr: "Et ceux qui, s'ils ont commis une turpitude ou causé du tort à eux-mêmes, se souviennent d'Allah et demandent pardon pour leurs péchés."
+        }
+      }
+    },
+    lifeSphere: "society",
+    linguisticRoots: [
+      {
+        termArabic: "الْكَاظِمِينَ",
+        termTransliterated: "Al-Kaadhimeen",
+        root: "ك - ظ - م (k-dh-m)",
+        literalImagery: {
+          en: "Tying a leather water-skin so full with liquid that it bulges and could burst, fastening it tightly with cord so not a single drop leaks out.",
+          sv: "Att binda igen en lädersäck så full med vatten att den buktar ut och kan brista, med ett snöre så att inte en droppe sipprar ut.",
+          fr: "Nouer hermétiquement une outre d'eau si pleine qu'elle menace d'éclater, afin qu'aucune goutte ne s'en échappe."
+        },
+        spiritualDepth: {
+          en: "Acknowledges anger as a natural boiling surge, commanding deliberate mastery to seal its outlet before it turns into hurtful speech or rash retaliation.",
+          sv: "Bekräftar att vrede är en naturlig kokande kraft, men befaller medveten självkontroll att försegla utloppet innan det blir till sårande ord.",
+          fr: "Reconnaît la colère comme une pulsion bouillonnante, ordonnant la maîtrise de soi pour sceller toute réaction blessante."
+        }
+      },
+      {
+        termArabic: "الْعَافِينَ",
+        termTransliterated: "Al-'Aafeen",
+        root: "ع - ف - و ('-f-w)",
+        literalImagery: {
+          en: "Desert winds blowing over sand dunes, completely erasing tracks and footprints until no mark remains.",
+          sv: "Ökenvinden som sveper över sanddynerna och raderar alla fotspår tills ingen markering återstår.",
+          fr: "Le vent du désert qui balaye les dunes et efface complètement les empreintes sans laisser de trace."
+        },
+        spiritualDepth: {
+          en: "Pardon ('Afw) is not brooding in bitter silence; it is wiping the slate clean and moving forward without holding the fault over the person's head.",
+          sv: "Förlåtelse ('Afw) är inte att älta i bitter tystnad; det är att stryka ett streck och gå vidare utan att ständigt påminna den andre om felet.",
+          fr: "Le pardon ('Afw) ne consiste pas à ruminer dans l'amertume ; c'est effacer la faute et avancer sans rancœur."
+        }
+      }
+    ],
+    halaqahPrompts: {
+      discussionQuestions: {
+        en: [
+          "When was the last time someone tested your patience at home or work, and how did you handle the impulse to retaliate?",
+          "Why does the Quran pair swallowing anger WITH actively pardoning the person?",
+          "How can we help each other pause for 10 seconds before reacting when stress rises in our home?"
+        ],
+        sv: [
+          "När sattes ditt tålamod senast på prov hemma eller på jobbet, och hur hanterade du impulsen att ge igen?",
+          "Varför kopplar Quranen ihop att svälja vreden MED att aktivt förlåta personen?",
+          "Hur kan vi hjälpa varandra att ta en 10-sekunders paus innan vi reagerar när stämningen blir hetsig hemma?"
+        ],
+        fr: [
+          "Quand votre patience a-t-elle été éprouvée récemment, et comment avez-vous géré l'envie de réagir vivement ?",
+          "Pourquoi le Coran associe-t-il la maîtrise de la colère AU pardon actif de la personne ?",
+          "Comment pouvons-nous nous entraider pour marquer 10 secondes de pause en cas de tension dans notre foyer ?"
+        ]
+      },
+      familyCommitment: {
+        en: "Whenever friction flares up in our circle this week, we agree to pause for 10 seconds, take three slow breaths, and speak in lower tones.",
+        sv: "Varje gång irritation blossar upp i vår cirkel i veckan pausar vi i 10 sekunder, tar tre djupa andetag och talar med dämpad röst.",
+        fr: "Chaque fois qu'une tension surgira cette semaine, nous prendrons 10 secondes de pause, trois respirations et un ton apaisé."
+      }
     }
   },
   {
@@ -128,7 +211,90 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
     reflectionFramework: {
       understand: "The word 'Sharh' means to surgically cut open or expand what was previously constricted. Allah promised that every constriction contains the seeds of unseen blessings, stamina, and future doors.",
       reflectPrompt: "Think of a previous season of hardship you survived. What hidden ease, resilience, or relationships grew out of that very difficulty that you could not see while inside it?",
-      applyAction: "Identify the single biggest mental burden causing you friction today. Write it down, make sincere du'a surrendering its outcome, and intentionally take one small concrete step forward."
+      applyAction: "Identify the single biggest mental burden causing you friction today. Write it down, make sincere du'a surrendering its outcome, and intentionally take one small concrete step forward.",
+      livePrompt: "How can this show in how you live? What is the one thing you will carry with you today when pressure feels heavy?"
+    },
+    notSaying: {
+      en: "This verse is NOT stating that hardship will vanish magically without any effort, nor that you should feel guilty for feeling tired. The verse guarantees that relief is accompanied by divine presence, not that challenges are effortless.",
+      sv: "Denna vers påstår INTE att svårigheten försvinner magiskt utan ansträngning, eller att du ska känna skuld för att du känner dig trött. Den garanterar att lättnad och nåd finns invävd vid sidan av prövningen.",
+      fr: "Ce verset ne prétend PAS que la difficulté disparaîtra instantanément sans effort, ni que vous devriez culpabiliser d'être fatigué. Il assure que le secours divin accompagne l'épreuve à chaque instant."
+    },
+    surroundingVerses: {
+      before: {
+        verseNumber: "1-4",
+        arabicText: "أَلَمْ نَشْرَحْ لَكَ صَدْرَكَ ۝ وَوَضَعْنَا عَنكَ وِزْرَكَ ۝ الَّذِي أَنقَضَ ظَهْرَكَ ۝ وَرَفَعْنَا لَكَ ذِكْرَكَ",
+        translations: {
+          en: "Did We not expand for you your breast? And We removed from you your burden which had weighed upon your back, and raised high for you your repute.",
+          sv: "Har Vi inte öppnat ditt bröst och lättat den börda som tyngde din rygg och gett dig ett aktat namn?",
+          fr: "N'avons-Nous pas ouvert pour toi ta poitrine ? Et ne t'avons-Nous pas déchargé du fardeau qui accablait ton dos ?"
+        }
+      },
+      after: {
+        verseNumber: "7-8",
+        arabicText: "فَإِذَا فَرَغْتَ فَانصَبْ ۝ وَإِلَىٰ رَبِّكَ فَارْغَب",
+        translations: {
+          en: "So when you have finished [your duties], then stand up [for worship], and to your Lord direct [your] longing.",
+          sv: "När du har fullgjort [dina plikter], förrätta då din bön och vänd hela din längtan till din Herre.",
+          fr: "Quand tu te libères, consacre-toi donc à la prière, et vers ton Seigneur dirige ton aspiration."
+        }
+      }
+    },
+    lifeSphere: "individual",
+    linguisticRoots: [
+      {
+        termArabic: "نَشْرَحْ",
+        termTransliterated: "Nashrah",
+        root: "ش - ر - ح (sh-r-h)",
+        literalImagery: {
+          en: "Surgically opening, slicing, and widely expanding something that was previously constricted, suffocated, or tightly compressed.",
+          sv: "Att kirurgiskt öppna och vidga något som tidigare var trångt, sammandraget eller kvävt.",
+          fr: "Ouvrir chirurgicalement et déployer largement ce qui était à l'étroit ou étouffé."
+        },
+        spiritualDepth: {
+          en: "Divine expansion of the chest ('Sharh as-Sadr') takes inner constriction and claustrophobia, dissolving it into spacious clarity and serene resilience.",
+          sv: "Gudomligt öppnande av bröstet ('Sharh as-Sadr') förvandlar inre ångest och kvävningskänsla till rymd, klarhet och lugn.",
+          fr: "L'ouverture divine de la poitrine dissipe l'angoisse étouffante pour faire place à la sérénité et à la paix du cœur."
+        }
+      },
+      {
+        termArabic: "الْعُسْرِ / يُسْرًا",
+        termTransliterated: "Al-'Usr / Yusr",
+        root: "ع - س - ر / ي - س - ر",
+        literalImagery: {
+          en: "'Usr is a steep, impassable rocky mountain pass. Yusr is smooth, level, open grazing ground with clear pathways.",
+          sv: "'Usr är ett brant, otillgängligt stenigt bergspass. Yusr är en jämn, vidsträckt och öppen betesmark med fri väg.",
+          fr: "'Usr évoque un col montagneux escarpé et hostile. Yusr représente une terre fertile et plane où le chemin est limpide."
+        },
+        spiritualDepth: {
+          en: "Grammatically, the trial ('al-'usr') is singular and definite, while ease ('yusr') is indefinite and repeated. Thus, one hardship can never overpower two eases.",
+          sv: "Grammatiskt är prövningen ('al-'usr') bestämd och ental, medan lättnaden ('yusr') är obestämd och upprepad. En svårighet kan därför aldrig besegra två lättnader.",
+          fr: "Grammaticalement, l'épreuve est définie (unique), tandis que la facilité est indéfinie (infinie). Une difficulté ne surmontera jamais deux facilités."
+        }
+      }
+    ],
+    halaqahPrompts: {
+      discussionQuestions: {
+        en: [
+          "What is one difficulty our family or circle recently overcame that taught us resilience?",
+          "What small eases are we taking for granted right now while focusing on our challenges?",
+          "How can we reassure each other when one of us feels overwhelmed?"
+        ],
+        sv: [
+          "Vilken svårighet har vår familj nyligen tagit sig igenom som gav oss styrka och klokhet?",
+          "Vilka små lättnader tar vi för givna just nu medan vi oroar oss för bekymmer?",
+          "Hur kan vi finnas där för varandra när någon i hemmet känner sig överväldigad?"
+        ],
+        fr: [
+          "Quelle épreuve passée a forgé la force et la cohésion de notre famille ?",
+          "Quelles facilités évidentes oublions-nous de remercier lorsque nous sommes sous pression ?",
+          "Comment pouvons-nous nous réconforter mutuellement dans les moments de fatigue ?"
+        ]
+      },
+      familyCommitment: {
+        en: "At every meal this week, each person names one unexpected blessing or ease they noticed today.",
+        sv: "Vid varje middag i veckan delar varje person en oväntad lättnad eller välsignelse som inträffade under dagen.",
+        fr: "À chaque repas cette semaine, chacun partagera une facilité ou bénédiction inattendue constatée dans la journée."
+      }
     }
   },
   {

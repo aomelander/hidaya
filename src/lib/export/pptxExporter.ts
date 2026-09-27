@@ -18,6 +18,9 @@ export const exportSessionToPPTX = async (
 
   const translationObj = verse.translations[language] || verse.translations.en;
   const langLabel = language === 'sv' ? 'Swedish' : language === 'fr' ? 'French' : 'English';
+  const dateStr = new Date().toLocaleDateString(undefined, {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
 
   // Slide 1: Sacred Verse Card
   const slide1 = pptx.addSlide();
@@ -34,7 +37,7 @@ export const exportSessionToPPTX = async (
     fontSize: 10, fontFace: 'Arial', color: 'C8A45D', bold: true, align: 'center',
   });
 
-  slide1.addText(`Surah ${verse.surahNameTransliterated} (${verse.surahNameArabic}) • ${verse.id}`, {
+  slide1.addText(`Surah ${verse.surahNameTransliterated} (${verse.surahNameArabic}) • Ayah ${verse.verseNumber}`, {
     x: 0.8, y: 1.0, w: 8.4, h: 0.4,
     fontSize: 14, fontFace: 'Arial', color: 'FFFFFF', bold: true, align: 'center',
   });
@@ -49,17 +52,17 @@ export const exportSessionToPPTX = async (
     fontSize: 12, fontFace: 'Arial', color: 'E2E8F0', italic: true, align: 'center',
   });
 
-  slide1.addText(`[Translation: ${translationObj.translator} (${langLabel})]`, {
+  slide1.addText(`[Level 2 Translation: ${translationObj.translator} (${langLabel})]`, {
     x: 1.0, y: 4.05, w: 8.0, h: 0.25,
     fontSize: 8.5, fontFace: 'Arial', color: '94A3B8', align: 'center',
   });
 
-  slide1.addText('Source-grounded reflection companion. Not a fatwa authority.', {
+  slide1.addText('Source-grounded reflection companion. Not a religious authority.', {
     x: 0.8, y: 4.8, w: 8.4, h: 0.25,
     fontSize: 7.5, fontFace: 'Arial', color: '64748B', align: 'center',
   });
 
-  // Slide 2: "From Quran to Life" Reflection Flow
+  // Slide 2: "From Quran to Life" — Understand & Reflect
   const slide2 = pptx.addSlide();
   slide2.background = { color: 'F8F9FA' };
 
@@ -68,7 +71,7 @@ export const exportSessionToPPTX = async (
     line: { color: 'CBD5E1', width: 1 }, fill: { color: 'FFFFFF' },
   });
 
-  slide2.addText('FROM QURAN TO LIFE • PERSONAL CONTEMPLATION', {
+  slide2.addText('FROM QURAN TO LIFE • PILLARS 1 & 2', {
     x: 0.8, y: 0.6, w: 8.4, h: 0.3,
     fontSize: 11, fontFace: 'Arial', color: '065F46', bold: true,
   });
@@ -78,64 +81,104 @@ export const exportSessionToPPTX = async (
     fontSize: 9, fontFace: 'Arial', color: '64748B',
   });
 
-  // Step 1: Tafsir/Context (modified from earlier)
-  const tafsirText = verse.tafsirCitations[0]?.text || '';
+  // Step 1: Understand
   slide2.addShape(pptx.ShapeType.rect, {
-    x: 0.8, y: 1.35, w: 8.4, h: 0.95,
+    x: 0.8, y: 1.35, w: 8.4, h: 1.5,
     fill: { color: 'F0FDF4' }, line: { color: 'BBF7D0', width: 0.75 },
   });
-  slide2.addText(`1. CONTEXT & TAFSIR (${verse.tafsirCitations[0]?.scholar || 'Classical Source'})`, {
+  slide2.addText('1. UNDERSTAND (Linguistic & Quranic Nuance)', {
     x: 0.95, y: 1.45, w: 8.1, h: 0.25,
     fontSize: 9, bold: true, color: '166534',
   });
-  slide2.addText(sanitizeText(tafsirText, 300), {
-    x: 0.95, y: 1.7, w: 8.1, h: 0.55,
-    fontSize: 8.5, color: '1E293B',
+  slide2.addText(sanitizeText(verse.reflectionFramework.understand, 400), {
+    x: 0.95, y: 1.75, w: 8.1, h: 1.0,
+    fontSize: 9, color: '1E293B',
   });
 
   // Step 2: Reflect
   slide2.addShape(pptx.ShapeType.rect, {
-    x: 0.8, y: 2.45, w: 8.4, h: 1.1,
+    x: 0.8, y: 3.0, w: 8.4, h: 1.7,
     fill: { color: 'EFF6FF' }, line: { color: 'BFDBFE', width: 0.75 },
   });
-  slide2.addText('2. REFLECT (Self-Examination)', {
-    x: 0.95, y: 2.55, w: 8.1, h: 0.25,
+  slide2.addText('2. REFLECT (Heart & Situation Check)', {
+    x: 0.95, y: 3.1, w: 8.1, h: 0.25,
     fontSize: 9, bold: true, color: '1E40AF',
   });
-  
+  slide2.addText(`Prompt: ${sanitizeText(verse.reflectionFramework.reflectPrompt, 250)}`, {
+    x: 0.95, y: 3.35, w: 8.1, h: 0.5,
+    fontSize: 8.5, italic: true, color: '475569',
+  });
   const reflectContent = reflection?.reflectNotes?.trim()
-    ? `My Reflection: "${reflection.reflectNotes}"`
-    : `Prompt: ${verse.reflectionFramework.reflectPrompt}`;
-    
+    ? `My Notes: "${reflection.reflectNotes}"`
+    : `(Personal reflections recorded in your private local journal)`;
   slide2.addText(sanitizeText(reflectContent, 300), {
-    x: 0.95, y: 2.8, w: 8.1, h: 0.7,
+    x: 0.95, y: 3.85, w: 8.1, h: 0.75,
     fontSize: 8.5, color: '1E293B',
+  });
+
+  // Slide 3: Apply & Live/Carry (Continuous Living)
+  const slide3 = pptx.addSlide();
+  slide3.background = { color: 'F8F9FA' };
+
+  slide3.addShape(pptx.ShapeType.rect, {
+    x: 0.4, y: 0.4, w: 9.2, h: 4.8,
+    line: { color: 'CBD5E1', width: 1 }, fill: { color: 'FFFFFF' },
+  });
+
+  slide3.addText('FROM QURAN TO LIFE • PILLARS 3 & 4 (ACTION & LIVING)', {
+    x: 0.8, y: 0.6, w: 8.4, h: 0.3,
+    fontSize: 11, fontFace: 'Arial', color: '065F46', bold: true,
+  });
+
+  slide3.addText(`Passage: Surah ${verse.surahNameTransliterated} (${verse.id}) • Recorded: ${dateStr}`, {
+    x: 0.8, y: 0.95, w: 8.4, h: 0.25,
+    fontSize: 9, fontFace: 'Arial', color: '64748B',
   });
 
   // Step 3: Apply
-  slide2.addShape(pptx.ShapeType.rect, {
-    x: 0.8, y: 3.7, w: 8.4, h: 1.1,
+  slide3.addShape(pptx.ShapeType.rect, {
+    x: 0.8, y: 1.35, w: 8.4, h: 1.5,
     fill: { color: 'FEF3C7' }, line: { color: 'FDE68A', width: 0.75 },
   });
-  slide2.addText('3. APPLY (Actionable Daily Shift)', {
-    x: 0.95, y: 3.8, w: 8.1, h: 0.25,
+  slide3.addText('3. APPLY (Concrete Daily Action)', {
+    x: 0.95, y: 1.45, w: 8.1, h: 0.25,
     fontSize: 9, bold: true, color: '92400E',
   });
-  
+  slide3.addText(`Action Framework: ${sanitizeText(verse.reflectionFramework.applyAction, 250)}`, {
+    x: 0.95, y: 1.75, w: 8.1, h: 0.45,
+    fontSize: 8.5, italic: true, color: '78350F',
+  });
   const applyContent = reflection?.applyNotes?.trim()
-    ? `My Action Step: "${reflection.applyNotes}"`
-    : `Action: ${verse.reflectionFramework.applyAction}`;
-    
-  slide2.addText(sanitizeText(applyContent, 300), {
-    x: 0.95, y: 4.05, w: 8.1, h: 0.7,
+    ? `My Action Commitment: "${reflection.applyNotes}"`
+    : `(Commit to one boundary, act of patience, or verbal restraint)`;
+  slide3.addText(sanitizeText(applyContent, 300), {
+    x: 0.95, y: 2.2, w: 8.1, h: 0.55,
     fontSize: 8.5, color: '1E293B',
   });
 
-  // Footer
-  const dateStr = new Date().toLocaleDateString(undefined, {
-    year: 'numeric', month: 'long', day: 'numeric',
+  // Step 4: Live & Carry
+  slide3.addShape(pptx.ShapeType.rect, {
+    x: 0.8, y: 3.0, w: 8.4, h: 1.7,
+    fill: { color: 'CCFBF1' }, line: { color: '99F6E4', width: 0.75 },
   });
-  slide2.addText(`Recorded on ${dateStr} • Hidaya Quran Guidance`, {
+  slide3.addText('4. LIVE & CARRY ("One Thing I Will Carry With Me Today")', {
+    x: 0.95, y: 3.1, w: 8.1, h: 0.25,
+    fontSize: 9, bold: true, color: '115E59',
+  });
+  const livePrompt = verse.reflectionFramework.livePrompt || 'How will this show in how you live? What is the one thing you carry into today?';
+  slide3.addText(`Guidance: ${sanitizeText(livePrompt, 250)}`, {
+    x: 0.95, y: 3.35, w: 8.1, h: 0.45,
+    fontSize: 8.5, italic: true, color: '0F766E',
+  });
+  const liveContent = reflection?.liveNotes?.trim()
+    ? `What I Carry: "${reflection.liveNotes}"`
+    : `Carry this divine principle as a North Star in your heart throughout the day.`;
+  slide3.addText(sanitizeText(liveContent, 300), {
+    x: 0.95, y: 3.85, w: 8.1, h: 0.75,
+    fontSize: 8.5, color: '1E293B',
+  });
+
+  slide3.addText(`Hidaya Quran Guidance • Free Digital Waqf`, {
     x: 0.8, y: 4.95, w: 8.4, h: 0.2,
     fontSize: 7.5, color: '94A3B8', align: 'right',
   });

@@ -1,4 +1,4 @@
-import { UserReflection, Language } from '../types';
+import { UserReflection, Language, SessionDepth, ReciterId } from '../types';
 
 const STORAGE_KEYS = {
   BOOKMARKS: 'hidaya_bookmarks',
@@ -9,6 +9,9 @@ const STORAGE_KEYS = {
   DARK_MODE: 'hidaya_pref_dark_mode',
   HIGH_CONTRAST: 'hidaya_pref_high_contrast',
   RECENT_SEARCHES: 'hidaya_recent_searches',
+  RECITER: 'hidaya_pref_reciter',
+  SESSION_DEPTH: 'hidaya_pref_session_depth',
+  INQUIRER_MODE: 'hidaya_pref_inquirer_mode',
 };
 
 export const StorageService = {
@@ -60,6 +63,7 @@ export const StorageService = {
         understandNotes: '',
         reflectNotes: '',
         applyNotes: '',
+        liveNotes: '',
       };
       all[verseId] = {
         ...existing,
@@ -163,5 +167,55 @@ export const StorageService = {
       const updated = [query.trim(), ...current].slice(0, 8);
       localStorage.setItem(STORAGE_KEYS.RECENT_SEARCHES, JSON.stringify(updated));
     } catch {}
-  }
+  },
+
+  getPreferredReciter(): ReciterId {
+    try {
+      return (localStorage.getItem(STORAGE_KEYS.RECITER) as ReciterId) || 'alafasy';
+    } catch {
+      return 'alafasy';
+    }
+  },
+
+  setPreferredReciter(id: ReciterId): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.RECITER, id);
+    } catch {}
+  },
+
+  getSessionDepth(): SessionDepth {
+    try {
+      return (localStorage.getItem(STORAGE_KEYS.SESSION_DEPTH) as SessionDepth) || '10min';
+    } catch {
+      return '10min';
+    }
+  },
+
+  setSessionDepth(depth: SessionDepth): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SESSION_DEPTH, depth);
+    } catch {}
+  },
+
+  getInquirerMode(): boolean {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.INQUIRER_MODE) === 'true';
+    } catch {
+      return false;
+    }
+  },
+
+  setInquirerMode(enabled: boolean): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.INQUIRER_MODE, String(enabled));
+    } catch {}
+  },
+
+  deleteReflection(verseId: string): void {
+    try {
+      const all = this.getReflections();
+      delete all[verseId];
+      localStorage.setItem(STORAGE_KEYS.REFLECTIONS, JSON.stringify(all));
+    } catch {}
+  },
 };
