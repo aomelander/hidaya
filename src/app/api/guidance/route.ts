@@ -16,8 +16,14 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'mock_key' })
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { query?: string, emotionId?: string, lifeDomainId?: string, forceLLM?: boolean };
-    const { query, emotionId, lifeDomainId, forceLLM } = body;
+    const body = await req.json() as {
+      query?: string;
+      emotionId?: string;
+      lifeDomainId?: string;
+      forceLLM?: boolean;
+      language?: 'en' | 'sv' | 'fr';
+    };
+    const { query, emotionId, lifeDomainId, forceLLM, language = 'en' } = body;
     
     if (!query && !emotionId && !lifeDomainId) {
       return NextResponse.json({ error: 'Missing query parameters' }, { status: 400 });
@@ -25,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     // Stage 1: Direct Category Lookup (skipped when forceLLM=true)
     if (!forceLLM && (emotionId || lifeDomainId)) {
-      const directMatches = await RetrievalService.findDirectMatches(emotionId, lifeDomainId);
+      const directMatches = await RetrievalService.findDirectMatches(emotionId, lifeDomainId, language);
       if (directMatches && directMatches.length > 0) {
         return NextResponse.json({
           status: 'matched',
@@ -36,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Stage 2: Cache Check (skipped when forceLLM=true)
-    const queryHash = await hashString(query || '');
+    const queryHash = await hashString(`${query || ''}_${language}`);
     if (!forceLLM) {
       const cached = await RetrievalService.getCachedReflection(queryHash);
       if (cached) {
@@ -50,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     // Stage 3: Semantic Retrieval (skipped when forceLLM=true)
     if (!forceLLM) {
-      const vectorMatches = await RetrievalService.findVectorMatches(query || '');
+      const vectorMatches = await RetrievalService.findVectorMatches(query || '', language);
       const isLowConfidence = !vectorMatches || vectorMatches.length === 0;
 
       if (!isLowConfidence) {
@@ -92,7 +98,7 @@ export async function POST(req: NextRequest) {
         status: 'matched',
         source: 'offline_fallback',
         indicator: 'Offline / High Traffic Mode',
-        matches: await RetrievalService.findVectorMatches(query || '') // fallback matches
+        matches: await RetrievalService.findVectorMatches(query || '', language) // fallback matches
       });
     }
 

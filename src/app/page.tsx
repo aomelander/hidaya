@@ -147,7 +147,7 @@ export default function App() {
       const response = await fetch('/api/guidance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: queryText }),
+        body: JSON.stringify({ query: queryText, language }),
       });
 
       if (!response.ok) {
@@ -184,7 +184,15 @@ export default function App() {
       if (data.status === 'matched' && data.matchedPassageIds?.length > 0) {
         // For prototype mock, the backend returned full fixtures in .matches. But we map to QURAN_FIXTURES
         const matches = data.matchedPassageIds
-          .map((id) => QURAN_FIXTURES.find((f) => f.id === id || f.id.startsWith(id)))
+          .map((id) =>
+            QURAN_FIXTURES.find(
+              (f) =>
+                f.id === id ||
+                f.id.startsWith(id) ||
+                id.startsWith(f.id) ||
+                f.id.split('-')[0] === id.split('-')[0]
+            )
+          )
           .filter(Boolean) as QuranVerseFixture[];
         setSelectedPassages(matches.length > 0 ? matches : [QURAN_FIXTURES[0]]);
       } else if (data.status === 'off-topic') {

@@ -1,0 +1,8 @@
+{
+  "name": "Hidaya - Quranic Guidance & Reflection",
+  "description": "A contextual Quranic guidance and reflection platform providing verified Uthmani script, translations, classical tafsir, and AI synthesis.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

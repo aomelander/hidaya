@@ -4,6 +4,10 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
 
 export default defineConfig({
+  server: {
+    host: "0.0.0.0",
+    port: 3000,
+  },
   plugins: [
     vinext({
       images: { optimizer: imagesOptimizer() },
