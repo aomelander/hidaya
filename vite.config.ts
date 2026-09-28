@@ -8,6 +8,9 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 3000,
   },
+  resolve: {
+    dedupe: ["react", "react-dom"],
+  },
   plugins: [
     vinext({
       images: { optimizer: imagesOptimizer() },

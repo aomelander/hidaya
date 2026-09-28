@@ -20,6 +20,7 @@ interface AudioPlayerProps {
   surahVerseId: string;
   surahNumber?: number;
   verseNumber?: string;
+  audioUrl?: string;
   initialAudioUrl?: string;
   translationText?: string;
   language?: Language;
@@ -27,8 +28,9 @@ interface AudioPlayerProps {
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   surahVerseId,
-  surahNumber = 3,
-  verseNumber = '134',
+  surahNumber,
+  verseNumber,
+  audioUrl,
   initialAudioUrl,
   translationText,
   language = 'en',
@@ -46,16 +48,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const { resolvedSurah, resolvedVerse } = React.useMemo(() => {
+    if (surahNumber && verseNumber) {
+      return { resolvedSurah: surahNumber, resolvedVerse: verseNumber };
+    }
+    if (surahVerseId && surahVerseId.includes(':')) {
+      const [s, v] = surahVerseId.split(':');
+      return { resolvedSurah: parseInt(s, 10), resolvedVerse: v };
+    }
+    return { resolvedSurah: surahNumber || 3, resolvedVerse: verseNumber || '134' };
+  }, [surahNumber, verseNumber, surahVerseId]);
+
   // Compute active audio URL for current reciter
   const activeAudioUrl = React.useMemo(() => {
-    // If surahNumber and verseNumber are supplied, compute clean everyayah URL
-    if (surahNumber && verseNumber) {
-      return getAudioUrlForVerse(surahNumber, verseNumber, reciterId);
+    if (resolvedSurah && resolvedVerse) {
+      return getAudioUrlForVerse(resolvedSurah, resolvedVerse, reciterId);
     }
-    // Fallback if only verseId like "3:134"
-    const [s, v] = surahVerseId.split(':');
-    return getAudioUrlForVerse(parseInt(s, 10), v, reciterId);
-  }, [surahNumber, verseNumber, surahVerseId, reciterId]);
+    return audioUrl || initialAudioUrl || '';
+  }, [resolvedSurah, resolvedVerse, reciterId, audioUrl, initialAudioUrl]);
 
   useEffect(() => {
     setIsPlaying(false);
@@ -329,7 +339,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
           <div className="flex flex-col text-left">
             <span className="text-xs font-semibold text-emerald-950 dark:text-emerald-200 tracking-wide">
-              {isSpeakingTranslation ? 'Speaking Translation...' : `Ayah ${verseNumber}`}
+              {isSpeakingTranslation ? 'Speaking Translation...' : `Ayah ${resolvedVerse}`}
             </span>
             <span className="text-[10px] text-slate-500 dark:text-slate-400">
               {formatTime(currentTime)} / {formatTime(duration)}

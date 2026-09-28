@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { X, BookOpen, ScrollText, History, Quote, ExternalLink } from 'lucide-react';
 import { QuranVerseFixture } from '../types';

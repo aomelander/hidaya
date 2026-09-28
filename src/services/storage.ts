@@ -1,29 +1,33 @@
-import { UserReflection, Language, SessionDepth, ReciterId } from '../types';
+/**
+ * @file storage.ts
+ * @description Local-first persistence layer for bookmarks, reflections, user preferences, and recent searches.
+ * Guarantees privacy: sensitive reflections are never uploaded to remote servers without user consent.
+ */
 
-const STORAGE_KEYS = {
-  BOOKMARKS: 'hidaya_bookmarks',
-  REFLECTIONS: 'hidaya_reflections',
-  LANGUAGE: 'hidaya_pref_lang',
-  FONT_SIZE: 'hidaya_pref_font_size',
-  SHOW_TRANSLITERATION: 'hidaya_pref_transliteration',
-  DARK_MODE: 'hidaya_pref_dark_mode',
-  HIGH_CONTRAST: 'hidaya_pref_high_contrast',
-  RECENT_SEARCHES: 'hidaya_recent_searches',
-  RECITER: 'hidaya_pref_reciter',
-  SESSION_DEPTH: 'hidaya_pref_session_depth',
-  INQUIRER_MODE: 'hidaya_pref_inquirer_mode',
-};
+import { UserReflection, Language, SessionDepth, ReciterId } from '../types';
+import { APP_CONFIG } from '../config/appConfig';
+
+const { STORAGE_KEYS, DEFAULTS, LIMITS } = APP_CONFIG;
 
 export const StorageService = {
+  /**
+   * Retrieves bookmarked verse IDs from localStorage.
+   * @returns Array of bookmarked verse IDs (e.g. ['3:134'])
+   */
   getBookmarks(): string[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.BOOKMARKS);
-      return data ? JSON.parse(data) : ['3:134'];
+      return data ? JSON.parse(data) : [DEFAULTS.INITIAL_VERSE_ID];
     } catch {
-      return ['3:134'];
+      return [DEFAULTS.INITIAL_VERSE_ID];
     }
   },
 
+  /**
+   * Toggles bookmark state for a given verse ID.
+   * @param verseId Quran verse identifier (e.g. "3:134")
+   * @returns boolean true if bookmarked, false if unbookmarked
+   */
   toggleBookmark(verseId: string): boolean {
     try {
       const current = this.getBookmarks();
@@ -36,10 +40,17 @@ export const StorageService = {
     }
   },
 
+  /**
+   * Checks if a verse is currently bookmarked.
+   * @param verseId Verse ID to check
+   */
   isBookmarked(verseId: string): boolean {
     return this.getBookmarks().includes(verseId);
   },
 
+  /**
+   * Retrieves all user reflections keyed by verse ID.
+   */
   getReflections(): Record<string, UserReflection> {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.REFLECTIONS);
@@ -49,11 +60,20 @@ export const StorageService = {
     }
   },
 
+  /**
+   * Retrieves the reflection for a specific verse.
+   * @param verseId Verse ID
+   */
   getReflection(verseId: string): UserReflection | null {
     const reflections = this.getReflections();
     return reflections[verseId] || null;
   },
 
+  /**
+   * Saves or updates a user's reflection notes for a verse.
+   * @param verseId Verse ID
+   * @param reflection Partial reflection fields to update
+   */
   saveReflection(verseId: string, reflection: Partial<UserReflection>): void {
     try {
       const all = this.getReflections();
@@ -73,84 +93,131 @@ export const StorageService = {
       };
       localStorage.setItem(STORAGE_KEYS.REFLECTIONS, JSON.stringify(all));
     } catch (err) {
-      console.error('Error saving reflection', err);
+      console.error('[StorageService] Error saving reflection:', err);
     }
   },
 
+  /**
+   * Deletes a reflection entry.
+   * @param verseId Verse ID to delete
+   */
+  deleteReflection(verseId: string): void {
+    try {
+      const all = this.getReflections();
+      delete all[verseId];
+      localStorage.setItem(STORAGE_KEYS.REFLECTIONS, JSON.stringify(all));
+    } catch (err) {
+      console.error('[StorageService] Error deleting reflection:', err);
+    }
+  },
+
+  /**
+   * Gets preferred translation language.
+   */
   getLanguage(): Language {
     try {
-      return (localStorage.getItem(STORAGE_KEYS.LANGUAGE) as Language) || 'en';
+      return (localStorage.getItem(STORAGE_KEYS.LANGUAGE) as Language) || DEFAULTS.LANGUAGE;
     } catch {
-      return 'en';
+      return DEFAULTS.LANGUAGE;
     }
   },
 
+  /**
+   * Sets preferred translation language.
+   */
   setLanguage(lang: Language): void {
     try {
       localStorage.setItem(STORAGE_KEYS.LANGUAGE, lang);
     } catch {}
   },
 
+  /**
+   * Gets font size multiplier for Arabic script.
+   */
   getFontSizeMultiplier(): number {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.FONT_SIZE);
-      return val ? parseFloat(val) : 1.15;
+      return val ? parseFloat(val) : DEFAULTS.ARABIC_SCALE;
     } catch {
-      return 1.15;
+      return DEFAULTS.ARABIC_SCALE;
     }
   },
 
+  /**
+   * Sets font size multiplier for Arabic script.
+   */
   setFontSizeMultiplier(multiplier: number): void {
     try {
       localStorage.setItem(STORAGE_KEYS.FONT_SIZE, multiplier.toString());
     } catch {}
   },
 
+  /**
+   * Gets preference for phonetic transliteration display.
+   */
   getShowTransliteration(): boolean {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.SHOW_TRANSLITERATION);
-      return val !== null ? val === 'true' : true;
+      return val !== null ? val === 'true' : DEFAULTS.SHOW_TRANSLITERATION;
     } catch {
-      return true;
+      return DEFAULTS.SHOW_TRANSLITERATION;
     }
   },
 
+  /**
+   * Sets preference for phonetic transliteration display.
+   */
   setShowTransliteration(show: boolean): void {
     try {
       localStorage.setItem(STORAGE_KEYS.SHOW_TRANSLITERATION, String(show));
     } catch {}
   },
 
+  /**
+   * Gets dark mode preference.
+   */
   getDarkMode(): boolean {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.DARK_MODE);
       return val === 'true';
     } catch {
-      return false;
+      return DEFAULTS.DARK_MODE;
     }
   },
 
+  /**
+   * Sets dark mode preference.
+   */
   setDarkMode(isDark: boolean): void {
     try {
       localStorage.setItem(STORAGE_KEYS.DARK_MODE, String(isDark));
     } catch {}
   },
 
+  /**
+   * Gets high contrast mode preference.
+   */
   getHighContrast(): boolean {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.HIGH_CONTRAST);
       return val === 'true';
     } catch {
-      return false;
+      return DEFAULTS.HIGH_CONTRAST;
     }
   },
 
+  /**
+   * Sets high contrast mode preference.
+   */
   setHighContrast(isHigh: boolean): void {
     try {
       localStorage.setItem(STORAGE_KEYS.HIGH_CONTRAST, String(isHigh));
     } catch {}
   },
 
+  /**
+   * Retrieves list of recent searches.
+   */
   getRecentSearches(): string[] {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.RECENT_SEARCHES);
@@ -160,43 +227,61 @@ export const StorageService = {
     }
   },
 
+  /**
+   * Adds a query to recent searches, avoiding duplicates and limiting list length.
+   */
   addRecentSearch(query: string): void {
     if (!query.trim()) return;
     try {
       const current = this.getRecentSearches().filter((q) => q.toLowerCase() !== query.toLowerCase());
-      const updated = [query.trim(), ...current].slice(0, 8);
+      const updated = [query.trim(), ...current].slice(0, LIMITS.MAX_RECENT_SEARCHES);
       localStorage.setItem(STORAGE_KEYS.RECENT_SEARCHES, JSON.stringify(updated));
     } catch {}
   },
 
+  /**
+   * Gets preferred Quran reciter ID.
+   */
   getPreferredReciter(): ReciterId {
     try {
-      return (localStorage.getItem(STORAGE_KEYS.RECITER) as ReciterId) || 'alafasy';
+      return (localStorage.getItem(STORAGE_KEYS.RECITER) as ReciterId) || DEFAULTS.PREFERRED_RECITER;
     } catch {
-      return 'alafasy';
+      return DEFAULTS.PREFERRED_RECITER;
     }
   },
 
+  /**
+   * Sets preferred Quran reciter ID.
+   */
   setPreferredReciter(id: ReciterId): void {
     try {
       localStorage.setItem(STORAGE_KEYS.RECITER, id);
     } catch {}
   },
 
+  /**
+   * Gets preferred contemplation session depth.
+   */
   getSessionDepth(): SessionDepth {
     try {
-      return (localStorage.getItem(STORAGE_KEYS.SESSION_DEPTH) as SessionDepth) || '10min';
+      return (localStorage.getItem(STORAGE_KEYS.SESSION_DEPTH) as SessionDepth) || DEFAULTS.SESSION_DEPTH;
     } catch {
-      return '10min';
+      return DEFAULTS.SESSION_DEPTH;
     }
   },
 
+  /**
+   * Sets preferred contemplation session depth.
+   */
   setSessionDepth(depth: SessionDepth): void {
     try {
       localStorage.setItem(STORAGE_KEYS.SESSION_DEPTH, depth);
     } catch {}
   },
 
+  /**
+   * Gets inquirer / universal perspective mode.
+   */
   getInquirerMode(): boolean {
     try {
       return localStorage.getItem(STORAGE_KEYS.INQUIRER_MODE) === 'true';
@@ -205,17 +290,12 @@ export const StorageService = {
     }
   },
 
+  /**
+   * Sets inquirer / universal perspective mode.
+   */
   setInquirerMode(enabled: boolean): void {
     try {
       localStorage.setItem(STORAGE_KEYS.INQUIRER_MODE, String(enabled));
-    } catch {}
-  },
-
-  deleteReflection(verseId: string): void {
-    try {
-      const all = this.getReflections();
-      delete all[verseId];
-      localStorage.setItem(STORAGE_KEYS.REFLECTIONS, JSON.stringify(all));
     } catch {}
   },
 };

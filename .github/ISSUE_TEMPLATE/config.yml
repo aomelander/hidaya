@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Hidaya Documentation & Architecture
+    url: https://github.com/aomelander/hidaya/tree/main/docs
+    about: Read our architectural guidelines, theological boundaries, and data flow.
+  - name: 🤝 Community Discussions & Questions
+    url: https://github.com/aomelander/hidaya/discussions
+    about: Ask questions, share reflections, or connect with fellow contributors.

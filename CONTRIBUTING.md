@@ -1,145 +1,205 @@
 # Contributing to Hidaya (هداية)
 
 > **"A guide to Quranic sources, not a religious authority."**  
-> Welcome! We are building **Hidaya** as an open-source, digital waqf (charitable endowment) to help Muslims, non-Muslims, and seekers discover authentic Quranic wisdom for the exact situations they face in life.
+> Welcome! We are building **Hidaya** as an open-source, digital waqf (charitable endowment) to help Muslims, seekers, and curious individuals discover authentic Quranic perspective for real situations in life.
 
-Thank you for your interest in contributing. Whether you are a software engineer, designer, student of knowledge, scholar, translator, or accessibility advocate, your contributions are deeply valued.
-
----
-
-## 🌟 Foundational Editorial & Theological Principles
-
-Every contributor, pull request, and review must strictly honor these core boundaries:
-
-1. **Zero Hallucination of Quranic Text & Hadith**:
-   - The Arabic Quran text must **NEVER** be generated, modified, or paraphrased by an AI.
-   - Text must strictly come from verified sources matching the Medina Mushaf Uthmani script (e.g., Tanzil / King Fahd Glorious Qur'an Printing Complex).
-   - Never invent or synthesize Hadith or scholarly opinions.
-
-2. **Strict 4-Level Content Hierarchy**:
-   Every visual representation in Hidaya must preserve clear stratification:
-   - **Level 1**: Original Verified Quranic Arabic (Uthmani script)
-   - **Level 2**: Human Translations (Explicitly attributed, e.g., Saheeh International, Knut Bernström, Muhammad Hamidullah)
-   - **Level 3**: Classical Tafsir (Explicitly attributed to authentic source works: Ibn Kathir, Al-Sa'di, Al-Muyassar, etc.)
-   - **Level 4**: AI Synthesis / Reflection Prompts (Clearly tagged as AI / reflective contemplation)
-
-3. **Hidaya is a Guide to Sources, NOT an Imam or Fatwa Authority**:
-   - The app helps users explore, understand, and reflect.
-   - The app must **never** issue legal rulings, definitive life verdicts (*"You must divorce"*), or fatwas.
-   - When encountering sensitive medical, legal, or marital decisions, always provide gentle guidance to consult qualified scholars or professionals.
-
-4. **Privacy-First & Anonymous by Default**:
-   - Users often enter vulnerable life situations (*"I feel overwhelmed by grief"*, *"My marriage is strained"*).
-   - Sensitive personal narratives must **never** be logged to remote servers or third-party telemetry by default.
-   - User reflections are stored locally in the browser (`localStorage`) unless explicitly backed up by the user.
-
-5. **Digital Waqf & Inclusivity**:
-   - Free for everyone, forever. No subscription walls, no ads inside the Quran contemplation space.
-   - Designed to warmly welcome both Muslims and curious non-Muslims seeking to understand the Quran in context.
+Whether you are a software engineer, UI/UX designer, student of knowledge, scholar, translator, or accessibility advocate, your contributions are deeply valued.
 
 ---
 
-## 🛠️ Tech Stack Overview
-
-- **Framework**: Next.js (App Router) on [Vinext](https://github.com/cloudflare/vinext)
-- **Language**: TypeScript (strict mode enabled)
-- **Styling**: Tailwind CSS (following the *Quiet + warm + modern + sacred* design constitution)
-- **Database & Retrieval**: PostgreSQL / Supabase with `pgvector` for semantic search
-- **Serverless / Hosting**: Cloudflare Workers
-- **AI Synthesis**: Google Gemini 2.5 Flash (bounded with strict JSON schemas and low temperature)
-- **Export Engine**: `pptxgenjs` (slide decks) and native print stylesheet (PDF)
+## 📑 Table of Contents
+1. [Foundational Editorial & Theological Principles](#1-foundational-editorial--theological-principles)
+2. [Development Setup](#2-development-setup)
+3. [Branching & Git Workflow](#3-branching--git-workflow)
+4. [Commit Conventions](#4-commit-conventions)
+5. [Ways to Contribute](#5-ways-to-contribute)
+6. [Testing & Quality Verification](#6-testing--quality-verification)
+7. [Submitting a Pull Request](#7-submitting-a-pull-request)
+8. [Code Review & Merge Standards](#8-code-review--merge-standards)
 
 ---
 
-## 🚀 Local Development Setup
+## 1. Foundational Editorial & Theological Principles
 
-### Prerequisites
-- **Node.js**: v20 or v22 LTS
-- **Package Manager**: `npm` (standard)
+Every contributor, pull request, and review must strictly honor these non-negotiable boundaries (codified in `AGENTS.md`):
 
-### Installation
+### 1.1 Zero Hallucination of Quranic Arabic & Hadith
+- The Arabic Quran text must **NEVER** be generated, modified, or paraphrased by an AI or human intuition.
+- All Arabic script must match verified Medina Mushaf Uthmani text (e.g., Tanzil / King Fahd Glorious Qur'an Printing Complex).
+- Never invent Hadith citations, scholar names, or historical revelation dates.
+
+### 1.2 Strict 4-Level Content Hierarchy
+Every visual component in Hidaya must preserve this explicit four-tier stratification:
+- **Level 1**: Original Verified Quranic Arabic (Uthmani script)
+- **Level 2**: Attributed Human Translations (e.g., Saheeh International, Knut Bernström, Muhammad Hamidullah)
+- **Level 3**: Classical Tafsir (Attributed to authentic works: Ibn Kathir, Al-Sa'di, Al-Muyassar, etc.)
+- **Level 4**: AI Synthesis / Reflection Prompts (Clearly tagged as AI / reflective contemplation)
+
+### 1.3 Non-Fatwa Policy
+- Hidaya helps users explore, understand, and reflect upon sacred texts.
+- Hidaya must **never** issue legal rulings, verdicts (*"You must divorce"*), or fatwas.
+- When queries touch complex medical, legal, or marital decisions, always provide gentle guidance to consult qualified scholars or licensed professionals.
+
+### 1.4 Privacy-First & Local Storage
+- Users often enter vulnerable life narratives (*"I feel broken by grief"*, *"My marriage is failing"*).
+- Sensitive personal text is **never** logged to remote servers by default.
+- Reflection notes are stored exclusively on the user's device (`localStorage`).
+
+---
+
+## 2. Development Setup
+
+### 2.1 Prerequisites
+- **Node.js**: `v20.x` or `v22.x` (LTS)
+- **npm**: `v9.x` or higher
+- **Git**: Installed and configured
+
+### 2.2 Local Installation
 ```bash
-# 1. Clone your fork
-git clone https://github.com/aomelander/hidaya.git
+# 1. Fork the repository on GitHub, then clone your fork locally:
+git clone https://github.com/<your-username>/hidaya.git
 cd hidaya
 
-# 2. Install dependencies
+# 2. Add the upstream repository as a remote:
+git remote add upstream https://github.com/aomelander/hidaya.git
+
+# 3. Install dependencies:
 npm install
 
-# 3. Configure environment variables
+# 4. Set up environment variables:
 cp .env.example .env
-# Fill in your GEMINI_API_KEY, SUPABASE_URL, and SUPABASE_ANON_KEY (optional for local mock mode)
 
-# 4. Start local development server
+# 5. Start the local development server:
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Seeding the Complete Quran Dataset
-Hidaya includes an automated seeder that ingests all 114 Surahs and 6,236 Ayahs across Arabic, English, Swedish, and French:
+> **💡 Zero-Config Local Mode**: Even without live Gemini or Supabase API keys, the application functions in offline/mock mode using curated in-memory fixtures.
+
+---
+
+## 3. Branching & Git Workflow
+
+We use a feature-branch workflow. Always create branches from an updated `main` branch.
+
+### 3.1 Branch Naming Conventions
+Use descriptive, lower-case branch names prefixed with the category of change:
+
+| Prefix | Description | Example |
+| :--- | :--- | :--- |
+| `feature/` | New user-facing feature or enhancement | `feature/spanish-translation` |
+| `bugfix/` | Bug fixes or correction of errors | `bugfix/arabic-ligature-spacing` |
+| `theology/` | Classical Tafsir, Asbab al-Nuzul, or text verification | `theology/saadi-surah-sharh` |
+| `docs/` | Documentation additions or updates | `docs/retrieval-flowchart` |
+| `refactor/` | Code structure improvements without behavior change | `refactor/modular-search-hooks` |
+| `perf/` | Performance optimizations | `perf/audio-preload-optimization` |
 
 ```bash
-# Run database seeder (dry-run mode validates data feeds if Supabase is unconfigured)
-npm run db:seed
+# Fetch latest changes from upstream
+git checkout main
+git pull upstream main
+
+# Create and switch to your feature branch
+git checkout -b feature/your-feature-name
 ```
 
-### Verification & Quality Checks
-Before submitting any pull request, ensure:
+---
+
+## 4. Commit Conventions
+
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification. This ensures automated release changelogs and clear git history.
+
+### Format:
+```
+<type>(<scope>): <short description in imperative mood>
+
+[optional body providing context and reasoning]
+
+[optional footer(s), e.g. Closes #123]
+```
+
+### Commit Types:
+- `feat`: A new feature for users
+- `fix`: A bug fix
+- `theology`: Updates to Quranic verses, classical tafsir, or citations
+- `docs`: Documentation changes only
+- `style`: Formatting, missing semi-colons, Tailwind class ordering (no code change)
+- `refactor`: Code refactoring that neither fixes a bug nor adds a feature
+- `perf`: Code change that improves performance
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks, dependency updates, build tooling
+
+### Good Examples:
 ```bash
-# TypeScript compiler type check
+feat(audio): add playback rate control to hands-free continuous player
+fix(i18n): correct Swedish translation for Surah Ash-Sharh (94:5)
+theology(fixtures): add Al-Sa'di commentary for Surah Ali 'Imran (3:134)
+docs(readme): add environment variable setup table
+```
+
+---
+
+## 5. Ways to Contribute
+
+### 5.1 Linguistic & Translation Expansion
+We are actively expanding beyond English, Swedish, and French:
+- **Target Languages**: Spanish, German, Turkish, Urdu, Bosnian, Indonesian, Arabic dialect guides.
+- Add translations in `src/data/quranFixtures.ts` or add verified editions to `src/lib/db/seedFullQuran.ts`.
+- Ensure translations are attributed to verified scholarly translators (e.g., King Fahd Complex, Muhammad Asad, Isa García).
+
+### 5.2 Curating the Verse-Topic Knowledge Graph
+Help expand the relational graph connecting human life situations to Quranic passages:
+- Expand `QUICK_CHOICE_PILLS` and curated fixtures in `src/data/quranFixtures.ts`.
+- Add **Contextual Boundary Guards (`notSaying`)** to prevent verses from being decontextualized or used for harmful self-blame.
+- Identify **Linguistic Roots (`linguisticRoots`)** explaining the concrete desert imagery (e.g. *k-dh-m*, *sh-r-h*, *'Afw*).
+- Formulate **Halaqah Prompts (`halaqahPrompts`)** for family study circles.
+
+### 5.3 Frontend Engineering & Accessibility
+- Maintain the *Quiet + warm + modern + sacred* aesthetic.
+- Zero letter-spacing on Arabic script (prevents ligature breaks).
+- Ensure WCAG 2.2 AA accessibility (high-contrast mode, keyboard navigation, screen reader ARIA labels).
+
+---
+
+## 6. Testing & Quality Verification
+
+Before committing or opening a pull request, run the verification suite:
+
+```bash
+# 1. Typecheck: Verify strict TypeScript compilation with 0 errors
 npm run typecheck
 
-# Lint check
+# 2. Lint: Check formatting and syntax
 npm run lint
 
-# Production build check
+# 3. Build: Test production build
 npm run build
 ```
 
 ---
 
-## 🤝 Ways to Contribute
+## 7. Submitting a Pull Request
 
-### 1. Linguistic & Translation Contributions
-We currently support **English** (Saheeh International), **Swedish** (Knut Bernström), and **French** (Muhammad Hamidullah).
-- We are looking to add: **Spanish**, **German**, **Turkish**, **Urdu**, **Bosnian**, and **Indonesian**.
-- Add translations in `src/data/quranFixtures.ts` or add new verified editions to `src/lib/db/seedFullQuran.ts`.
-
-### 2. Verse-Topic Graph & Classical Exegesis Curation
-The heart of Hidaya is the structured knowledge graph connecting human situations to Quranic passages:
-- Expand `QUICK_CHOICE_PILLS` and curated fixtures in `src/data/quranFixtures.ts`.
-- Add Asbab al-Nuzul (contexts of revelation) and verified classical citations from Ibn Kathir, Al-Tabari, Al-Qurtubi, and Al-Sa'di.
-- Ensure every citation lists the scholar's name, book title, and century.
-- **Contextual Boundary Guards (`notSaying`)**: Add clear boundaries for verses that are frequently taken out of context or misapplied to prevent harmful self-blame.
-- **Surrounding Verses (`surroundingVerses`)**: Provide preceding and succeeding verses to maintain textual flow.
-- **Life Spheres (`lifeSphere`)**: Classify passages by their primary domain: `individual` (soul/prayer/anxiety), `family` (parents/marriage/children), or `society` (workplace ethics/justice/commerce).
-- **Linguistic Roots (`linguisticRoots`)**: Identify the 3-letter Arabic root (`k-dh-m`, `sh-r-h`, `h-s-n`) and explain the concrete historical desert imagery.
-- **Halaqah Prompts (`halaqahPrompts`)**: Craft 3 discussion questions and 1 weekly group commitment suitable for families and study circles.
-
-### 3. "From Quran to Life" Reflection Framework
-Help craft authentic reflection prompts following the 4-step cycle:
-1. **Understand**: What does the passage say in linguistic and historical context?
-2. **Reflect**: What does this touch in my situation today?
-3. **Apply**: How can I translate this into an actionable personal change?
-4. **Carry / Live**: *"One small thing I will carry with me today."*
-
-### 4. UI/UX & Accessibility (WCAG 2.2)
-- Follow the *Quiet + warm + modern + sacred* palette: warm off-white, dark emerald tones, gold/amber accents, ample whitespace.
-- Zero letter-spacing on Quranic Arabic (preserving ligature readability).
-- High-contrast mode, dark mode, keyboard navigation, and screen reader labels.
+1. **Push your branch** to your GitHub fork:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+2. Open a Pull Request against the `main` branch of `aomelander/hidaya`.
+3. Complete all sections of the **Pull Request Template**:
+   - Describe the purpose and solution.
+   - Confirm compliance with the **Religious & Theological Boundaries checklist**.
+   - Confirm that `npm run typecheck` and `npm run lint` passed.
+4. If modifying database schemas or retrieval architecture, update `docs/ARCHITECTURE.md` and `docs/STATE.md`.
 
 ---
 
-## 📋 Pull Request Checklist
+## 8. Code Review & Merge Standards
 
-When submitting a PR, please ensure:
-- [ ] Code passes `npm run lint` and `npm run typecheck` with **0 errors**.
-- [ ] No hallucinated Quranic Arabic or paraphrased Hadith.
-- [ ] Every translation or tafsir entry includes source attribution.
-- [ ] Documentation is updated in `docs/` if modifying database schemas or retrieval logic.
-- [ ] Keep PRs focused and modular for swift review.
+- Every PR requires review by at least one maintainer.
+- PRs touching Quranic Arabic, translations, or Tafsir citations require verification against verified digitized source copies.
+- Keep PRs focused and atomic (avoid massive multi-purpose PRs).
 
 ---
 
-*May this work serve as a continuous benefit and authentic guide for all who seek light and tranquility in their lives.*
+*Thank you for contributing your time and talent to Hidaya. May this effort serve as a continuous benefit for all seekers of light.*

@@ -1,370 +1,198 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Search,
-  Mic,
-  MicOff,
-  Sparkles,
-  Flame,
-  Feather,
-  HeartCrack,
-  Activity,
-  SunDim,
-  Compass,
-  RefreshCw,
-  HelpCircle,
-  ShieldAlert,
-  Scale,
-  ShieldCheck,
-  Footprints,
-  MessageSquareOff,
-  Users,
-  AlertCircle,
-  Filter,
-  ArrowRight,
-  BookOpen,
-  Info,
-} from 'lucide-react';
+/**
+ * @file page.tsx
+ * @description Main application page for Hidaya: Quran Guidance & Reflection.
+ * Orchestrates modular components: header, hero, search bar, mode tabs,
+ * context analysis, passage cards, and contemplation drawers/modals.
+ */
+
+import React, { useState, useEffect } from 'react';
+import { Sparkles, Headphones } from 'lucide-react';
 import {
   Language,
-  EntryMode,
-  LifeSphere,
   QuranVerseFixture,
-  QuickPill,
-  QueryAnalysisResponse,
+  ExplanationDepth,
+  UserReflection,
+  PerspectiveMode,
 } from '../types';
-import { QURAN_FIXTURES, QUICK_CHOICE_PILLS } from '../data/quranFixtures';
+import { QURAN_FIXTURES } from '../data/quranFixtures';
 import { StorageService } from '../services/storage';
+import { APP_CONFIG } from '../config/appConfig';
+import { useGuidanceSearch } from '../hooks/useGuidanceSearch';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+
+// Modular UI Components
 import { Header } from '../components/Header';
 import { DailyNorthStar } from '../components/DailyNorthStar';
-import { UnsureGuidanceModal } from '../components/UnsureGuidanceModal';
+import { EntryModeTabs } from '../components/EntryModeTabs';
 import { SphereFilter } from '../components/SphereFilter';
-import { HalaqahModal } from '../components/HalaqahModal';
+import { GuidanceSearchBar } from '../components/GuidanceSearchBar';
+import { QuickChoicePills } from '../components/QuickChoicePills';
+import { GuidanceContextBanner } from '../components/GuidanceContextBanner';
+import { OffTopicBanner } from '../components/OffTopicBanner';
+import { SessionDepthSelector } from '../components/SessionDepthSelector';
+import { ExplanationDepthSelector } from '../components/ExplanationDepthSelector';
+import { ContinuousSessionAudioPlayer } from '../components/ContinuousSessionAudioPlayer';
 import { VerseCard } from '../components/VerseCard';
+import { Footer } from '../components/Footer';
+
+// Modals & Drawers
+import { UnsureGuidanceModal } from '../components/UnsureGuidanceModal';
+import { HalaqahModal } from '../components/HalaqahModal';
 import { TafsirDrawer } from '../components/TafsirDrawer';
 import { ReflectionDrawer } from '../components/ReflectionDrawer';
 import { BookmarksModal } from '../components/BookmarksModal';
 import { DisclaimerModal } from '../components/DisclaimerModal';
 import { PrintableReflection } from '../components/PrintableReflection';
-
-// Icon mapper for quick pills
-const ICON_MAP: Record<string, React.ReactNode> = {
-  Flame: <Flame className="w-4 h-4" />,
-  Feather: <Feather className="w-4 h-4" />,
-  HeartCrack: <HeartCrack className="w-4 h-4" />,
-  Activity: <Activity className="w-4 h-4" />,
-  SunDim: <SunDim className="w-4 h-4" />,
-  Compass: <Compass className="w-4 h-4" />,
-  RefreshCw: <RefreshCw className="w-4 h-4" />,
-  Sparkles: <Sparkles className="w-4 h-4" />,
-  HelpCircle: <HelpCircle className="w-4 h-4" />,
-  ShieldAlert: <ShieldAlert className="w-4 h-4" />,
-  Scale: <Scale className="w-4 h-4" />,
-  ShieldCheck: <ShieldCheck className="w-4 h-4" />,
-  Footprints: <Footprints className="w-4 h-4" />,
-  MessageSquareOff: <MessageSquareOff className="w-4 h-4" />,
-  Users: <Users className="w-4 h-4" />,
-};
+import { LicenseRegistryModal } from '../components/LicenseRegistryModal';
+import { VisualCardModal } from '../components/VisualCardModal';
+import { MyJourneyModal } from '../components/MyJourneyModal';
+import { EditorialConsoleModal } from '../components/EditorialConsoleModal';
+import { InquirerGlossaryModal } from '../components/InquirerGlossaryModal';
+import { InquirerPerspectiveBanner } from '../components/InquirerPerspectiveBanner';
 
 export default function App() {
-  // App settings state
-  const [language, setLanguage] = useState<Language>(StorageService.getLanguage());
-  const [arabicScale, setArabicScale] = useState<number>(StorageService.getFontSizeMultiplier());
+  const [mounted, setMounted] = useState(false);
+
+  // User Preferences State (initialized with deterministic defaults matching SSR)
+  const [language, setLanguage] = useState<Language>(APP_CONFIG.DEFAULTS.LANGUAGE);
+  const [arabicScale, setArabicScale] = useState<number>(APP_CONFIG.DEFAULTS.ARABIC_SCALE);
   const [showTransliteration, setShowTransliteration] = useState<boolean>(
-    StorageService.getShowTransliteration()
+    APP_CONFIG.DEFAULTS.SHOW_TRANSLITERATION
   );
-  const [isDark, setIsDark] = useState<boolean>(StorageService.getDarkMode());
+  const [isDark, setIsDark] = useState<boolean>(APP_CONFIG.DEFAULTS.DARK_MODE);
   const [isHighContrast, setIsHighContrast] = useState<boolean>(
-    StorageService.getHighContrast()
+    APP_CONFIG.DEFAULTS.HIGH_CONTRAST
   );
-  const [bookmarks, setBookmarks] = useState<string[]>(StorageService.getBookmarks());
+  const [bookmarks, setBookmarks] = useState<string[]>([APP_CONFIG.DEFAULTS.INITIAL_VERSE_ID]);
+  const [reflections, setReflections] = useState<Record<string, UserReflection>>({});
 
-  // Search & Navigation state
-  const [activeMode, setActiveMode] = useState<EntryMode>('moment');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeSphere, setActiveSphere] = useState<LifeSphere>('all');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<QueryAnalysisResponse | null>(null);
-  const [selectedPassages, setSelectedPassages] = useState<QuranVerseFixture[]>([]);
-  const [isListening, setIsListening] = useState(false);
+  // Contemplation & Exegesis Depth Configuration
+  const [explanationDepth, setExplanationDepth] = useState<ExplanationDepth>('context');
+  const [perspectiveMode, setPerspectiveMode] = useState<PerspectiveMode>('devotional');
 
-  // Modals & Drawers state
+  // Audio Playback State
+  const [isContinuousAudioOpen, setIsContinuousAudioOpen] = useState(false);
+  const [activeAudioVerseId, setActiveAudioVerseId] = useState<string | null>(null);
+
+  // Modals & Drawers Visibility State
   const [selectedTafsirVerse, setSelectedTafsirVerse] = useState<QuranVerseFixture | null>(null);
   const [selectedReflectionVerse, setSelectedReflectionVerse] = useState<QuranVerseFixture | null>(null);
   const [selectedHalaqahVerse, setSelectedHalaqahVerse] = useState<QuranVerseFixture | null>(null);
+  const [selectedVisualCardVerse, setSelectedVisualCardVerse] = useState<QuranVerseFixture | null>(null);
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isDisclaimerOpen, setIsDisclaimerOpen] = useState(false);
   const [isUnsureModalOpen, setIsUnsureModalOpen] = useState(false);
+  const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
+  const [isJourneyModalOpen, setIsJourneyModalOpen] = useState(false);
+  const [isEditorialConsoleOpen, setIsEditorialConsoleOpen] = useState(false);
+  const [isGlossaryModalOpen, setIsGlossaryModalOpen] = useState(false);
 
-  // Filter passages according to active life sphere
-  const displayedPassages = useMemo(() => {
-    if (activeSphere === 'all') return selectedPassages;
-    const filtered = selectedPassages.filter((p) => p.lifeSphere === activeSphere);
-    if (filtered.length > 0) return filtered;
-    // Fall back to fixtures matching this sphere if user switches to a sphere without matches in the current selection
-    const sphereFixtures = QURAN_FIXTURES.filter((p) => p.lifeSphere === activeSphere);
-    return sphereFixtures.length > 0 ? sphereFixtures.slice(0, 3) : selectedPassages;
-  }, [selectedPassages, activeSphere]);
+  // Guidance Search & Filtering Hook
+  const {
+    activeMode,
+    setActiveMode,
+    searchQuery,
+    setSearchQuery,
+    activeSphere,
+    setActiveSphere,
+    sessionDepth,
+    setSessionDepth,
+    isAnalyzing,
+    analysisResult,
+    selectedPassages,
+    displayedPassages,
+    executeSearch,
+    handleQuickPillSelect,
+    handleSelectSpecificVerse,
+  } = useGuidanceSearch(language);
 
-  // Sync dark mode class on document
+  // Web Speech Recognition Hook
+  const { isListening, toggleVoiceInput } = useSpeechRecognition({
+    language,
+    onResult: (transcript) => {
+      setSearchQuery(transcript);
+      executeSearch(transcript, language);
+    },
+  });
+
+  // Client Mount Hydration: load stored user data without SSR mismatch
+  useEffect(() => {
+    setMounted(true);
+    setLanguage(StorageService.getLanguage());
+    setArabicScale(StorageService.getFontSizeMultiplier());
+    setShowTransliteration(StorageService.getShowTransliteration());
+    setIsDark(StorageService.getDarkMode());
+    setIsHighContrast(StorageService.getHighContrast());
+    setBookmarks(StorageService.getBookmarks());
+    setReflections(StorageService.getReflections());
+  }, []);
+
+  // Dark Mode Sync with DOM
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-    StorageService.setDarkMode(isDark);
-  }, [isDark]);
+    if (mounted) {
+      StorageService.setDarkMode(isDark);
+    }
+  }, [isDark, mounted]);
 
+  // Sync Preferences to Storage after hydration mount
   useEffect(() => {
+    if (!mounted) return;
     StorageService.setLanguage(language);
-  }, [language]);
+  }, [language, mounted]);
 
   useEffect(() => {
+    if (!mounted) return;
     StorageService.setFontSizeMultiplier(arabicScale);
-  }, [arabicScale]);
+  }, [arabicScale, mounted]);
 
   useEffect(() => {
+    if (!mounted) return;
     StorageService.setShowTransliteration(showTransliteration);
-  }, [showTransliteration]);
+  }, [showTransliteration, mounted]);
 
   useEffect(() => {
+    if (!mounted) return;
     StorageService.setHighContrast(isHighContrast);
-  }, [isHighContrast]);
+  }, [isHighContrast, mounted]);
 
-  // Initial load: show the first verified fixture (3:134 - Anger at work) by default
+  // Initial Load: Mount default verified fixture (3:134 - Anger and restraint)
   useEffect(() => {
     const defaultVerse = QURAN_FIXTURES.find((f) => f.id === '3:134') || QURAN_FIXTURES[0];
-    setSelectedPassages([defaultVerse]);
-    setAnalysisResult({
-      status: 'matched',
-      detectedSituation: 'Workplace tension or interpersonal friction',
-      detectedEmotion: 'Anger & Frustration',
-      underlyingNeed: 'Self-mastery, swallowing wrath, and moral grace',
-      matchedPassageIds: ['3:134'],
-      relevanceExplanation:
-        "Surah Ali 'Imran (3:134) directly addresses the physiological surge of anger, placing those who swallow wrath and pardon colleagues into the beloved rank of Ihsan.",
-    });
-  }, []);
+    handleSelectSpecificVerse(defaultVerse);
+  }, [handleSelectSpecificVerse]);
 
+  // Toggle Bookmark Handler
   const handleToggleBookmark = (verseId: string) => {
     StorageService.toggleBookmark(verseId);
     setBookmarks(StorageService.getBookmarks());
   };
 
+  // Select verse from North Star
   const handleSelectNorthStarVerse = (verse: QuranVerseFixture) => {
-    setSelectedPassages([verse]);
-    setAnalysisResult({
-      status: 'matched',
-      detectedSituation: verse.whyThisVerse.situation,
-      detectedEmotion: verse.whyThisVerse.emotion,
-      underlyingNeed: verse.whyThisVerse.coreNeed,
-      matchedPassageIds: [verse.id],
-      relevanceExplanation: verse.whyThisVerse.mappingExplanation,
-    });
+    handleSelectSpecificVerse(verse);
     const element = document.getElementById('passages-section');
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
-  // Perform search / analysis query
-  const executeQuery = async (queryText: string, modeOverride?: EntryMode) => {
-    if (!queryText.trim()) return;
-    const mode = modeOverride || activeMode;
-    setIsAnalyzing(true);
-    StorageService.addRecentSearch(queryText);
-
-    try {
-      // Call server-side API endpoint
-      const response = await fetch('/api/guidance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: queryText, language }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      type GuidanceAPIResponse = {
-        status: 'matched' | 'off-topic' | 'clarification';
-        source?: QueryAnalysisResponse['source'];
-        matches?: Array<{ id?: string | number; ayah_id?: string | number }>;
-        data?: { selectedAyahIds?: number[]; reasoning?: string; reflectionPrompt?: string };
-      };
-      const rawData = await response.json() as GuidanceAPIResponse;
-      let passageIds: string[] = [];
-
-      if (rawData.data && rawData.data.selectedAyahIds) {
-        passageIds = rawData.data.selectedAyahIds.map((id) => String(id));
-      } else if (rawData.matches) {
-        // For mock DB matches, we can use id. In real DB, maybe ayah_id.
-        passageIds = rawData.matches.map((m) => String(m.id || m.ayah_id));
-      }
-
-      const data: QueryAnalysisResponse = {
-        status: rawData.status || 'matched',
-        source: rawData.source,
-        detectedSituation: rawData.data?.reasoning || 'Derived from similarity matches',
-        detectedEmotion: 'Reflective',
-        underlyingNeed: rawData.data?.reflectionPrompt || 'Seeking guidance',
-        matchedPassageIds: passageIds
-      };
-
-      setAnalysisResult(data);
-
-      if (data.status === 'matched' && data.matchedPassageIds?.length > 0) {
-        // For prototype mock, the backend returned full fixtures in .matches. But we map to QURAN_FIXTURES
-        const matches = data.matchedPassageIds
-          .map((id) =>
-            QURAN_FIXTURES.find(
-              (f) =>
-                f.id === id ||
-                f.id.startsWith(id) ||
-                id.startsWith(f.id) ||
-                f.id.split('-')[0] === id.split('-')[0]
-            )
-          )
-          .filter(Boolean) as QuranVerseFixture[];
-        setSelectedPassages(matches.length > 0 ? matches : [QURAN_FIXTURES[0]]);
-      } else if (data.status === 'off-topic') {
-        setSelectedPassages([]);
-      }
-    } catch (err) {
-      console.warn('Backend API request failed; engaging resilient client-side matcher', err);
-      // Resilient client fallback
-      performClientSideFallback(queryText);
-    } finally {
-      setIsAnalyzing(false);
-    }
+  // Submit Search Query
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeSearch(searchQuery, language);
   };
-
-  // Client-side fallback matcher ensures zero disruption
-  const performClientSideFallback = (queryText: string) => {
-    const normalized = queryText.toLowerCase();
-
-    // Check off-topic
-    const offTopicKeywords = ['code', 'python', 'javascript', 'bitcoin', 'crypto', 'gambling', 'weather', 'recipe', 'hack'];
-    if (offTopicKeywords.some((w) => normalized.includes(w))) {
-      setAnalysisResult({
-        status: 'off-topic',
-        offTopicMessage:
-          "Hidaya is a reflective companion dedicated to Quranic contemplation for real-life emotions, decisions, and character growth. We couldn't find a direct reflective match for this technical or non-reflective inquiry.",
-        suggestedTopics: ['Anger at work', 'Anxiety & Burnout', 'Patience with Family', 'Purpose of Life', 'Gratitude'],
-        matchedPassageIds: ['3:134', '94:5-6'],
-      });
-      setSelectedPassages([]);
-      return;
-    }
-
-    let matched: QuranVerseFixture[] = [];
-    let detectedSituation = 'Life contemplation';
-    let detectedEmotion = 'Seeking guidance';
-    let underlyingNeed = 'Spiritual clarity and grounding';
-    let relevanceExplanation = 'This passage provides verified Quranic perspective for your current situation.';
-
-    if (normalized.includes('anger') || normalized.includes('work') || normalized.includes('rage') || normalized.includes('boss')) {
-      matched = [QURAN_FIXTURES[0]]; // 3:134
-      detectedSituation = 'Workplace or interpersonal tension';
-      detectedEmotion = 'Anger & Frustration';
-      underlyingNeed = 'Restraining wrath and maintaining moral poise';
-      relevanceExplanation =
-        "Surah Ali 'Imran (3:134) guides you to restrain bubbling anger, pardon the provoking party, and maintain excellence (Ihsan).";
-    } else if (normalized.includes('burnout') || normalized.includes('overwhelm') || normalized.includes('stress') || normalized.includes('exhaust')) {
-      matched = [QURAN_FIXTURES[1], QURAN_FIXTURES[12]]; // 94:5-6, 2:286
-      detectedSituation = 'Heavy burdens and exhaustion';
-      detectedEmotion = 'Overwhelmed & Burned Out';
-      underlyingNeed = 'Reassurance that relief is bundled alongside trials';
-      relevanceExplanation = 'Surah Ash-Sharh guarantees that ease is intertwined directly with hardship.';
-    } else if (normalized.includes('grief') || normalized.includes('loss') || normalized.includes('death')) {
-      matched = [QURAN_FIXTURES[2]]; // 2:155-156
-      detectedSituation = 'Bereavement or sudden loss';
-      detectedEmotion = 'Grief & Mourning';
-      underlyingNeed = 'Surrendering outcomes to God';
-      relevanceExplanation = 'Surah Al-Baqarah anchors the heart in Istirja: we belong to God and to Him we return.';
-    } else if (normalized.includes('heart') || normalized.includes('anxiety') || normalized.includes('panic')) {
-      matched = [QURAN_FIXTURES[3]]; // 13:28
-      detectedSituation = 'Racing thoughts and inner restlessness';
-      detectedEmotion = 'Anxiety';
-      underlyingNeed = 'Tranquility through divine remembrance';
-      relevanceExplanation = 'Surah Ar-Rad establishes that only divine remembrance restores authentic peace to the heart.';
-    } else if (normalized.includes('purpose') || normalized.includes('why')) {
-      matched = [QURAN_FIXTURES[6]]; // 67:2
-      detectedSituation = 'Questioning the meaning of life and death';
-      detectedEmotion = 'Existential Curiosity';
-      underlyingNeed = 'Viewing life as a crucible for moral beauty';
-      relevanceExplanation = 'Surah Al-Mulk clarifies that existence is calibrated to examine who acts with highest sincerity.';
-    } else {
-      matched = [QURAN_FIXTURES[0]];
-    }
-
-    setAnalysisResult({
-      status: 'matched',
-      detectedSituation,
-      detectedEmotion,
-      underlyingNeed,
-      matchedPassageIds: matched.map((m) => m.id),
-      relevanceExplanation,
-    });
-    setSelectedPassages(matched);
-  };
-
-  const handleQuickPillClick = (pill: QuickPill) => {
-    setSearchQuery(pill.query);
-    setActiveMode(pill.category);
-    executeQuery(pill.query, pill.category);
-  };
-
-  // Voice Input (Web Speech API)
-  const toggleVoiceInput = () => {
-    // Check speech recognition
-    const SpeechRecognition =
-      (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      // Simulate gentle voice test
-      setIsListening(true);
-      setTimeout(() => {
-        setIsListening(false);
-        const sampleQuery = 'I feel angry and overwhelmed by unfair criticism at work';
-        setSearchQuery(sampleQuery);
-        executeQuery(sampleQuery);
-      }, 1500);
-      return;
-    }
-
-    try {
-      // @ts-expect-error browser speech recognition API
-      const recognition = new SpeechRecognition();
-      recognition.lang = language === 'sv' ? 'sv-SE' : language === 'fr' ? 'fr-FR' : 'en-US';
-      recognition.interimResults = false;
-
-      recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
-      // @ts-expect-error browser speech event
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setSearchQuery(transcript);
-        executeQuery(transcript);
-      };
-
-      recognition.start();
-    } catch {
-      setIsListening(false);
-    }
-  };
-
-  // Filtered pills for active mode
-  const currentPills = QUICK_CHOICE_PILLS.filter((p) => p.category === activeMode);
 
   return (
     <div
       className={`min-h-screen flex flex-col transition-colors ${
-        isHighContrast ? 'contrast-125' : ''
+        mounted && isHighContrast ? 'contrast-125' : ''
       } bg-[#FAF8F5] dark:bg-[#07140F] text-slate-900 dark:text-slate-100`}
     >
       {/* Global Header */}
@@ -379,13 +207,30 @@ export default function App() {
         onToggleDark={() => setIsDark(!isDark)}
         isHighContrast={isHighContrast}
         onToggleHighContrast={() => setIsHighContrast(!isHighContrast)}
-        bookmarkCount={bookmarks.length}
+        bookmarkCount={mounted ? bookmarks.length : 0}
         onOpenBookmarks={() => setIsBookmarksOpen(true)}
         onOpenDisclaimer={() => setIsDisclaimerOpen(true)}
+        onOpenJourney={() => setIsJourneyModalOpen(true)}
+        onOpenLicenseRegistry={() => setIsLicenseModalOpen(true)}
+        onOpenEditorialConsole={() => setIsEditorialConsoleOpen(true)}
+        perspectiveMode={perspectiveMode}
+        onTogglePerspective={() =>
+          setPerspectiveMode((prev) => (prev === 'devotional' ? 'inquirer' : 'devotional'))
+        }
+        reflectionCount={mounted ? Object.keys(reflections).length : 0}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-10 no-print">
+        {/* Inquirer Perspective Banner (if active) */}
+        {perspectiveMode === 'inquirer' && (
+          <InquirerPerspectiveBanner
+            language={language}
+            onOpenGlossary={() => setIsGlossaryModalOpen(true)}
+            onSwitchPerspective={() => setPerspectiveMode('devotional')}
+          />
+        )}
+
         {/* Sacred Hero Introduction */}
         <section className="text-center space-y-4 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-900/5 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-300 text-xs font-semibold border border-emerald-900/10 dark:border-emerald-700/30">
@@ -398,11 +243,11 @@ export default function App() {
           </h2>
 
           <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
-            Discover verified passages, classical exegesis (Tafsir), and a 3-step practical reflection framework for real-life decisions, emotions, and character growth.
+            Discover verified passages, classical exegesis (Tafsir), and an actionable reflection framework for real-life decisions, emotions, and character growth.
           </p>
         </section>
 
-        {/* Daily North Star (Ledstjärna) */}
+        {/* Daily North Star (Dagens Ledstjärna) */}
         <DailyNorthStar
           language={language}
           arabicScale={arabicScale}
@@ -412,169 +257,39 @@ export default function App() {
         />
 
         {/* 3 Entry Modes Navigation Tabs */}
-        <section aria-label="Guidance Entry Modes" className="space-y-3">
-          <div className="flex p-1.5 rounded-2xl bg-emerald-900/5 dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 max-w-2xl mx-auto shadow-xs">
-            <button
-              onClick={() => setActiveMode('moment')}
-              className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
-                activeMode === 'moment'
-                  ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
-              }`}
-              aria-selected={activeMode === 'moment'}
-              role="tab"
-            >
-              <span className="block font-bold">
-                {language === 'sv' ? '1. I stunden' : language === 'fr' ? '1. En ce moment' : '1. In This Moment'}
-              </span>
-              <span className={`text-[10px] hidden sm:block ${activeMode === 'moment' ? 'text-emerald-100' : 'text-slate-400'}`}>
-                {language === 'sv' ? 'Känslor & situationer' : language === 'fr' ? 'Émotions & situations' : 'Emotions & Situations'}
-              </span>
-            </button>
+        <EntryModeTabs
+          activeMode={activeMode}
+          onSelectMode={setActiveMode}
+          onOpenUnsureModal={() => setIsUnsureModalOpen(true)}
+          language={language}
+        />
 
-            <button
-              onClick={() => setActiveMode('questions')}
-              className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
-                activeMode === 'questions'
-                  ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
-              }`}
-              aria-selected={activeMode === 'questions'}
-              role="tab"
-            >
-              <span className="block font-bold">
-                {language === 'sv' ? '2. Stora frågor' : language === 'fr' ? '2. Grandes questions' : '2. Big Questions'}
-              </span>
-              <span className={`text-[10px] hidden sm:block ${activeMode === 'questions' ? 'text-emerald-100' : 'text-slate-400'}`}>
-                {language === 'sv' ? 'Syfte, rättvisa, död' : language === 'fr' ? 'Sens, justice, mort' : 'Purpose, Justice, Death'}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveMode('growth')}
-              className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
-                activeMode === 'growth'
-                  ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
-              }`}
-              aria-selected={activeMode === 'growth'}
-              role="tab"
-            >
-              <span className="block font-bold">
-                {language === 'sv' ? '3. Karaktär & växande' : language === 'fr' ? '3. Caractère & élévation' : '3. Character & Growth'}
-              </span>
-              <span className={`text-[10px] hidden sm:block ${activeMode === 'growth' ? 'text-emerald-100' : 'text-slate-400'}`}>
-                {language === 'sv' ? 'Tålamod, ödmjukhet, gott tal' : language === 'fr' ? 'Patience, humilité, bonté' : 'Patience, Humility, Speech'}
-              </span>
-            </button>
-          </div>
-
-          {/* "I don't know what I need" helper button */}
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setIsUnsureModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-600/30 transition-all cursor-pointer shadow-2xs"
-            >
-              <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>
-                {language === 'sv'
-                  ? 'Osäker på vad du behöver? Låt Hidaya guida ditt hjärta'
-                  : language === 'fr'
-                  ? 'Vous ne savez pas par où commencer ? Laissez Hidaya vous guider'
-                  : 'Unsure where to start? Let Hidaya guide your heart'}
-              </span>
-              <ArrowRight className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-            </button>
-          </div>
-
-          {/* 3 Human Spheres (Life Domains): Individual, Family, Society */}
-          <SphereFilter
-            activeSphere={activeSphere}
-            onSelectSphere={setActiveSphere}
-            language={language}
-          />
-        </section>
+        {/* 3 Human Spheres Filter: Individual, Family, Society */}
+        <SphereFilter
+          activeSphere={activeSphere}
+          onSelectSphere={setActiveSphere}
+          language={language}
+        />
 
         {/* Search Input Bar (Text + Voice) */}
-        <section aria-label="Search and Voice Input">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              executeQuery(searchQuery);
-            }}
-            className="relative max-w-3xl mx-auto"
-          >
-            <div className="relative flex items-center shadow-lg shadow-emerald-950/5 rounded-2xl overflow-hidden bg-white dark:bg-[#0A1E17] border-2 border-emerald-900/15 dark:border-emerald-800/40 focus-within:border-emerald-700 dark:focus-within:border-emerald-500 transition-all">
-              <div className="pl-4 text-emerald-800 dark:text-emerald-400">
-                <Search className="w-5 h-5" />
-              </div>
-
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={
-                  activeMode === 'moment'
-                    ? "What are you feeling? (e.g., 'Anger at work', 'Anxious about decisions')..."
-                    : activeMode === 'questions'
-                    ? "What existential question weighs on your mind? (e.g., 'Purpose of suffering')..."
-                    : "What character trait are you cultivating? (e.g., 'Humility', 'Tongue control')..."
-                }
-                className="w-full py-4 pl-3 pr-24 text-sm sm:text-base bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none"
-                aria-label="Contemplation search query"
-              />
-
-              <div className="absolute right-2 flex items-center gap-1.5">
-                {/* Voice button */}
-                <button
-                  type="button"
-                  onClick={toggleVoiceInput}
-                  className={`p-2 rounded-xl transition-all ${
-                    isListening
-                      ? 'bg-red-500 text-white animate-pulse'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-900/10'
-                  }`}
-                  title={isListening ? 'Listening...' : 'Search by voice'}
-                  aria-label={isListening ? 'Listening...' : 'Search by voice'}
-                >
-                  {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                </button>
-
-                {/* Submit button */}
-                <button
-                  type="submit"
-                  disabled={isAnalyzing}
-                  className="px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white text-xs sm:text-sm font-bold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  {isAnalyzing ? 'Seeking...' : 'Seek'}
-                </button>
-              </div>
-            </div>
-          </form>
+        <div>
+          <GuidanceSearchBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onSubmit={handleSearchSubmit}
+            isAnalyzing={isAnalyzing}
+            isListening={isListening}
+            onToggleVoice={toggleVoiceInput}
+            activeMode={activeMode}
+            language={language}
+          />
 
           {/* Quick Choice Pills */}
-          <div className="mt-4 max-w-3xl mx-auto">
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-2">
-              <Filter className="w-3.5 h-3.5" />
-              <span>Suggested Contemplation Paths:</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {currentPills.map((pill) => (
-                <button
-                  key={pill.id}
-                  onClick={() => handleQuickPillClick(pill)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white dark:bg-emerald-950/40 border border-slate-200 dark:border-emerald-800/40 text-slate-700 dark:text-slate-200 hover:border-emerald-600 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all cursor-pointer shadow-2xs"
-                >
-                  <span className="text-amber-600 dark:text-amber-400">
-                    {ICON_MAP[pill.iconName] || <Sparkles className="w-4 h-4" />}
-                  </span>
-                  <span>{pill.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
+          <QuickChoicePills
+            activeMode={activeMode}
+            onSelectPill={(pill) => handleQuickPillSelect(pill, language)}
+          />
+        </div>
 
         {/* Loading Indicator */}
         {isAnalyzing && (
@@ -588,158 +303,151 @@ export default function App() {
 
         {/* Semantic Context Banner (When Matched) */}
         {!isAnalyzing && analysisResult?.status === 'matched' && (
-          <section
-            aria-label="Semantic Guidance Context"
-            className="p-5 rounded-2xl bg-linear-to-r from-emerald-900/10 via-emerald-800/5 to-amber-500/10 border border-emerald-800/20 dark:border-emerald-700/30 space-y-3"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-300">
-                  Guidance Mapping Analysis
-                </h3>
-              </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                Grounding: {selectedPassages.length} Verified Quran Passage(s)
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-white/70 dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/20">
-                <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-0.5">
-                  Detected Emotion
-                </span>
-                <span className="font-semibold text-emerald-950 dark:text-emerald-100">
-                  {analysisResult.detectedEmotion || 'Contemplative'}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/70 dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/20">
-                <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-0.5">
-                  Life Situation
-                </span>
-                <span className="font-semibold text-emerald-950 dark:text-emerald-100 truncate block">
-                  {analysisResult.detectedSituation || 'Daily Living'}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/70 dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/20">
-                <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-0.5">
-                  Underlying Spiritual Need
-                </span>
-                <span className="font-semibold text-emerald-950 dark:text-emerald-100 truncate block">
-                  {analysisResult.underlyingNeed || 'Divine Grounding'}
-                </span>
-              </div>
-            </div>
-
-            {analysisResult.relevanceExplanation && (
-              <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed pt-1">
-                <strong>Why this applies:</strong> {analysisResult.relevanceExplanation}
-              </p>
-            )}
-          </section>
+          <GuidanceContextBanner
+            analysisResult={analysisResult}
+            passageCount={selectedPassages.length}
+          />
         )}
 
-        {/* Off-Topic / Unsupported Fallback */}
+        {/* Off-Topic / Unsupported Fallback Banner */}
         {!isAnalyzing && analysisResult?.status === 'off-topic' && (
-          <section
-            aria-label="Unsupported Query Fallback"
-            className="p-8 rounded-3xl bg-amber-500/10 border-2 border-amber-600/30 dark:border-amber-500/30 text-center space-y-4"
-          >
-            <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center mx-auto">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-
-            <div className="space-y-2 max-w-lg mx-auto">
-              <h3 className="text-lg font-bold text-amber-950 dark:text-amber-100">
-                Off-Topic or Non-Reflective Request
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                {analysisResult.offTopicMessage ||
-                  "Hidaya is dedicated strictly to source-grounded Quranic reflection for human emotions, life situations, and character growth. We do not provide sports odds, technical coding, mathematical trivia, or binding fatwas."}
-              </p>
-            </div>
-
-            <div className="pt-2">
-              <p className="text-xs font-semibold text-amber-900 dark:text-amber-300 uppercase tracking-wider mb-3">
-                Try exploring these verified life contemplation themes instead:
-              </p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {[
-                  { label: 'Anger at work', query: 'Anger at work, speech control, and patience' },
-                  { label: 'Burnout & Overwhelm', query: 'Burnout, stress, finding ease with hardship' },
-                  { label: 'Patience with Family', query: 'Patience with parents and family friction' },
-                  { label: 'Purpose of Life', query: 'What is the purpose of life and death?' },
-                  { label: 'Restless Heart', query: 'Restless heart, anxiety, need peace' },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      setSearchQuery(item.query);
-                      executeQuery(item.query);
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-emerald-950 border border-amber-600/30 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900 transition-colors"
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
+          <OffTopicBanner
+            message={analysisResult.offTopicMessage}
+            onSelectSuggestion={(query) => {
+              setSearchQuery(query);
+              executeSearch(query, language);
+            }}
+          />
         )}
 
         {/* Verse Presentation Cards */}
         {!isAnalyzing && displayedPassages.length > 0 && (
-          <section id="passages-section" aria-label="Quranic Passages" className="space-y-8 scroll-mt-20">
-            {displayedPassages.map((verse) => (
-              <VerseCard
-                key={verse.id}
-                verse={verse}
+          <section id="passages-section" aria-label="Quranic Passages" className="space-y-6 scroll-mt-20">
+            {/* Session Depth & Exegesis Control Bar */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-emerald-950/30 border border-slate-200 dark:border-emerald-800/40 shadow-xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-emerald-900/40 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-950 dark:text-emerald-200">
+                    {language === 'sv'
+                      ? 'Konfigurera din session'
+                      : language === 'fr'
+                      ? 'Personnaliser votre session'
+                      : 'Configure Your Contemplation Session'}
+                  </span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    ({displayedPassages.length}{' '}
+                    {language === 'sv'
+                      ? 'visade passager'
+                      : language === 'fr'
+                      ? 'passages affichés'
+                      : 'passages shown'})
+                  </span>
+                </div>
+
+                {/* Continuous Hands-Free Audio Launcher */}
+                <button
+                  type="button"
+                  onClick={() => setIsContinuousAudioOpen(!isContinuousAudioOpen)}
+                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                    isContinuousAudioOpen
+                      ? 'bg-amber-500 text-emerald-950 hover:bg-amber-400'
+                      : 'bg-emerald-900 text-white dark:bg-emerald-700 hover:bg-emerald-800'
+                  }`}
+                >
+                  <Headphones className="w-4 h-4 animate-pulse" />
+                  <span>
+                    {isContinuousAudioOpen
+                      ? language === 'sv'
+                        ? 'Ljudspelare aktiv'
+                        : language === 'fr'
+                        ? 'Lecteur audio actif'
+                        : 'Audio Player Active'
+                      : language === 'sv'
+                      ? 'Lyssna handsfree (Promenad/Bil)'
+                      : language === 'fr'
+                      ? 'Écoute mains libres (Marche/Voiture)'
+                      : 'Listen Hands-Free (Walking/Car)'}
+                  </span>
+                </button>
+              </div>
+
+              {/* Duration Selector */}
+              <SessionDepthSelector
+                currentDepth={sessionDepth}
+                onSelectDepth={setSessionDepth}
                 language={language}
-                arabicScale={arabicScale}
-                showTransliteration={showTransliteration}
-                isBookmarked={bookmarks.includes(verse.id)}
-                onToggleBookmark={handleToggleBookmark}
-                onOpenTafsir={(v) => setSelectedTafsirVerse(v)}
-                onOpenReflection={(v) => setSelectedReflectionVerse(v)}
-                onOpenHalaqah={(v) => setSelectedHalaqahVerse(v)}
-                sourceIndicator={
-                  analysisResult?.source === 'cache'
-                    ? 'Cached Reflection (0 LLM Calls)'
-                    : analysisResult?.source === 'gemini_synthesis'
-                    ? 'AI Sourced Synthesis'
-                    : 'Direct Database Match (0 LLM Calls)'
-                }
               />
+
+              {/* Exegesis Depth Selector */}
+              <ExplanationDepthSelector
+                currentDepth={explanationDepth}
+                onSelectDepth={setExplanationDepth}
+                language={language}
+              />
+            </div>
+
+            {/* Displayed Verses List */}
+            {displayedPassages.map((verse) => (
+              <div
+                key={verse.id}
+                className={
+                  activeAudioVerseId === verse.id
+                    ? 'ring-2 ring-amber-500/80 rounded-3xl transition-all'
+                    : ''
+                }
+              >
+                <VerseCard
+                  verse={verse}
+                  language={language}
+                  arabicScale={arabicScale}
+                  showTransliteration={showTransliteration}
+                  isBookmarked={bookmarks.includes(verse.id)}
+                  onToggleBookmark={handleToggleBookmark}
+                  onOpenTafsir={(v) => setSelectedTafsirVerse(v)}
+                  onOpenReflection={(v) => setSelectedReflectionVerse(v)}
+                  onOpenHalaqah={(v) => setSelectedHalaqahVerse(v)}
+                  onOpenVisualCard={(v) => setSelectedVisualCardVerse(v)}
+                  explanationDepth={explanationDepth}
+                  perspectiveMode={perspectiveMode}
+                  sourceIndicator={
+                    analysisResult?.source === 'cache'
+                      ? 'Cached Reflection (0 LLM Calls)'
+                      : analysisResult?.source === 'gemini_synthesis'
+                      ? 'AI Sourced Synthesis'
+                      : 'Direct Database Match (0 LLM Calls)'
+                  }
+                />
+              </div>
             ))}
           </section>
         )}
 
-        {/* Ethical Footer Banner */}
-        <footer className="mt-16 pt-8 border-t border-emerald-900/10 dark:border-emerald-800/30 text-center space-y-3">
-          <div className="flex items-center justify-center gap-2">
-            <span className="font-arabic text-amber-700 dark:text-amber-400 text-lg">
-              وَبِالْحَقِّ أَنزَلْنَاهُ وَبِالْحَقِّ نَزَلَ
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
-            &ldquo;And with the truth We have sent it down, and with the truth it has descended.&rdquo; (Al-Isra 17:105)
-          </p>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500">
-            Hidaya is a guide to Quranic sources, not a religious authority or fatwa service.
-          </p>
-        </footer>
+        {/* Continuous Session Audio Player (Hands-Free Walking/Car/Resting Mode) */}
+        {isContinuousAudioOpen && displayedPassages.length > 0 && (
+          <ContinuousSessionAudioPlayer
+            verses={displayedPassages}
+            language={language}
+            onActiveVerseChange={(verseId) => setActiveAudioVerseId(verseId)}
+            onClose={() => {
+              setIsContinuousAudioOpen(false);
+              setActiveAudioVerseId(null);
+            }}
+          />
+        )}
+
+        {/* Ethical Scripture Footer */}
+        <Footer />
       </main>
 
-      {/* Level 3: Classical Tafsir Drawer */}
+      {/* Classical Tafsir Drawer */}
       <TafsirDrawer
         verse={selectedTafsirVerse}
         isOpen={!!selectedTafsirVerse}
         onClose={() => setSelectedTafsirVerse(null)}
       />
 
-      {/* Level 4: "From Quran to Life" Reflection Drawer */}
+      {/* "From Quran to Life" Reflection Drawer */}
       <ReflectionDrawer
         verse={selectedReflectionVerse}
         isOpen={!!selectedReflectionVerse}
@@ -754,21 +462,13 @@ export default function App() {
         allVerses={QURAN_FIXTURES}
         language={language}
         onSelectVerse={(v) => {
-          setSelectedPassages([v]);
-          setAnalysisResult({
-            status: 'matched',
-            detectedSituation: v.whyThisVerse.situation,
-            detectedEmotion: v.whyThisVerse.emotion,
-            underlyingNeed: v.whyThisVerse.coreNeed,
-            matchedPassageIds: [v.id],
-            relevanceExplanation: v.whyThisVerse.mappingExplanation,
-          });
+          handleSelectSpecificVerse(v);
         }}
         onRemoveBookmark={handleToggleBookmark}
         onOpenReflection={(v) => setSelectedReflectionVerse(v)}
       />
 
-      {/* Boundaries & Disclaimer Modal */}
+      {/* Boundaries & Ethical Disclaimer Modal */}
       <DisclaimerModal
         isOpen={isDisclaimerOpen}
         onClose={() => setIsDisclaimerOpen(false)}
@@ -782,7 +482,7 @@ export default function App() {
         onComplete={(query, mode) => {
           setActiveMode(mode);
           setSearchQuery(query);
-          executeQuery(query, mode);
+          executeSearch(query, language, mode);
         }}
       />
 
@@ -791,6 +491,48 @@ export default function App() {
         verse={selectedHalaqahVerse}
         isOpen={!!selectedHalaqahVerse}
         onClose={() => setSelectedHalaqahVerse(null)}
+        language={language}
+      />
+
+      {/* Content License Registry & Theological Audit Modal */}
+      <LicenseRegistryModal
+        isOpen={isLicenseModalOpen}
+        onClose={() => setIsLicenseModalOpen(false)}
+        language={language}
+      />
+
+      {/* Shareable Visual Verse Card Generator Modal */}
+      <VisualCardModal
+        verse={selectedVisualCardVerse}
+        isOpen={!!selectedVisualCardVerse}
+        onClose={() => setSelectedVisualCardVerse(null)}
+        language={language}
+      />
+
+      {/* My Journey (Personal Quran Contemplation Diary) Modal */}
+      <MyJourneyModal
+        isOpen={isJourneyModalOpen}
+        onClose={() => {
+          setIsJourneyModalOpen(false);
+          setReflections(StorageService.getReflections());
+        }}
+        language={language}
+        onSelectVerse={(v) => {
+          handleSelectSpecificVerse(v);
+        }}
+      />
+
+      {/* Editorial & Scholar Review Console Modal */}
+      <EditorialConsoleModal
+        isOpen={isEditorialConsoleOpen}
+        onClose={() => setIsEditorialConsoleOpen(false)}
+        language={language}
+      />
+
+      {/* Inquirer & Universal Wisdom Glossary Modal */}
+      <InquirerGlossaryModal
+        isOpen={isGlossaryModalOpen}
+        onClose={() => setIsGlossaryModalOpen(false)}
         language={language}
       />
 

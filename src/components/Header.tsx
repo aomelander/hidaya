@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import {
   BookOpen,
@@ -9,8 +11,12 @@ import {
   Eye,
   Globe,
   SlidersHorizontal,
+  Compass,
+  ShieldCheck,
+  FileCheck,
+  Sparkles,
 } from 'lucide-react';
-import { Language } from '../types';
+import { Language, PerspectiveMode } from '../types';
 
 interface HeaderProps {
   language: Language;
@@ -26,6 +32,12 @@ interface HeaderProps {
   bookmarkCount: number;
   onOpenBookmarks: () => void;
   onOpenDisclaimer: () => void;
+  onOpenJourney?: () => void;
+  onOpenLicenseRegistry?: () => void;
+  onOpenEditorialConsole?: () => void;
+  perspectiveMode?: PerspectiveMode;
+  onTogglePerspective?: () => void;
+  reflectionCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -42,6 +54,12 @@ export const Header: React.FC<HeaderProps> = ({
   bookmarkCount,
   onOpenBookmarks,
   onOpenDisclaimer,
+  onOpenJourney,
+  onOpenLicenseRegistry,
+  onOpenEditorialConsole,
+  perspectiveMode = 'devotional',
+  onTogglePerspective,
+  reflectionCount = 0,
 }) => {
   const [showPreferencesMenu, setShowPreferencesMenu] = React.useState(false);
 
@@ -143,6 +161,54 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Translit</span>
           </button>
 
+          {/* My Journey (Contemplation Diary) Trigger */}
+          {onOpenJourney && (
+            <button
+              onClick={onOpenJourney}
+              className="relative flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-900/5 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 border border-emerald-900/10 dark:border-emerald-700/30 transition-all cursor-pointer"
+              title={
+                language === 'sv'
+                  ? 'Min Resa (Quran-dagbok)'
+                  : language === 'fr'
+                  ? 'Mon Voyage (Journal spirituel)'
+                  : 'My Journey (Contemplation Diary)'
+              }
+              aria-label="Open My Journey"
+            >
+              <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="hidden md:inline">
+                {language === 'sv' ? 'Min Resa' : language === 'fr' ? 'Mon Voyage' : 'My Journey'}
+              </span>
+              {reflectionCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-amber-500 text-emerald-950 text-[10px] font-bold flex items-center justify-center">
+                  {reflectionCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Perspective Mode Toggle (Devotional vs. Inquirer) */}
+          {onTogglePerspective && (
+            <button
+              onClick={onTogglePerspective}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                perspectiveMode === 'inquirer'
+                  ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-600/40 ring-1 ring-amber-500/30'
+                  : 'bg-white dark:bg-emerald-950/60 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-emerald-800 hover:text-emerald-700'
+              }`}
+              title={
+                perspectiveMode === 'inquirer'
+                  ? 'Mode: Inquirer & Universal Ethical Lens (Active)'
+                  : 'Switch to Inquirer / Non-Muslim Seeker Lens'
+              }
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden lg:inline">
+                {perspectiveMode === 'inquirer' ? 'Inquirer Lens' : 'Devotional Lens'}
+              </span>
+            </button>
+          )}
+
           {/* Bookmarks Drawer Trigger */}
           <button
             onClick={onOpenBookmarks}
@@ -157,6 +223,42 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             )}
           </button>
+
+          {/* License & Theological Audit Registry Trigger */}
+          {onOpenLicenseRegistry && (
+            <button
+              onClick={onOpenLicenseRegistry}
+              className="p-2 rounded-lg bg-white dark:bg-emerald-950/60 border border-slate-300 dark:border-emerald-800 text-slate-700 dark:text-slate-200 hover:text-emerald-700 hover:border-emerald-600 transition-colors cursor-pointer"
+              title={
+                language === 'sv'
+                  ? 'Innehållslicenser & källregister'
+                  : language === 'fr'
+                  ? 'Registre des licences et sources'
+                  : 'Content Licenses & Sources Registry'
+              }
+              aria-label="Open Content License Registry"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+            </button>
+          )}
+
+          {/* Editorial & Scholar Review Console Trigger */}
+          {onOpenEditorialConsole && (
+            <button
+              onClick={onOpenEditorialConsole}
+              className="p-2 rounded-lg bg-white dark:bg-emerald-950/60 border border-slate-300 dark:border-emerald-800 text-slate-700 dark:text-slate-200 hover:text-emerald-700 hover:border-emerald-600 transition-colors cursor-pointer"
+              title={
+                language === 'sv'
+                  ? 'Redaktions- & forskargranskningskonsol'
+                  : language === 'fr'
+                  ? 'Console éditoriale et revue théologique'
+                  : 'Scholar & Editorial Review Console'
+              }
+              aria-label="Open Scholar & Editorial Review Console"
+            >
+              <FileCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+            </button>
+          )}
 
           {/* Dark Mode toggle */}
           <button

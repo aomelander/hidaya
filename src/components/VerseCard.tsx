@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Bookmark,
   BookmarkCheck,
@@ -23,7 +23,7 @@ import {
   User,
   Globe,
 } from 'lucide-react';
-import { QuranVerseFixture, Language } from '../types';
+import { QuranVerseFixture, Language, ExplanationDepth, PerspectiveMode } from '../types';
 import { AudioPlayer } from './AudioPlayer';
 import { SourceLadder } from './SourceLadder';
 import { LinguisticRoots } from './LinguisticRoots';
@@ -40,7 +40,10 @@ interface VerseCardProps {
   onOpenTafsir: (verse: QuranVerseFixture) => void;
   onOpenReflection: (verse: QuranVerseFixture) => void;
   onOpenHalaqah?: (verse: QuranVerseFixture) => void;
+  onOpenVisualCard?: (verse: QuranVerseFixture) => void;
   sourceIndicator?: string;
+  explanationDepth?: ExplanationDepth;
+  perspectiveMode?: PerspectiveMode;
 }
 
 const UI_TEXT = {
@@ -134,16 +137,26 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   onOpenTafsir,
   onOpenReflection,
   onOpenHalaqah,
+  onOpenVisualCard,
   sourceIndicator,
+  explanationDepth = 'context',
+  perspectiveMode = 'devotional',
 }) => {
-  const [showWhyVerse, setShowWhyVerse] = useState(true);
-  const [showSurrounding, setShowSurrounding] = useState(false);
+  const [showWhyVerse, setShowWhyVerse] = useState(explanationDepth === 'study');
+  const [showSurrounding, setShowSurrounding] = useState(explanationDepth === 'context' || explanationDepth === 'study');
   const [copied, setCopied] = useState(false);
   const [isExportingPPTX, setIsExportingPPTX] = useState(false);
+  const [activeInlineTafsirIndex, setActiveInlineTafsirIndex] = useState(0);
 
   const t = UI_TEXT[language] || UI_TEXT.en;
   const translationObj = verse.translations[language] || verse.translations.en;
-  const userReflection = StorageService.getReflection(verse.id);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const userReflection = mounted ? StorageService.getReflection(verse.id) : null;
 
   const handleCopy = () => {
     const textToCopy = `${verse.arabicText}\n\n"${translationObj.text}"\n— Surah ${verse.surahNameTransliterated} (${verse.id}) [${translationObj.translator}]`;
@@ -242,6 +255,17 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             <Presentation className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
           </button>
 
+          {onOpenVisualCard && (
+            <button
+              onClick={() => onOpenVisualCard(verse)}
+              className="p-2 rounded-lg text-slate-500 hover:text-emerald-800 dark:text-slate-400 dark:hover:text-emerald-300 hover:bg-emerald-900/10 transition-colors cursor-pointer"
+              title="Share beautiful visual verse card"
+              aria-label="Share beautiful visual verse card"
+            >
+              <Share2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+            </button>
+          )}
+
           <button
             onClick={() => onToggleBookmark(verse.id)}
             className={`p-2 rounded-lg transition-colors cursor-pointer ${
@@ -329,6 +353,143 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           <blockquote className="p-5 rounded-2xl bg-slate-50/70 dark:bg-emerald-950/20 border-l-4 border-emerald-700 dark:border-emerald-500 text-slate-800 dark:text-slate-100 text-sm sm:text-base leading-relaxed font-serif">
             &ldquo;{translationObj.text}&rdquo;
           </blockquote>
+
+          {/* Simple Explanation View (Beginner & Youth Friendly) */}
+          {explanationDepth === 'simple' && (
+            <div className="mt-3 p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/25 border border-amber-600/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wide">
+                  <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>
+                    {language === 'sv'
+                      ? 'Enkel förklaring (Lättläst sammanfattning)'
+                      : language === 'fr'
+                      ? 'Explication simple (Accessible à tous)'
+                      : 'Simple Meaning & Core Lesson (Plain Language)'}
+                  </span>
+                </span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+                  {language === 'sv' ? 'Nybörjare & Ungdom' : language === 'fr' ? 'Débutants & Jeunesse' : 'Beginner & Youth Friendly'}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-sans">
+                {verse.reflectionFramework.understand}
+              </p>
+              <div className="pt-1.5 border-t border-amber-600/20 flex items-start gap-2 text-xs text-amber-950 dark:text-amber-100">
+                <span className="font-bold shrink-0">
+                  {language === 'sv' ? 'Att bära med dig:' : language === 'fr' ? 'À emporter aujourd\'hui :' : 'Carry this today:'}
+                </span>
+                <span>{verse.reflectionFramework.applyAction}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Inline Classical Tafsir View (When in Tafsir mode) */}
+          {explanationDepth === 'tafsir' && verse.tafsirCitations && verse.tafsirCitations.length > 0 && (
+            <div className="mt-3 p-4 rounded-2xl bg-emerald-900/5 dark:bg-emerald-950/40 border border-emerald-800/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
+                  <BookOpen className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                  <span>
+                    {language === 'sv' ? 'Klassisk Tafsir (Skriftliga källor)' : language === 'fr' ? 'Tafsir Classique (Sources écrites)' : 'Classical Exegesis (Documented Tafsir)'}
+                  </span>
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {verse.tafsirCitations.length} {language === 'sv' ? 'lärda källor' : language === 'fr' ? 'sources' : 'scholarly sources'}
+                </span>
+              </div>
+
+              {/* Scholar selector tabs */}
+              <div className="flex flex-wrap gap-1.5 border-b border-emerald-900/10 dark:border-emerald-800/30 pb-2">
+                {verse.tafsirCitations.map((citation, idx) => (
+                  <button
+                    key={citation.scholar}
+                    type="button"
+                    onClick={() => setActiveInlineTafsirIndex(idx)}
+                    className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      activeInlineTafsirIndex === idx
+                        ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-xs'
+                        : 'bg-white dark:bg-emerald-900/40 text-slate-600 dark:text-slate-300 hover:text-emerald-900'
+                    }`}
+                  >
+                    <span>{citation.scholar}</span>
+                    {citation.century && (
+                      <span className="ml-1 text-[10px] opacity-75">({citation.century.split('/')[0].trim()})</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Active scholar commentary */}
+              {verse.tafsirCitations[activeInlineTafsirIndex] && (
+                <div className="space-y-1.5 text-xs sm:text-sm">
+                  <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+                    {verse.tafsirCitations[activeInlineTafsirIndex].sourceBook} ({verse.tafsirCitations[activeInlineTafsirIndex].century})
+                  </div>
+                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                    &ldquo;{verse.tafsirCitations[activeInlineTafsirIndex].text}&rdquo;
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Comparative Study View (When in Study mode) */}
+          {explanationDepth === 'study' && verse.tafsirCitations && verse.tafsirCitations.length > 1 && (
+            <div className="mt-3 p-4 rounded-2xl bg-linear-to-br from-emerald-900/5 to-amber-500/10 dark:from-emerald-950/60 dark:to-amber-950/20 border border-emerald-800/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wide">
+                  <Compass className="w-4 h-4 text-amber-600" />
+                  <span>
+                    {language === 'sv' ? 'Jämförande lärd analys (Ibn Kathir vs. Al-Sa\'di)' : language === 'fr' ? 'Analyse comparative des savants' : 'Comparative Scholar Synthesis (Ibn Kathir & Al-Sa\'di)'}
+                  </span>
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-800 text-white dark:bg-emerald-700">
+                  {language === 'sv' ? 'Djupstudie' : language === 'fr' ? 'Étude Approfondie' : 'Deep Study'}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                {verse.tafsirCitations.slice(0, 2).map((cit) => (
+                  <div key={cit.scholar} className="p-3 rounded-xl bg-white/80 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/30 space-y-1">
+                    <span className="text-[11px] font-bold text-emerald-900 dark:text-emerald-300 block">
+                      {cit.scholar} ({cit.century})
+                    </span>
+                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed italic">
+                      &ldquo;{cit.text}&rdquo;
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Inquirer Perspective Insight (When Inquirer mode is active) */}
+          {perspectiveMode === 'inquirer' && (
+            <div className="mt-3 p-4 rounded-2xl bg-linear-to-r from-amber-500/10 via-amber-500/5 to-emerald-900/5 dark:from-amber-950/30 dark:to-emerald-950/30 border border-amber-600/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wide">
+                  <Compass className="w-4 h-4 text-amber-600" />
+                  <span>
+                    {language === 'sv'
+                      ? 'Insikt för sökaren (Allmänmänsklig visdom)'
+                      : language === 'fr'
+                      ? 'Éclairage pour le chercheur de sens'
+                      : 'Inquirer Insight (Universal Ethical Dimension)'}
+                  </span>
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-800 text-emerald-100 dark:bg-emerald-700">
+                  ✓ Scholar Audited
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+                {verse.whyThisVerse.mappingExplanation}
+              </p>
+              <div className="pt-1 border-t border-amber-600/15 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                <span>Theological principle: {verse.whyThisVerse.spiritualPrinciple}</span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-medium">Usul al-Din Academic Standards</span>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* "Before & After" Surrounding Verses Section */}

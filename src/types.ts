@@ -6,6 +6,10 @@ export type LifeSphere = 'all' | 'individual' | 'family' | 'society';
 
 export type SessionDepth = '2min' | '10min' | '30min' | '60min';
 
+export type ExplanationDepth = 'simple' | 'context' | 'tafsir' | 'study';
+
+export type AudioPlaybackMode = 'quran_only' | 'quran_translation' | 'quran_reflection';
+
 export type ReciterId = 'alafasy' | 'abdulbasit' | 'husary' | 'ghamadi';
 
 export interface ReciterInfo {
@@ -157,3 +161,34 @@ export interface QueryAnalysisResponse {
   offTopicMessage?: string;
   suggestedTopics?: string[];
 }
+
+export interface LicenseRegistryEntry {
+  id: string;
+  sourceName: string;
+  sourceOrg: string;
+  contentType: 'Quran Text' | 'Translation' | 'Tafsir' | 'Audio Recitation';
+  language: string;
+  license: string;
+  canDisplay: boolean;
+  canStore: boolean;
+  canExport: boolean;
+  attributionRule: string;
+  verificationAudit: string;
+}
+
+export type PerspectiveMode = 'devotional' | 'inquirer';
+
+export type ScholarReviewStatus = 'verified' | 'reviewed' | 'pending' | 'flagged';
+
+export interface EditorialReviewEntry {
+  verseId: string;
+  reviewerName: string;
+  institution: string;
+  status: ScholarReviewStatus;
+  mappingConfidence: number; // 0 - 100%
+  theologicalNotes: string;
+  boundaryConfirmed: boolean;
+  lastAudited: string;
+}
+
+

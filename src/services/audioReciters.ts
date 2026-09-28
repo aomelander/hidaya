@@ -1,5 +1,13 @@
+/**
+ * @file audioReciters.ts
+ * @description Master catalog of verified Murattal Quran reciters with EveryAyah stream formatting.
+ */
+
 import { ReciterId, ReciterInfo } from '../types';
 
+/**
+ * List of publicly available Murattal reciters from EveryAyah.com.
+ */
 export const AVAILABLE_RECITERS: ReciterInfo[] = [
   {
     id: 'alafasy',
@@ -31,6 +39,15 @@ export const AVAILABLE_RECITERS: ReciterInfo[] = [
   },
 ];
 
+/**
+ * Computes the standardized MP3 audio stream URL for a given Surah and Ayah.
+ * Handles single ayah numbers as well as hyphenated ranges (e.g. "5-6" -> selects first ayah 5).
+ *
+ * @param surahNumber Surah number (1 to 114)
+ * @param verseNumberStr Ayah number string (e.g. "134" or "155-156")
+ * @param reciterId Chosen reciter identifier (defaults to 'alafasy')
+ * @returns Direct MP3 stream URL
+ */
 export function getAudioUrlForVerse(
   surahNumber: number,
   verseNumberStr: string,
@@ -44,6 +61,7 @@ export function getAudioUrlForVerse(
   const ayahNum = parseInt(cleanAyahStr, 10);
 
   if (isNaN(surahNumber) || isNaN(ayahNum)) {
+    // Default fallback to 3:134
     return `${reciter.baseUrl}/003134.mp3`;
   }
 

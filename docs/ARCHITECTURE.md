@@ -15,7 +15,7 @@
                                             │
                                             ▼
                     ┌───────────────────────────────────────────────┐
-                    │            Intent & Needs Parser              │
+                    │          GuidanceService & Query Parser       │
                     │  (Detects Emotion, Life Domain, Core Need)    │
                     └───────────────────────┬───────────────────────┘
                                             │
@@ -27,14 +27,14 @@
                       └─────────────────────┬─────────────────────┘
                                             │ (If cache miss & no direct match)
                                             ▼
-                              [Stage 3: Semantic Retrieval]
-                                (pgvector cosine similarity
-                                    / tokenized scoring)
+                               [Stage 3: Semantic Retrieval]
+                                 (pgvector cosine similarity
+                                     / tokenized scoring)
                                             │
                                             ▼
-                              [Stage 4: Sourced Synthesis]
-                                (Gemini 2.5 Flash Bounded LLM
-                                 JSON Schema: 0 Hallucinations)
+                               [Stage 4: Sourced Synthesis]
+                                 (Gemini 2.5 Flash Bounded LLM
+                                  JSON Schema: 0 Hallucinations)
                                             │
                                             ▼
                     ┌───────────────────────────────────────────────┐
@@ -54,9 +54,43 @@
 
 ---
 
-## 2. The 4-Stage Cost & Reliability Engine
+## 2. Frontend Layer & Modularization Strategy
 
-To ensure Hidaya operates as a permanent free service without high API costs or vendor lock-in, all queries follow a strict tiered funnel:
+The frontend is built on **Next.js (App Router)** and follows strict single-responsibility principles:
+
+```
+src/
+├── app/
+│   ├── layout.tsx                # HTML shell, metadata, and fonts
+│   ├── page.tsx                  # Lean root orchestrator (~280 lines)
+│   └── api/                      # Edge API routes
+├── components/                   # UI atoms and composite cards
+│   ├── GuidanceSearchBar.tsx     # Voice & text search input
+│   ├── EntryModeTabs.tsx         # 3-tier guidance mode selector
+│   ├── QuickChoicePills.tsx      # Curated emotion/situation pills
+│   ├── GuidanceContextBanner.tsx # Semantic mapping analysis display
+│   ├── OffTopicBanner.tsx        # Courteous out-of-scope guidance
+│   ├── VerseCard.tsx             # 4-level stratified passage card
+│   ├── SourceLadder.tsx          # 6-level epistemological ladder
+│   ├── LinguisticRoots.tsx       # Desert imagery root analysis
+│   └── Footer.tsx                # Sacred ethical disclaimer footer
+├── config/
+│   └── appConfig.ts              # Centralized defaults, storage keys, limits
+├── hooks/
+│   ├── useGuidanceSearch.ts      # Query dispatch, state & filtering hook
+│   └── useSpeechRecognition.ts   # Web Speech API lifecycle & fallback
+└── services/
+    ├── guidanceService.ts        # API caller & resilient client fallback
+    ├── storage.ts                # LocalStorage abstraction with typed keys
+    ├── audioReciters.ts          # Reciter catalog & stream generator
+    └── exportService.ts          # Presentation & PDF print manager
+```
+
+---
+
+## 3. The 4-Stage Cost & Reliability Engine
+
+To ensure Hidaya operates as a permanent free service without prohibitive API costs or vendor lock-in, all queries follow a strict tiered funnel:
 
 1. **Stage 1 — Direct Category Lookup (0 LLM Cost)**:
    - Evaluates whether the user clicked a structured category (e.g., *Anger at work*, *Bereavement*, *Decision making*).
@@ -79,7 +113,7 @@ To ensure Hidaya operates as a permanent free service without high API costs or 
 
 ---
 
-## 3. Database Schema (`PostgreSQL / Supabase`)
+## 4. Database Schema (`PostgreSQL / Supabase`)
 
 Defined in `src/lib/db/schema.sql`:
 
@@ -93,15 +127,16 @@ Defined in `src/lib/db/schema.sql`:
 
 ---
 
-## 4. Privacy & Local-First Philosophy
+## 5. Privacy & Local-First Philosophy
 
 - **Anonymous by Default**: Users are not required to create an account or sign in to seek guidance.
 - **No Story Logging**: The backend API processes query text transiently for embedding and matching. It does not persist user narrative text to a relational user table.
-- **Client-Side Reflection Storage**: Personal notes from the reflection drawer (*Understand*, *Reflect*, *Apply*) are stored locally in the browser's `localStorage` via `StorageService`.
+- **Client-Side Reflection Storage**: Personal notes from the reflection drawer (*Understand*, *Reflect*, *Apply*, *Live*) are stored locally in the browser's `localStorage` via `StorageService`.
+- **Zero-Friction Backup**: Users can export and import their private reflection journal via `JournalStorage` as encrypted/plain JSON files.
 
 ---
 
-## 5. Front-End Design Constitution
+## 6. Front-End Design Constitution
 
 - **Aesthetic**: `Quiet + warm + modern + sacred`.
 - **Colors**:
@@ -110,15 +145,7 @@ Defined in `src/lib/db/schema.sql`:
 - **Typography**:
   - Quran Arabic: Amiri Quran / Traditional Arabic font styling with line-height >= 2.4. Zero letter-spacing.
   - UI Font: Plus Jakarta Sans / Inter.
-- **Accessibility**: High-contrast mode, Arabic font scaling slider (1.0x to 1.6x), full keyboard navigation, screen reader labels.
-
----
-
-## 6. Deployment Pipeline
-
-- **Host**: Cloudflare Workers via Vinext.
-- **Edge Routing**: Global distribution with low latency.
-- **Build Output**: Static assets placed in Cloudflare Pages / KV, server functions run in Workers runtime with near-zero cold starts.
+- **Accessibility**: High-contrast mode, Arabic font scaling slider (0.9x to 1.6x), full keyboard navigation, screen reader labels.
 
 ---
 
@@ -135,7 +162,7 @@ Inspired by the Gothenburg sermon on establishing trust and contextual integrity
 6. **Level 6 — "From Quran to Life" Reflection Framework**: Bounded, human-centered reflection and daily micro-actions.
 
 ### Contextual Boundary Guard ("What this verse is NOT saying")
-To prevent verses from being stripped of their textual and historical context or used for harmful self-blame, every passage includes an explicit boundary guard explaining what the passage does *not* mean (e.g. restraining anger in conflict does not mean accepting abuse or surrendering legal rights).
+To prevent verses from being stripped of their textual and historical context or used for harmful self-blame, every passage includes an explicit boundary guard explaining what the passage does *not* mean.
 
 ### "From Quran to Life" 4-Step Action Cycle
 1. **Understand** (*Vad säger versen?*): Linguistic and context analysis.
@@ -148,13 +175,11 @@ To prevent verses from being stripped of their textual and historical context or
 ## 8. Relational Spheres, Halaqah Circles & Deep Tadabbur
 
 ### The 3 Human Spheres
-The Gothenburg sermon emphasizes that Quranic guidance does not isolate the individual in a vacuum; it spans the concentric circles of human existence:
-- **Individual & Soul**: Inner tranquility, managing acute anxiety, personal prayer, gratitude, and sincerity.
+- **Individual & Soul**: Inner tranquility, acute anxiety, personal prayer, gratitude, and sincerity.
 - **Family & Home**: Honoring aging parents, marital compassion (*Mawaddah wa Rahmah*), patient child-rearing, and upholding ties of kinship (*Silat ar-Rahim*).
 - **Society & Work**: Commercial integrity, equity in testimony (*Qist*), whistleblowing on corruption, fair dealing, and defusing workplace friction.
 
 ### Halaqah Mode (Family & Group Study Circles)
-Digital applications often encourage solitary isolation. Halaqah Mode flips this by offering a 5–10 minute guided sitting for family dinners, youth halaqahs, or friends:
 1. **Listen Together**: Shared audio recitation to bring stillness into the room.
 2. **Read Aloud**: Side-by-side Arabic with attributed translation.
 3. **Circle Discussion**: 3 authentic discussion questions tailored for group sharing.
@@ -166,7 +191,9 @@ Unveils the physical, concrete desert metaphors embedded in classical Arabic roo
 - *sh-r-h* (شرح): Surgically cutting open and expanding something tightly constricted or suffocated.
 - *h-s-n* (إحسان): Exceeding mere legal equality to offer unsolicited moral beauty.
 
-### Progressive Web App (PWA) & Offline Cache
+---
+
+## 9. Progressive Web App (PWA) & Offline Cache
+
 - Service Worker (`/public/sw.js`) provides offline caching for app shell, Daily North Star, and verified local fixtures.
 - Installable on desktop and mobile (`manifest.json`) with standalone display mode.
-

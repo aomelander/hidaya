@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useRef } from 'react';
 import { X, Bookmark, BookOpen, Trash2, ArrowRight, Sparkles, Download, Upload, Search, Filter } from 'lucide-react';
 import { QuranVerseFixture, Language } from '../types';

@@ -1,11 +1,63 @@
-node_modules
-.env*
-.next
-next-env.d.ts
-/dist/
+# ==============================================================================
+# HIDAYA (هداية) — GIT IGNORE CONFIGURATION
+# ==============================================================================
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build Outputs
+dist/
+build/
+.next/
+out/
 .vinext/
 .wrangler/
+worker-configuration.d.ts.timestamp-*
 
-.dev.vars*
-!.dev.vars.example
+# Environment Variables & Secrets (Keep .env.example tracked)
+.env
+.env*.local
+.env.development
+.env.test
+.env.production
+.dev.vars
+.dev.vars.local
 !.env.example
+!.dev.vars.example
+
+# TypeScript Build Info
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Editor & OS Files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+.idea/
+*.sublime-project
+*.sublime-workspace
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
