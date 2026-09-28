@@ -15,7 +15,13 @@ export const InquirerPerspectiveBanner: React.FC<InquirerPerspectiveBannerProps>
   onOpenGlossary,
   onSwitchPerspective,
 }) => {
-  const t = {
+  const tRecord: Record<Language, {
+    tag: string;
+    title: string;
+    description: string;
+    glossaryBtn: string;
+    switchDevotional: string;
+  }> = {
     en: {
       tag: 'Inquirer & Universal Wisdom Lens Active',
       title: 'Exploring the Quran from an Inquirer’s Perspective',
@@ -40,7 +46,17 @@ export const InquirerPerspectiveBanner: React.FC<InquirerPerspectiveBannerProps>
       glossaryBtn: 'Consulter le glossaire (Sabr, Ihsan, Rahmah)',
       switchDevotional: 'Passer en méditation spirituelle',
     },
-  }[language];
+    ar: {
+      tag: 'عدسة الباحث عن الحكمة الإنسانية مفعلة',
+      title: 'استكشاف معاني القرآن من منظور فكري وإنساني شامل',
+      description:
+        'أنت تقرأ مع إيضاحات سياقية موجهة للباحثين عن الحكمة الأخلاقية والقيم الإنسانية الكبرى. تتضمن الآيات الخلفية التاريخية والمقاصد الإيمانية دون افتراض معرفة مسبقة.',
+      glossaryBtn: 'استكشف معجم المفاهيم (صبر، إحسان، رحمة)',
+      switchDevotional: 'التحويل إلى وضع التدبر التعبدي',
+    },
+  };
+
+  const t = tRecord[language] || tRecord.en;
 
   return (
     <section

@@ -85,7 +85,24 @@ export const MyJourneyModal: React.FC<MyJourneyModalProps> = ({
 
   if (!isOpen) return null;
 
-  const t = {
+  const tRecord: Record<Language, {
+    title: string;
+    subtitle: string;
+    privacyBannerTitle: string;
+    privacyBannerText: string;
+    totalReflections: string;
+    topicsCovered: string;
+    filterAll: string;
+    emptyTitle: string;
+    emptyDesc: string;
+    understandLabel: string;
+    reflectLabel: string;
+    applyLabel: string;
+    carryLabel: string;
+    reviewAyah: string;
+    printJournal: string;
+    close: string;
+  }> = {
     en: {
       title: 'My Journey — Quran Contemplation Diary',
       subtitle: 'Your personal reflections, moral commitments, and spiritual growth milestones.',
@@ -143,7 +160,28 @@ export const MyJourneyModal: React.FC<MyJourneyModalProps> = ({
       printJournal: 'Imprimer / PDF',
       close: 'Fermer',
     },
-  }[language];
+    ar: {
+      title: 'رحلتي مع القرآن — دفتر التدبر والخواطر',
+      subtitle: 'تأملاتك الذاتية، ومواثيقك السلوكية، ومحطات نموك الروحي والأخلاقي.',
+      privacyBannerTitle: 'خصوصية كاملة ١٠٠٪ ومحفوظة في جهازك',
+      privacyBannerText:
+        'خواطرك وتأملاتك محفوظة حصرياً في متصفحك الشخصي. لا يتم رفع أو حفظ أي تفاصيل عن حياتك أو مشاعرك على خوادم خارجية.',
+      totalReflections: 'التأملات المحفوظة',
+      topicsCovered: 'المحاور الإيمانية',
+      filterAll: 'كافة المحاور',
+      emptyTitle: 'ابدأ رحلة تدبرك الشخصية',
+      emptyDesc: 'افتح أي آية كريمة واضغط على "من القرآن إلى الحياة" لتدوين تأملاتك وخطواتك العملية.',
+      understandLabel: 'الفهم والمعنى',
+      reflectLabel: 'التأمل في النفس',
+      applyLabel: 'التطبيق العملي',
+      carryLabel: 'أثر أحمله اليوم',
+      reviewAyah: 'تأمل الآية الكريمة',
+      printJournal: 'طباعة / حفظ PDF',
+      close: 'إغلاق',
+    },
+  };
+
+  const t = tRecord[language] || tRecord.en;
 
   return (
     <div

@@ -16,7 +16,15 @@ interface LinguisticRootsProps {
   language: Language;
 }
 
-const UI_TEXT = {
+const UI_TEXT: Record<Language, {
+  title: string;
+  subtitle: string;
+  rootLabel: string;
+  imageryLabel: string;
+  spiritualLabel: string;
+  viewMore: string;
+  viewLess: string;
+}> = {
   en: {
     title: "Deep Tadabbur • Arabic Linguistic Imagery",
     subtitle: "Discover the literal root imagery behind key Quranic vocabulary",
@@ -43,6 +51,15 @@ const UI_TEXT = {
     spiritualLabel: "Portée spirituelle :",
     viewMore: "Explorer les racines linguistiques",
     viewLess: "Masquer les racines",
+  },
+  ar: {
+    title: "تدبر عميق • المعاني والظلال اللغوية للجذور",
+    subtitle: "اكتشف الصور والظلال اللغوية الأصيلة الكامنة خلف مفردات القرآن العظيم",
+    rootLabel: "الجذر اللغوي:",
+    imageryLabel: "الصورة اللغوية والمعنى الأصيل:",
+    spiritualLabel: "الأثر والعمق الإيماني:",
+    viewMore: "استكشف ظلال الجذور اللغوية",
+    viewLess: "إخفاء الجذور اللغوية",
   },
 };
 

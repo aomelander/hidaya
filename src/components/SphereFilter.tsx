@@ -15,33 +15,41 @@ const SPHERE_LABELS = {
     en: "All Life Spheres",
     sv: "Alla Livssfärer",
     fr: "Toutes les Sphères",
+    ar: "كافة مجالات الحياة",
     descEn: "Across all dimensions of human experience",
     descSv: "Över alla livets dimensioner",
     descFr: "À travers toutes les dimensions",
+    descAr: "عبر كافة أبعاد التجربة الإنسانية",
   },
   individual: {
     en: "Individual & Soul",
     sv: "Individ & Själ",
     fr: "Individu & Âme",
+    ar: "الفرد والروح",
     descEn: "Anxiety, Solitude, Gratitude & Personal Worship",
     descSv: "Ångest, ensamhet, tacksamhet & inre frid",
     descFr: "Sérénité, anxiété, solitude & foi personnelle",
+    descAr: "السكينة، الخلوة، القلق، الشكر والعبادة الذاتية",
   },
   family: {
     en: "Family & Home",
     sv: "Familj & Hem",
     fr: "Famille & Foyer",
+    ar: "الأسرة والبيت",
     descEn: "Parents, Marriage, Children & Kinship",
     descSv: "Föräldrar, äktenskap, barn & familjeband",
     descFr: "Parents, couple, éducation & liens familiaux",
+    descAr: "بر الوالدين، المودة الزوجية، الأبناء وصلة الرحم",
   },
   society: {
     en: "Society & Work",
     sv: "Samhälle & Arbetsliv",
     fr: "Société & Travail",
+    ar: "المجتمع والعمل",
     descEn: "Workplace Ethics, Justice & Commercial Integrity",
     descSv: "Arbetsetik, rättvisa & samhällsansvar",
     descFr: "Éthique au travail, justice & engagement social",
+    descAr: "أخلاقيات العمل، القسط، الأمانة والنزاهة المجتمعية",
   },
 };
 
@@ -61,7 +69,9 @@ export const SphereFilter: React.FC<SphereFilterProps> = ({
     <div className="space-y-2 max-w-3xl mx-auto" role="region" aria-label="Life Spheres Filter">
       <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
         <span>
-          {language === 'sv'
+          {language === 'ar'
+            ? 'تصفية حسب مجالات الحياة:'
+            : language === 'sv'
             ? 'Filtrera efter livets sfärer:'
             : language === 'fr'
             ? 'Filtrer par sphère de vie :'

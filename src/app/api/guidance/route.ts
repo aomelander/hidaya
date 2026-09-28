@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       emotionId?: string;
       lifeDomainId?: string;
       forceLLM?: boolean;
-      language?: 'en' | 'sv' | 'fr';
+      language?: 'en' | 'sv' | 'fr' | 'ar';
     };
     const { query, emotionId, lifeDomainId, forceLLM, language = 'en' } = body;
     

@@ -9,7 +9,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Fallback logic enabled if the URL is the mock one or missing
 const useMock = !supabaseUrl || supabaseUrl === 'https://mock.supabase.co';
 
-export type LanguageCode = 'en' | 'sv' | 'fr';
+export type LanguageCode = 'en' | 'sv' | 'fr' | 'ar';
 
 export interface RetrievedTranslation {
   id?: string;
@@ -421,14 +421,16 @@ export class RetrievalService {
       const title = f.topic.title.toLowerCase();
       const slug = f.topic.slug.toLowerCase();
       const transl = f.translations.map((t) => t.text.toLowerCase()).join(' ');
+      const arabicAyah = `${f.ayah.text_clean || ''} ${f.ayah.text_uthmani || ''} ${f.surah.name_arabic || ''}`;
 
-      if (title.includes(normalized) || transl.includes(normalized)) {
+      if (title.includes(normalized) || transl.includes(normalized) || arabicAyah.includes(normalized)) {
         score += 35;
       }
       for (const token of tokens) {
         if (title.includes(token)) score += 12;
         if (slug.includes(token)) score += 8;
         if (transl.includes(token)) score += 5;
+        if (arabicAyah.includes(token)) score += 15;
       }
 
       const { selected, orderedList } = resolveTranslation(f.translations, language);

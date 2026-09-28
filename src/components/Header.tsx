@@ -84,7 +84,13 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden xs:block">
-              Quran Guidance & Reflection Companion
+              {language === 'ar'
+                ? 'رفيق التدبر والهداية القرآنية للحياة'
+                : language === 'sv'
+                ? 'Quranisk vägledning och reflektionsföljeslagare'
+                : language === 'fr'
+                ? 'Compagnon de méditation et guidance coranique'
+                : 'Quran Guidance & Reflection Companion'}
             </p>
           </div>
         </div>
@@ -94,10 +100,22 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenDisclaimer}
             className="flex items-center gap-1.5 px-3 py-1 text-xs rounded-full bg-emerald-900/5 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 border border-emerald-900/10 dark:border-emerald-700/30 transition-all cursor-pointer"
-            title="Read guidance scope & source ethics"
+            title={
+              language === 'ar'
+                ? 'دليل للمصادر القرآنية • وليس خدمة فتاوى'
+                : 'Read guidance scope & source ethics'
+            }
           >
             <Info className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-            <span>Guide to Quranic sources • Not a fatwa service</span>
+            <span>
+              {language === 'ar'
+                ? 'دليل إلى المصادر القرآنية • وليس خدمة فتاوى'
+                : language === 'sv'
+                ? 'Guide till Quraniska källor • Ej fatwa-tjänst'
+                : language === 'fr'
+                ? 'Guide vers les sources • Pas un service de fatwa'
+                : 'Guide to Quranic sources • Not a fatwa service'}
+            </span>
           </button>
         </div>
 
@@ -119,6 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
               <option value="en">English (Sahih)</option>
               <option value="sv">Svenska (Bernström)</option>
               <option value="fr">Français (Hamidullah)</option>
+              <option value="ar">العربية (التفسير الميسر)</option>
             </select>
           </div>
 
@@ -153,12 +172,12 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'bg-emerald-800 text-white border-emerald-900 dark:bg-emerald-700'
                 : 'bg-white dark:bg-emerald-950/60 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-emerald-800 hover:border-emerald-600'
             }`}
-            title="Toggle phonetic transliteration"
+            title={language === 'ar' ? 'النسخ الصوتي اللاتيني' : 'Toggle phonetic transliteration'}
             aria-pressed={showTransliteration}
             aria-label="Toggle phonetic transliteration"
           >
             <Type className="w-3.5 h-3.5" />
-            <span>Translit</span>
+            <span>{language === 'ar' ? 'اللفظ اللاتيني' : 'Translit'}</span>
           </button>
 
           {/* My Journey (Contemplation Diary) Trigger */}
@@ -167,7 +186,9 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onOpenJourney}
               className="relative flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-900/5 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 border border-emerald-900/10 dark:border-emerald-700/30 transition-all cursor-pointer"
               title={
-                language === 'sv'
+                language === 'ar'
+                  ? 'سجل رحلتي وتدبراتي القرآنية'
+                  : language === 'sv'
                   ? 'Min Resa (Quran-dagbok)'
                   : language === 'fr'
                   ? 'Mon Voyage (Journal spirituel)'
@@ -177,7 +198,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span className="hidden md:inline">
-                {language === 'sv' ? 'Min Resa' : language === 'fr' ? 'Mon Voyage' : 'My Journey'}
+                {language === 'ar' ? 'رحلتي' : language === 'sv' ? 'Min Resa' : language === 'fr' ? 'Mon Voyage' : 'My Journey'}
               </span>
               {reflectionCount > 0 && (
                 <span className="w-4 h-4 rounded-full bg-amber-500 text-emerald-950 text-[10px] font-bold flex items-center justify-center">
@@ -204,7 +225,13 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span className="hidden lg:inline">
-                {perspectiveMode === 'inquirer' ? 'Inquirer Lens' : 'Devotional Lens'}
+                {perspectiveMode === 'inquirer'
+                  ? language === 'ar'
+                    ? 'منظور الباحث'
+                    : 'Inquirer Lens'
+                  : language === 'ar'
+                  ? 'منظور التدبر'
+                  : 'Devotional Lens'}
               </span>
             </button>
           )}

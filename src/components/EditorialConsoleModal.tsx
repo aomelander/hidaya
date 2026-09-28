@@ -104,7 +104,24 @@ export const EditorialConsoleModal: React.FC<EditorialConsoleModalProps> = ({
     return matchesSearch && currentStatus === statusFilter;
   });
 
-  const t = {
+  const tRecord: Record<Language, {
+    title: string;
+    subtitle: string;
+    auditTrail: string;
+    reviewerAttribution: string;
+    confidenceScore: string;
+    statusLabel: string;
+    notesLabel: string;
+    guardrailsTitle: string;
+    guardrail1: string;
+    guardrail2: string;
+    guardrail3: string;
+    guardrail4: string;
+    guardrail5: string;
+    exportAudit: string;
+    close: string;
+    savedText: string;
+  }> = {
     en: {
       title: 'Editorial & Scholar Review Console',
       subtitle: 'Audit verse-to-topic mappings, classical sources, and contextual boundaries.',
@@ -159,7 +176,27 @@ export const EditorialConsoleModal: React.FC<EditorialConsoleModalProps> = ({
       close: 'Fermer la console',
       savedText: 'Enregistré !',
     },
-  }[language];
+    ar: {
+      title: 'لوحة التدقيق التحريري والمراجعة العلمية',
+      subtitle: 'مراجعة وتدقيق ربط الآيات بالموضوعات والمصادر التفسيرية والضوابط المنهجية.',
+      auditTrail: 'سجل التدقيق الشرعي المنهجي',
+      reviewerAttribution: 'المراجع والجهة العلمية',
+      confidenceScore: 'درجة الموثوقية المنهجية',
+      statusLabel: 'حالة التدقيق والاعتماد',
+      notesLabel: 'ملاحظات التحقيق والتفسير',
+      guardrailsTitle: 'قائمة الضوابط الشرعية الدائمة للتطبيق',
+      guardrail1: 'المستوى ١ النص القرآني: مدقق وفق مصحف المدينة بمشروع تنزيل (صفر تعديل).',
+      guardrail2: 'المستوى ٢ المعاني: منسوبة بدقة لمصادرها المعتمدة والمعاني الميسرة.',
+      guardrail3: 'المستوى ٣ التفسير: مأخوذ مباشرة من أمهات كتب التفسير (ابن كثير، السعدي).',
+      guardrail4: 'المستوى ٤ التدبر: خواطر مقيدة بوضوح، يمنع منعاً باتاً إصدار فتاوى أو أحكام قضائية.',
+      guardrail5: 'حارس السياق: تدقيق بند "ما لا تقوله هذه الآية" لمنع الاجتزاء وسوء التوظيف.',
+      exportAudit: 'تصدير تقرير التدقيق (JSON)',
+      close: 'إغلاق اللوحة',
+      savedText: 'تم الحفظ بنجاح!',
+    },
+  };
+
+  const t = tRecord[language] || tRecord.en;
 
   return (
     <div

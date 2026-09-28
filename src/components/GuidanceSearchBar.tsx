@@ -31,6 +31,13 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
   language,
 }) => {
   const getPlaceholder = () => {
+    if (language === 'ar') {
+      return activeMode === 'moment'
+        ? "بماذا تشعر الآن؟ (مثال: 'الغضب في العمل'، 'الحيرة في اتخاذ قرار')..."
+        : activeMode === 'questions'
+        ? "ما السؤال الوجودي الذي يشغل قلبك؟ (مثال: 'الحكمة من الابتلاء')..."
+        : "ما هو الخلق الذي تسعى لتزكيته؟ (مثال: 'الصبر'، 'حفظ اللسان')...";
+    }
     if (language === 'sv') {
       return activeMode === 'moment'
         ? "Vad känner du? (t.ex. 'Vrede på jobbet', 'Orolig inför beslut')..."
@@ -92,11 +99,15 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
               className="px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white text-xs sm:text-sm font-bold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
             >
               {isAnalyzing
-                ? language === 'sv'
+                ? language === 'ar'
+                  ? 'جارٍ البحث...'
+                  : language === 'sv'
                   ? 'Söker...'
                   : language === 'fr'
                   ? 'Recherche...'
                   : 'Seeking...'
+                : language === 'ar'
+                ? 'طلب الهداية'
                 : language === 'sv'
                 ? 'Sök'
                 : language === 'fr'

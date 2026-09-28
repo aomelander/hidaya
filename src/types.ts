@@ -1,4 +1,4 @@
-export type Language = 'en' | 'sv' | 'fr';
+export type Language = 'en' | 'sv' | 'fr' | 'ar';
 
 export type EntryMode = 'moment' | 'questions' | 'growth';
 
@@ -10,7 +10,7 @@ export type ExplanationDepth = 'simple' | 'context' | 'tafsir' | 'study';
 
 export type AudioPlaybackMode = 'quran_only' | 'quran_translation' | 'quran_reflection';
 
-export type ReciterId = 'alafasy' | 'abdulbasit' | 'husary' | 'ghamadi';
+export type ReciterId = 'alafasy' | 'abdulbasit' | 'husary' | 'minshawi' | 'ghamadi';
 
 export interface ReciterInfo {
   id: ReciterId;
@@ -35,11 +35,13 @@ export interface LinguisticRoot {
     en: string;
     sv: string;
     fr: string;
+    ar?: string;
   };
   spiritualDepth: {
     en: string;
     sv: string;
     fr: string;
+    ar?: string;
   };
 }
 
@@ -48,11 +50,13 @@ export interface HalaqahPrompts {
     en: string[];
     sv: string[];
     fr: string[];
+    ar?: string[];
   };
   familyCommitment: {
     en: string;
     sv: string;
     fr: string;
+    ar?: string;
   };
 }
 
@@ -79,6 +83,7 @@ export interface SurroundingVerse {
     en: string;
     sv: string;
     fr: string;
+    ar?: string;
   };
 }
 
@@ -107,6 +112,10 @@ export interface QuranVerseFixture {
       text: string;
       translator: string;
     };
+    ar?: {
+      text: string;
+      translator: string;
+    };
   };
   audioUrl: string; // Reciter audio stream (Mishary Alafasy)
   category: EntryMode;
@@ -120,6 +129,7 @@ export interface QuranVerseFixture {
     en: string;
     sv: string;
     fr: string;
+    ar?: string;
   };
   surroundingVerses?: {
     before?: SurroundingVerse;

@@ -28,7 +28,18 @@ export const VisualCardModal: React.FC<VisualCardModalProps> = ({
 
   const translationObj = verse.translations[language] || verse.translations.en;
 
-  const t = {
+  const tRecord: Record<Language, {
+    title: string;
+    subtitle: string;
+    themeSand: string;
+    themeEmerald: string;
+    themeMidnight: string;
+    downloadPNG: string;
+    copyImage: string;
+    copyText: string;
+    copiedText: string;
+    close: string;
+  }> = {
     en: {
       title: 'Shareable Quranic Contemplation Card',
       subtitle: 'Create a beautiful, distraction-free visual card to share with family or on social media.',
@@ -65,7 +76,21 @@ export const VisualCardModal: React.FC<VisualCardModalProps> = ({
       copiedText: 'Copié !',
       close: 'Fermer',
     },
-  }[language];
+    ar: {
+      title: 'بطاقة تدبر قرآنية للمشاركة',
+      subtitle: 'أنشئ بطاقة بصرية جميلة وروحانية لمشاركتها مع العائلة أو عبر منصات التواصل الاجتماعي.',
+      themeSand: 'رمال دافئة',
+      themeEmerald: 'زمرد مبارك',
+      themeMidnight: 'ليل هادئ',
+      downloadPNG: 'تحميل الصورة (PNG)',
+      copyImage: 'نسخ الصورة',
+      copyText: 'نسخ النص',
+      copiedText: 'تم النسخ!',
+      close: 'إغلاق',
+    },
+  };
+
+  const t = tRecord[language] || tRecord.en;
 
   // Helper to draw canvas for PNG export
   const generateCanvasImage = async (): Promise<string | null> => {

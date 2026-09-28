@@ -27,7 +27,23 @@ interface ReflectionDrawerProps {
   onReflectionSaved?: () => void;
 }
 
-const UI_STRINGS = {
+const UI_STRINGS: Record<Language, {
+  drawerTitle: string;
+  drawerSubtitle: string;
+  step1Title: string;
+  step2Title: string;
+  step2Placeholder: string;
+  step3Title: string;
+  step3Placeholder: string;
+  step4Title: string;
+  step4Prompt: string;
+  step4Placeholder: string;
+  privacyNote: string;
+  exportPPTX: string;
+  exportPDF: string;
+  saveBtn: string;
+  savedBtn: string;
+}> = {
   en: {
     drawerTitle: "From Quran to Life • 4-Step Reflection",
     drawerSubtitle: "Personal Contemplation Flow & Daily Living",
@@ -78,6 +94,23 @@ const UI_STRINGS = {
     exportPDF: "Imprimer / PDF",
     saveBtn: "Enregistrer",
     savedBtn: "Enregistré !",
+  },
+  ar: {
+    drawerTitle: "من القرآن إلى الحياة • دورة التدبر الرباعية",
+    drawerSubtitle: "مسار التدبر القلبي والعمل بمقتضى التوجيه القرآني",
+    step1Title: "الخطوة ١: الفهم (المعاني والظلال اللغوية والسياقية)",
+    step2Title: "الخطوة ٢: التأمل (محاسبة النفس وواقع القلب)",
+    step2Placeholder: "اكتب مشاعرك الصادقة، والعقبات النفسية، أو الموقف الذي تعايشه الآن...",
+    step3Title: "الخطوة ٣: التطبيق (خطوة عملية وسلوك محدد)",
+    step3Placeholder: "ما هو الفعل أو القرار أو الدعاء أو التوقف السلوكي الذي تعزم على تطبيقه؟",
+    step4Title: "الخطوة ٤: المعايشة والحمل (العيش بنور القرآن)",
+    step4Prompt: "كيف يظهر هذا المعنى في أسلوب حياتك؟ وما هو الأثر الذي تحمله في قلبك اليوم؟",
+    step4Placeholder: "عاهد نفسك على تحول في التفكير أو خلق تلتزم به في تعاملك اليوم مع الناس...",
+    privacyNote: "تُحفظ خواطرك وتأملاتك بخصوصية تامة داخل متصفحك المحلي دون أي تخزين خارجي.",
+    exportPPTX: "تصدير عرض PPTX",
+    exportPDF: "طباعة / ملف PDF",
+    saveBtn: "حفظ التدبر",
+    savedBtn: "تم الحفظ بنجاح!",
   },
 };
 

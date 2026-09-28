@@ -15,6 +15,7 @@ import {
 import { ReciterId, Language } from '../types';
 import { AVAILABLE_RECITERS, getAudioUrlForVerse } from '../services/audioReciters';
 import { StorageService } from '../services/storage';
+import { SpeechService } from '../services/speechSynthesisService';
 
 interface AudioPlayerProps {
   surahVerseId: string;
@@ -112,7 +113,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const speakTranslation = () => {
-    if (!translationText || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    // In Arabic mode, prioritize studio recitation with zero synthetic speech
+    if (language === 'ar' || !translationText) {
       if (isLooping && audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play().then(() => setIsPlaying(true));
@@ -124,28 +126,27 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
 
     try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(translationText);
-      utterance.lang = language === 'sv' ? 'sv-SE' : language === 'fr' ? 'fr-FR' : 'en-US';
-      utterance.rate = 0.95;
+      SpeechService.cancel();
+      setIsSpeakingTranslation(true);
 
-      utterance.onstart = () => setIsSpeakingTranslation(true);
-      utterance.onend = () => {
-        setIsSpeakingTranslation(false);
-        if (isLooping && audioRef.current) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().then(() => setIsPlaying(true));
-        } else {
+      SpeechService.speak(translationText, language, {
+        rate: 0.92,
+        onStart: () => setIsSpeakingTranslation(true),
+        onEnd: () => {
+          setIsSpeakingTranslation(false);
+          if (isLooping && audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().then(() => setIsPlaying(true));
+          } else {
+            setIsPlaying(false);
+            setCurrentTime(0);
+          }
+        },
+        onError: () => {
+          setIsSpeakingTranslation(false);
           setIsPlaying(false);
-          setCurrentTime(0);
-        }
-      };
-      utterance.onerror = () => {
-        setIsSpeakingTranslation(false);
-        setIsPlaying(false);
-      };
-
-      window.speechSynthesis.speak(utterance);
+        },
+      });
     } catch {
       setIsSpeakingTranslation(false);
       setIsPlaying(false);

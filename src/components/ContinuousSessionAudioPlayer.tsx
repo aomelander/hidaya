@@ -20,6 +20,8 @@ import {
 import { QuranVerseFixture, Language, AudioPlaybackMode, ReciterId } from '../types';
 import { AVAILABLE_RECITERS, getAudioUrlForVerse } from '../services/audioReciters';
 import { StorageService } from '../services/storage';
+import { SpeechService } from '../services/speechSynthesisService';
+import { getLocalizedReflection } from '../data/localizedReflections';
 
 interface ContinuousSessionAudioPlayerProps {
   verses: QuranVerseFixture[];
@@ -66,9 +68,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
 
   // Clean up speech synthesis on unmount or pause
   const stopSpeech = useCallback(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
+    SpeechService.cancel();
   }, []);
 
   const handleNext = useCallback(() => {
@@ -94,29 +94,27 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     }
   }, [currentIndex, stopSpeech]);
 
-  // Speech helper for translation and reflection
+  // Speech helper for translation and reflection with strict single-language isolation
   const speakText = useCallback(
     (text: string, onComplete: () => void) => {
-      if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
+      if (!text) {
         onComplete();
         return;
       }
 
-      stopSpeech();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = language === 'sv' ? 'sv-SE' : language === 'fr' ? 'fr-FR' : 'en-US';
-      utterance.rate = playbackRate * 0.95;
-
-      utterance.onend = () => {
+      // Arabic mode optimization: prioritize studio EveryAyah recitation with 0 synthetic speech
+      if (language === 'ar') {
         onComplete();
-      };
-      utterance.onerror = () => {
-        onComplete();
-      };
+        return;
+      }
 
-      window.speechSynthesis.speak(utterance);
+      SpeechService.speak(text, language, {
+        rate: playbackRate * 0.92,
+        onEnd: onComplete,
+        onError: () => onComplete(),
+      });
     },
-    [language, playbackRate, stopSpeech]
+    [language, playbackRate]
   );
 
   // Playback state controller
@@ -137,11 +135,11 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   const handleAudioEnded = useCallback(() => {
     if (!isPlaying) return;
 
-    if (playbackMode === 'quran_only') {
-      // Advance to next verse after short 1s quiet pause
+    // In Arabic mode, or when 'quran_only' is selected, advance directly with zero robotic TTS
+    if (playbackMode === 'quran_only' || language === 'ar') {
       setTimeout(() => {
         handleNext();
-      }, 1000);
+      }, 1200);
       return;
     }
 
@@ -150,11 +148,11 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       const translation = currentVerse?.translations[language]?.text || currentVerse?.translations.en.text;
 
       speakText(translation, () => {
-        if (playbackMode === 'quran_reflection' && currentVerse?.reflectionFramework) {
+        if (playbackMode === 'quran_reflection' && currentVerse) {
           setPlaybackPhase('reflection');
-          const prompt =
-            currentVerse.reflectionFramework.reflectPrompt ||
-            currentVerse.reflectionFramework.understand;
+          // Retrieve strictly localized reflection prompt to avoid language-mixing
+          const localizedRefl = getLocalizedReflection(currentVerse.id, language);
+          const prompt = localizedRefl.reflectPrompt || localizedRefl.understand;
 
           setTimeout(() => {
             speakText(prompt, () => {

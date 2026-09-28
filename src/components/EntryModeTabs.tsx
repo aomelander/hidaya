@@ -42,14 +42,22 @@ export const EntryModeTabs: React.FC<EntryModeTabsProps> = ({
           role="tab"
         >
           <span className="block font-bold">
-            {language === 'sv' ? '1. I stunden' : language === 'fr' ? '1. En ce moment' : '1. In This Moment'}
+            {language === 'ar'
+              ? '١. في هذه اللحظة'
+              : language === 'sv'
+              ? '1. I stunden'
+              : language === 'fr'
+              ? '1. En ce moment'
+              : '1. In This Moment'}
           </span>
           <span
             className={`text-[10px] hidden sm:block ${
               activeMode === 'moment' ? 'text-emerald-100' : 'text-slate-400'
             }`}
           >
-            {language === 'sv'
+            {language === 'ar'
+              ? 'المشاعر والمواقف'
+              : language === 'sv'
               ? 'Känslor & situationer'
               : language === 'fr'
               ? 'Émotions & situations'
@@ -69,14 +77,22 @@ export const EntryModeTabs: React.FC<EntryModeTabsProps> = ({
           role="tab"
         >
           <span className="block font-bold">
-            {language === 'sv' ? '2. Stora frågor' : language === 'fr' ? '2. Grandes questions' : '2. Big Questions'}
+            {language === 'ar'
+              ? '٢. أسئلة كبرى'
+              : language === 'sv'
+              ? '2. Stora frågor'
+              : language === 'fr'
+              ? '2. Grandes questions'
+              : '2. Big Questions'}
           </span>
           <span
             className={`text-[10px] hidden sm:block ${
               activeMode === 'questions' ? 'text-emerald-100' : 'text-slate-400'
             }`}
           >
-            {language === 'sv'
+            {language === 'ar'
+              ? 'الغاية، العدل، الموت'
+              : language === 'sv'
               ? 'Syfte, rättvisa, död'
               : language === 'fr'
               ? 'Sens, justice, mort'
@@ -96,14 +112,22 @@ export const EntryModeTabs: React.FC<EntryModeTabsProps> = ({
           role="tab"
         >
           <span className="block font-bold">
-            {language === 'sv' ? '3. Karaktär & växande' : language === 'fr' ? '3. Caractère & élévation' : '3. Character & Growth'}
+            {language === 'ar'
+              ? '٣. التزكية والخلق'
+              : language === 'sv'
+              ? '3. Karaktär & växande'
+              : language === 'fr'
+              ? '3. Caractère & élévation'
+              : '3. Character & Growth'}
           </span>
           <span
             className={`text-[10px] hidden sm:block ${
               activeMode === 'growth' ? 'text-emerald-100' : 'text-slate-400'
             }`}
           >
-            {language === 'sv'
+            {language === 'ar'
+              ? 'الصبر، التواضع، حفظ اللسان'
+              : language === 'sv'
               ? 'Tålamod, ödmjukhet, gott tal'
               : language === 'fr'
               ? 'Patience, humilité, bonté'
@@ -121,7 +145,9 @@ export const EntryModeTabs: React.FC<EntryModeTabsProps> = ({
         >
           <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
           <span>
-            {language === 'sv'
+            {language === 'ar'
+              ? 'لست متأكداً مما تحتاجه؟ دع هداية ترشد قلبك'
+              : language === 'sv'
               ? 'Osäker på vad du behöver? Låt Hidaya guida ditt hjärta'
               : language === 'fr'
               ? 'Vous ne savez pas par où commencer ? Laissez Hidaya vous guider'

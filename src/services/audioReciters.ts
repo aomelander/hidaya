@@ -31,6 +31,13 @@ export const AVAILABLE_RECITERS: ReciterInfo[] = [
     baseUrl: 'https://everyayah.com/data/Husary_128kbps',
   },
   {
+    id: 'minshawi',
+    name: 'Muhammad Siddiq Al-Minshawi',
+    subname: 'Egypt • Deep Reverence & Tearful Tone',
+    style: 'Murattal (Khashi\')',
+    baseUrl: 'https://everyayah.com/data/Minshawy_Murattal_128kbps',
+  },
+  {
     id: 'ghamadi',
     name: 'Saad Al-Ghamdi',
     subname: 'Saudi Arabia • Melodic Warmth',

@@ -102,6 +102,23 @@ const UI_STRINGS: Record<Language, {
     todayLabel: "Aujourd'hui",
     collapse: "Réduire",
     expand: "Déployer l'Étoile"
+  },
+  ar: {
+    badge: "نجمة الهداية اليومية • Daily North Star",
+    subheading: "تدبر قرآني يومي مبارك لترسيخ يومك في نور الوحي الإلهي.",
+    sourceAttribution: "الرسم العثماني المعتمد",
+    contextHeader: "سياق الآية وأسباب النزول",
+    sitWithThis: "تأمل في هذا اليوم:",
+    carryThis: "احمل هذا المعنى في قلبك وعملك اليوم:",
+    openSessionBtn: "استكشف في جلسة تدبر معمقة",
+    reflectBtn: "سجل خواطرك في دفتر التدبر",
+    copied: "تم النسخ بنجاح!",
+    copy: "مشاركة",
+    nextStar: "اليوم التالي",
+    prevStar: "اليوم السابق",
+    todayLabel: "اليوم",
+    collapse: "طي النافذة",
+    expand: "عرض نجمة الهداية"
   }
 };
 

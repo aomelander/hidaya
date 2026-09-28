@@ -12,49 +12,53 @@ interface ExplanationDepthSelectorProps {
 
 interface DepthMode {
   id: ExplanationDepth;
-  label: { en: string; sv: string; fr: string };
-  sublabel: { en: string; sv: string; fr: string };
+  label: { en: string; sv: string; fr: string; ar: string };
+  sublabel: { en: string; sv: string; fr: string; ar: string };
   icon: React.ReactNode;
 }
 
 const MODES: DepthMode[] = [
   {
     id: 'simple',
-    label: { en: 'Simple', sv: 'Enkel', fr: 'Simple' },
+    label: { en: 'Simple', sv: 'Enkel', fr: 'Simple', ar: 'ميسر' },
     sublabel: {
       en: 'Plain language takeaway (Beginner & Youth friendly)',
       sv: 'Klar och enkel sammanfattning (Lättläst för unga & nyfikna)',
       fr: 'Essentiel en langage clair (Accessible à tous)',
+      ar: 'المعنى الميسر والخلاصة العملية الواضحة',
     },
     icon: <Sparkles className="w-3.5 h-3.5" />,
   },
   {
     id: 'context',
-    label: { en: 'Context', sv: 'Sammanhang', fr: 'Contexte' },
+    label: { en: 'Context', sv: 'Sammanhang', fr: 'Contexte', ar: 'السياق' },
     sublabel: {
       en: 'Historical setting & causes of revelation',
       sv: 'Historisk bakgrund och uppenbarelsens orsak',
       fr: 'Circonstances et contexte de révélation',
+      ar: 'السياق التاريخي وأسباب النزول الأصيلة',
     },
     icon: <History className="w-3.5 h-3.5" />,
   },
   {
     id: 'tafsir',
-    label: { en: 'Classical Tafsir', sv: 'Klassisk Tafsir', fr: 'Tafsir Classique' },
+    label: { en: 'Classical Tafsir', sv: 'Klassisk Tafsir', fr: 'Tafsir Classique', ar: 'تفسير مأثور' },
     sublabel: {
       en: 'Exegesis from Ibn Kathir & Al-Sa\'di',
       sv: 'Kommentarer från Ibn Kathir & Al-Sa\'di',
       fr: 'Commentaires d\'Ibn Kathir & Al-Sa\'di',
+      ar: 'تفسير ابن كثير والسعدي والميسر',
     },
     icon: <Scroll className="w-3.5 h-3.5" />,
   },
   {
     id: 'study',
-    label: { en: 'Comparative Study', sv: 'Jämförande studie', fr: 'Étude comparative' },
+    label: { en: 'Comparative Study', sv: 'Jämförande studie', fr: 'Étude comparative', ar: 'دراسة مقارنة' },
     sublabel: {
       en: 'Cross-scholar analysis & linguistic roots',
       sv: 'Lärda jämförelser & språkliga rotord',
       fr: 'Analyse comparative & racines linguistiques',
+      ar: 'دراسة دلالية وجذور لغوية مقارنة',
     },
     icon: <GraduationCap className="w-3.5 h-3.5" />,
   },
@@ -68,7 +72,7 @@ export const ExplanationDepthSelector: React.FC<ExplanationDepthSelectorProps> =
   return (
     <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl bg-stone-100 dark:bg-emerald-950/60 border border-stone-200 dark:border-emerald-800/40">
       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-2 py-1 flex items-center gap-1">
-        <span>{language === 'sv' ? 'Förklaringsnivå:' : language === 'fr' ? 'Niveau d\'explication:' : 'Explanation Level:'}</span>
+        <span>{language === 'ar' ? 'مستوى الشرح والبيان:' : language === 'sv' ? 'Förklaringsnivå:' : language === 'fr' ? 'Niveau d\'explication:' : 'Explanation Level:'}</span>
       </span>
 
       <div className="flex flex-wrap sm:flex-nowrap gap-1 w-full sm:w-auto flex-1">

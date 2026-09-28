@@ -40,16 +40,19 @@ const DIMENSIONS: DimensionOption[] = [
       en: 'Comfort & Relief',
       sv: 'Tröst & Lättnad',
       fr: 'Réconfort & Soulagement',
+      ar: 'السكينة وتفريج الهموم',
     },
     description: {
       en: 'When your chest feels tight, sorrowful, or wounded by loss.',
       sv: 'När bröstet känns trångt, hjärtat sörjer eller bär på smärta.',
       fr: 'Quand la poitrine se serre, dans le deuil ou la détresse émotionnelle.',
+      ar: 'حين يضيق الصدر، أو يحزن القلب، أو تؤلمك الخسارة ومرارة الفقد.',
     },
     query: {
       en: 'Heartache, sadness, seeking comfort and relief with hardship',
       sv: 'Tröst i sorg, oroligt hjärta, lättnad efter svårighet',
       fr: 'Recherche de réconfort, tristesse, apaisement face à l\'épreuve',
+      ar: 'الحزن، ضيق الصدر، انشراح الصدر، الفرج بعد الشدة',
     },
     mode: 'moment',
   },
@@ -60,16 +63,19 @@ const DIMENSIONS: DimensionOption[] = [
       en: 'Clarity in Confusion',
       sv: 'Klarhet i Förvirring',
       fr: 'Clarté dans le Doute',
+      ar: 'البصيرة وانجلاء الحيرة',
     },
     description: {
       en: 'When you stand at a crossroads and cannot see the next step.',
       sv: 'När du står vid ett vägskäl och har svårt att fatta beslut.',
       fr: 'Quand vous êtes à la croisée des chemins et hésitez sur la décision.',
+      ar: 'حين تقف عند مفترق طرق وتشوش الرؤية في اتخاذ القرار الصائب.',
     },
     query: {
       en: 'Difficult decision, confusion, seeking divine guidance and clarity',
       sv: 'Svårt beslut, förvirring, söker vägledning och klarhet',
       fr: 'Décision difficile, doute, recherche de clarté et d\'orientation',
+      ar: 'الحيرة في القرار، طلب الهداية والبصيرة، الاستخارة والتوكل',
     },
     mode: 'moment',
   },
@@ -80,16 +86,19 @@ const DIMENSIONS: DimensionOption[] = [
       en: 'Patience & Inner Strength',
       sv: 'Tålamod & Inre Styrka',
       fr: 'Patience & Force Intérieure',
+      ar: 'الصبر وقوة الإرادة',
     },
     description: {
       en: 'When friction, exhaustion, or provocative people test your limits.',
       sv: 'När konflikter, utmattning eller provokationer sätter dig på prov.',
       fr: 'Quand les conflits, la fatigue ou l\'injustice éprouvent votre endurance.',
+      ar: 'عند النزاعات، أو الإرهاق، أو استفزازات الآخرين التي تختبر ثباتك.',
     },
     query: {
       en: 'Patience in adversity, restraining anger, enduring hardship',
       sv: 'Tålamod i motgång, behärska vrede, styrka att uthärda',
       fr: 'Patience dans l\'adversité, maîtriser la colère, force d\'endurer',
+      ar: 'الصبر على البلاء، كظم الغيظ، الثبات وقوة التحمل',
     },
     mode: 'growth',
   },
@@ -100,16 +109,19 @@ const DIMENSIONS: DimensionOption[] = [
       en: 'Perspective & Meaning',
       sv: 'Perspektiv & Livsmening',
       fr: 'Perspective & Sens de la Vie',
+      ar: 'فهم حكمة الابتلاء ومعنى الحياة',
     },
     description: {
       en: 'When life feels unfair, small, or you question why trials happen.',
       sv: 'När livet känns orättvist och du frågar dig varför prövningar sker.',
       fr: 'Quand les épreuves semblent injustes et que vous cherchez le sens profond.',
+      ar: 'حين تتساءل عن حكمة الأقدار ولماذا تحدث الابتلاءات في هذه الحياة.',
     },
     query: {
       en: 'Why do we suffer? Purpose of life and divine wisdom in trials',
       sv: 'Varför prövas människan? Livets syfte och Guds vishet i motgång',
       fr: 'Pourquoi la souffrance ? Le sens de la vie et la sagesse divine dans l\'épreuve',
+      ar: 'حكمة الابتلاء، الرضا بالقضاء والقدر، معنى الحياة وغاية الخلق',
     },
     mode: 'questions',
   },
@@ -120,16 +132,19 @@ const DIMENSIONS: DimensionOption[] = [
       en: 'Moral Direction & Character',
       sv: 'Moralisk Riktning & Karaktär',
       fr: 'Direction Morale & Caractère',
+      ar: 'تزكية النفس وحسن الخلق',
     },
     description: {
       en: 'When you want to anchor your character, speech, and integrity.',
       sv: 'När du vill stärka din karaktär, ditt tal och din hederlighet.',
       fr: 'Quand vous désirez parfaire votre comportement et la pureté de vos actes.',
+      ar: 'حين ترغب في تزكية أخلاقك، وضبط لسانك، وترسيخ الاستقامة والنزاهة.',
     },
     query: {
       en: 'How to live righteously, noble character, humility, pure speech',
       sv: 'Hur lever man rättfärdigt? God karaktär, ödmjukhet, gott tal',
       fr: 'Comment bien agir ? Noble caractère, humilité et parole bienveillante',
+      ar: 'حسن الخلق، تزكية النفس، عفة اللسان، التواضع والإحسان',
     },
     mode: 'growth',
   },
@@ -157,9 +172,24 @@ const QUICK_FEELINGS: Record<Language, Array<{ label: string; text: string }>> =
     { label: "En deuil ou solitaire", text: "Je ressens un profond chagrin et une solitude pesante" },
     { label: "Perdu et sans repères", text: "Je me sens spirituellement vide et ne sais plus quelle direction prendre" },
   ],
+  ar: [
+    { label: "أشعر بثقل الأعباء وتراكم الهموم", text: "أشعر بالإرهاق الشديد وتراكم الضغوطات على كاهلي" },
+    { label: "اضطراب وقلق في القلب", text: "أشعر بضيق واضطراب في قلبي وأحتاج إلى سكينة وطمأنينة" },
+    { label: "غضب وألم من الظلم", text: "أشعر بغيظ شديد وألم من معاملة ظالمة أو مجحفة" },
+    { label: "حزن وفقد ووحدة", text: "أشعر بحزن عميق وفقد ووحدة وأحتاج إلى المواساة" },
+    { label: "حيرة وفراغ روحي", text: "أشعر بفتور وفراغ روحي وأبحث عن الوجهة الصحيحة لحياتي" },
+  ],
 };
 
-const UI_TEXT = {
+const UI_TEXT: Record<Language, {
+  title: string;
+  subtitle: string;
+  step1Title: string;
+  step1Placeholder: string;
+  step2Title: string;
+  submitBtn: string;
+  closeBtn: string;
+}> = {
   en: {
     title: "I don't know what I need",
     subtitle: "When words are hard to find, let Hidaya gently guide your reflection.",
@@ -186,6 +216,15 @@ const UI_TEXT = {
     step2Title: "2. Laquelle de ces dimensions résonne le plus avec votre besoin ?",
     submitBtn: "Découvrir les passages coraniques",
     closeBtn: "Fermer",
+  },
+  ar: {
+    title: "لست متأكداً مما أحتاجه الآن",
+    subtitle: "حين تعجز الكلمات عن التعبير، تدلك هداية برفق إلى نور الوحي.",
+    step1Title: "١. خذ نفساً عميقاً هادئاً. ما الذي يثقل قلبك في هذه اللحظة؟",
+    step1Placeholder: "صف ما يجول في خاطرك بكلماتك البسيطة، أو اختر من الحالات أدناه...",
+    step2Title: "٢. أي من هذه الأبواب تشعر بأنه الأقرب لما تبحث عنه روحك؟",
+    submitBtn: "استكشف الآيات القرآنية المناسبة",
+    closeBtn: "إغلاق",
   },
 };
 

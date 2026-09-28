@@ -20,14 +20,14 @@ export const InquirerGlossaryModal: React.FC<InquirerGlossaryModalProps> = ({
 
   if (!isOpen) return null;
 
-  const filteredGlossary = INQUIRER_GLOSSARY.filter(
-    (g) =>
-      g.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      g.arabic.includes(searchTerm) ||
-      g.universalLesson[language].toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const t = {
+  const tRecord: Record<Language, {
+    title: string;
+    subtitle: string;
+    searchPlaceholder: string;
+    universalLesson: string;
+    misconception: string;
+    close: string;
+  }> = {
     en: {
       title: 'Inquirer & Curious Seeker Glossary',
       subtitle: 'Universal ethical insights from Quranic terms with common misconceptions clarified.',
@@ -52,7 +52,26 @@ export const InquirerGlossaryModal: React.FC<InquirerGlossaryModalProps> = ({
       misconception: 'Idée reçue clarifiée',
       close: 'Fermer le glossaire',
     },
-  }[language];
+    ar: {
+      title: 'معجم البصائر والمفاهيم القرآنية الكبرى',
+      subtitle: 'أبعاد إيمانية وأخلاقية شاملة للمصطلحات القرآنية مع توضيح وتصحيح المفاهيم الخاطئة الشائعة.',
+      searchPlaceholder: 'ابحث في المصطلحات (صبر، إحسان، توكل، رحمة)...',
+      universalLesson: 'البعد الأخلاقي والإنساني الشامل',
+      misconception: 'تصحيح المفهوم الخاطئ الشائع',
+      close: 'إغلاق المعجم',
+    },
+  };
+
+  const t = tRecord[language] || tRecord.en;
+
+  const filteredGlossary = INQUIRER_GLOSSARY.filter((g) => {
+    const lesson = g.universalLesson[language] || g.universalLesson.en;
+    return (
+      g.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      g.arabic.includes(searchTerm) ||
+      lesson.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   return (
     <div
@@ -127,7 +146,7 @@ export const InquirerGlossaryModal: React.FC<InquirerGlossaryModalProps> = ({
                   ✦ {t.universalLesson}
                 </span>
                 <p className="text-slate-700 dark:text-slate-200 leading-relaxed font-sans">
-                  {item.universalLesson[language]}
+                  {item.universalLesson[language] || item.universalLesson.en}
                 </p>
               </div>
 
@@ -138,7 +157,7 @@ export const InquirerGlossaryModal: React.FC<InquirerGlossaryModalProps> = ({
                   <span>{t.misconception}</span>
                 </span>
                 <p className="text-slate-800 dark:text-slate-200 leading-relaxed">
-                  {item.misconceptionClarified[language]}
+                  {item.misconceptionClarified[language] || item.misconceptionClarified.en}
                 </p>
               </div>
             </div>

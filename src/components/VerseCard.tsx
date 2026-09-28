@@ -125,6 +125,32 @@ const UI_TEXT = {
     sphereFamily: "Famille & Foyer",
     sphereSociety: "Société & Travail",
   },
+  ar: {
+    copyTooltip: "نسخ نص الآية والمعنى",
+    exportSlideTooltip: "تصدير شرائح العرض (PowerPoint)",
+    bookmarkTooltip: "حفظ الآية في الإشارات المرجعية",
+    removeBookmarkTooltip: "إزالة من الإشارات المرجعية",
+    level1Badge: "المستوى ١: الرسم العثماني المعتمد",
+    tashkeelVocalized: "مشكول بالكامل",
+    level2Badge: "المستوى ٢: المعنى والتفسير الميسر",
+    whyVerseTitle: "لماذا هذه الآية؟ (سياق الهداية والربط الموضوعي)",
+    emotionAddressed: "المشاعر المعالجة",
+    lifeSituation: "الموقف الحياتي",
+    underlyingNeed: "الحاجة الروحية والوجدانية",
+    spiritualPrinciple: "المبدأ الإيماني",
+    mappingFactors: "عوامل الربط:",
+    notSayingTitle: "السياق الحامي: ما لا تعنيه هذه الآية",
+    surroundingToggle: "عرض السياق القرآني (الآيات السابقة واللاحقة)",
+    hideSurrounding: "إخفاء الآيات المحيطة",
+    beforeVerse: "الآية السابقة",
+    afterVerse: "الآية اللاحقة",
+    openTafsirBtn: "المستوى ٣: التفسير المأثور الأصيل",
+    openReflectionBtn: "المستوى ٤: من القرآن إلى الحياة",
+    openHalaqahBtn: "حلقة التدبر الأسري",
+    sphereIndividual: "الفرد والروح",
+    sphereFamily: "الأسرة والبيت",
+    sphereSociety: "المجتمع والعمل",
+  },
 };
 
 export const VerseCard: React.FC<VerseCardProps> = ({
@@ -149,7 +175,13 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const [activeInlineTafsirIndex, setActiveInlineTafsirIndex] = useState(0);
 
   const t = UI_TEXT[language] || UI_TEXT.en;
-  const translationObj = verse.translations[language] || verse.translations.en;
+  const translationObj =
+    language === 'ar'
+      ? (verse.translations.ar || {
+          text: verse.tafsirCitations?.[0]?.text || verse.arabicText,
+          translator: 'التفسير الميسر / مجمع الملك فهد لطباعة المصحف الشريف',
+        })
+      : (verse.translations[language] || verse.translations.en);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -361,7 +393,9 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wide">
                   <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   <span>
-                    {language === 'sv'
+                    {language === 'ar'
+                      ? 'الشرح الميسر والخلاصة العملية'
+                      : language === 'sv'
                       ? 'Enkel förklaring (Lättläst sammanfattning)'
                       : language === 'fr'
                       ? 'Explication simple (Accessible à tous)'
@@ -369,7 +403,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                   </span>
                 </span>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
-                  {language === 'sv' ? 'Nybörjare & Ungdom' : language === 'fr' ? 'Débutants & Jeunesse' : 'Beginner & Youth Friendly'}
+                  {language === 'ar' ? 'ميسر ومباشر' : language === 'sv' ? 'Nybörjare & Ungdom' : language === 'fr' ? 'Débutants & Jeunesse' : 'Beginner & Youth Friendly'}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-sans">
@@ -377,7 +411,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               </p>
               <div className="pt-1.5 border-t border-amber-600/20 flex items-start gap-2 text-xs text-amber-950 dark:text-amber-100">
                 <span className="font-bold shrink-0">
-                  {language === 'sv' ? 'Att bära med dig:' : language === 'fr' ? 'À emporter aujourd\'hui :' : 'Carry this today:'}
+                  {language === 'ar' ? 'أثرها في يومك:' : language === 'sv' ? 'Att bära med dig:' : language === 'fr' ? 'À emporter aujourd\'hui :' : 'Carry this today:'}
                 </span>
                 <span>{verse.reflectionFramework.applyAction}</span>
               </div>
@@ -391,11 +425,11 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
                   <BookOpen className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                   <span>
-                    {language === 'sv' ? 'Klassisk Tafsir (Skriftliga källor)' : language === 'fr' ? 'Tafsir Classique (Sources écrites)' : 'Classical Exegesis (Documented Tafsir)'}
+                    {language === 'ar' ? 'التفسير المأثور (من أمهات كتب التفسير)' : language === 'sv' ? 'Klassisk Tafsir (Skriftliga källor)' : language === 'fr' ? 'Tafsir Classique (Sources écrites)' : 'Classical Exegesis (Documented Tafsir)'}
                   </span>
                 </span>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {verse.tafsirCitations.length} {language === 'sv' ? 'lärda källor' : language === 'fr' ? 'sources' : 'scholarly sources'}
+                  {verse.tafsirCitations.length} {language === 'ar' ? 'مصادر معتمدة' : language === 'sv' ? 'lärda källor' : language === 'fr' ? 'sources' : 'scholarly sources'}
                 </span>
               </div>
 
@@ -441,11 +475,11 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wide">
                   <Compass className="w-4 h-4 text-amber-600" />
                   <span>
-                    {language === 'sv' ? 'Jämförande lärd analys (Ibn Kathir vs. Al-Sa\'di)' : language === 'fr' ? 'Analyse comparative des savants' : 'Comparative Scholar Synthesis (Ibn Kathir & Al-Sa\'di)'}
+                    {language === 'ar' ? 'المقارنة التفسيرية (ابن كثير والسعدي)' : language === 'sv' ? 'Jämförande lärd analys (Ibn Kathir vs. Al-Sa\'di)' : language === 'fr' ? 'Analyse comparative des savants' : 'Comparative Scholar Synthesis (Ibn Kathir & Al-Sa\'di)'}
                   </span>
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-800 text-white dark:bg-emerald-700">
-                  {language === 'sv' ? 'Djupstudie' : language === 'fr' ? 'Étude Approfondie' : 'Deep Study'}
+                  {language === 'ar' ? 'دراسة معمقة' : language === 'sv' ? 'Djupstudie' : language === 'fr' ? 'Étude Approfondie' : 'Deep Study'}
                 </span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
@@ -470,7 +504,9 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wide">
                   <Compass className="w-4 h-4 text-amber-600" />
                   <span>
-                    {language === 'sv'
+                    {language === 'ar'
+                      ? 'إضاءة للباحث عن الحكمة والقيم الإنسانية'
+                      : language === 'sv'
                       ? 'Insikt för sökaren (Allmänmänsklig visdom)'
                       : language === 'fr'
                       ? 'Éclairage pour le chercheur de sens'
@@ -478,15 +514,19 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                   </span>
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-800 text-emerald-100 dark:bg-emerald-700">
-                  ✓ Scholar Audited
+                  {language === 'ar' ? '✓ مراجع أكاديمياً' : '✓ Scholar Audited'}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
                 {verse.whyThisVerse.mappingExplanation}
               </p>
               <div className="pt-1 border-t border-amber-600/15 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                <span>Theological principle: {verse.whyThisVerse.spiritualPrinciple}</span>
-                <span className="text-emerald-700 dark:text-emerald-400 font-medium">Usul al-Din Academic Standards</span>
+                <span>
+                  {language === 'ar' ? 'المبدأ الإيماني:' : 'Theological principle:'} {verse.whyThisVerse.spiritualPrinciple}
+                </span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+                  {language === 'ar' ? 'معايير أصول الدين' : 'Usul al-Din Academic Standards'}
+                </span>
               </div>
             </div>
           )}

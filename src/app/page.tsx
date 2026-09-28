@@ -141,6 +141,12 @@ export default function App() {
     }
   }, [isDark, mounted]);
 
+  // Sync document language and text direction (RTL for Arabic)
+  useEffect(() => {
+    document.documentElement.setAttribute('dir', language === 'ar' ? 'rtl' : 'ltr');
+    document.documentElement.setAttribute('lang', language);
+  }, [language]);
+
   // Sync Preferences to Storage after hydration mount
   useEffect(() => {
     if (!mounted) return;
@@ -191,8 +197,12 @@ export default function App() {
 
   return (
     <div
+      dir={language === 'ar' ? 'rtl' : 'ltr'}
+      lang={language}
       className={`min-h-screen flex flex-col transition-colors ${
         mounted && isHighContrast ? 'contrast-125' : ''
+      } ${
+        language === 'ar' ? 'font-arabic' : ''
       } bg-[#FAF8F5] dark:bg-[#07140F] text-slate-900 dark:text-slate-100`}
     >
       {/* Global Header */}
@@ -235,15 +245,35 @@ export default function App() {
         <section className="text-center space-y-4 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-900/5 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-300 text-xs font-semibold border border-emerald-900/10 dark:border-emerald-700/30">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Source-Grounded Quranic Guidance & Contemplation</span>
+            <span>
+              {language === 'ar'
+                ? 'هداية قرآنية أصيلة وتدبر مأثور للحياة اليومية'
+                : language === 'sv'
+                ? 'Källförankrad Quranisk vägledning och reflektion'
+                : language === 'fr'
+                ? 'Guidance coranique fondée sur les sources et méditation'
+                : 'Source-Grounded Quranic Guidance & Contemplation'}
+            </span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-emerald-950 dark:text-emerald-50">
-            Turn to the Quran in Every State of Heart
+            {language === 'ar'
+              ? 'أقبل على القرآن في كل أحوال قلبك'
+              : language === 'sv'
+              ? 'Vänd dig till Koranen i varje sinnestillstånd'
+              : language === 'fr'
+              ? 'Tournez-vous vers le Coran en tout état de cœur'
+              : 'Turn to the Quran in Every State of Heart'}
           </h2>
 
           <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
-            Discover verified passages, classical exegesis (Tafsir), and an actionable reflection framework for real-life decisions, emotions, and character growth.
+            {language === 'ar'
+              ? 'اكتشف الآيات المعتمدة، والتفاسير المأثورة الموثقة، وإطار تدبر عملي يعالج قراراتك، مشاعرك، وتزكية نفسك.'
+              : language === 'sv'
+              ? 'Upptäck verifierade passager, klassisk tafsir och ett handlingsinriktat reflektionsramverk för livets beslut, känslor och karaktärstillväxt.'
+              : language === 'fr'
+              ? 'Découvrez des versets authentiques, l’exégèse classique (Tafsir) et un cadre de réflexion pratique pour vos décisions et l’apaisement du cœur.'
+              : 'Discover verified passages, classical exegesis (Tafsir), and an actionable reflection framework for real-life decisions, emotions, and character growth.'}
           </p>
         </section>
 
@@ -329,7 +359,9 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-950 dark:text-emerald-200">
-                    {language === 'sv'
+                    {language === 'ar'
+                      ? 'تخصيص جلسة التدبر'
+                      : language === 'sv'
                       ? 'Konfigurera din session'
                       : language === 'fr'
                       ? 'Personnaliser votre session'
@@ -337,7 +369,9 @@ export default function App() {
                   </span>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
                     ({displayedPassages.length}{' '}
-                    {language === 'sv'
+                    {language === 'ar'
+                      ? 'مقاطع معروضة'
+                      : language === 'sv'
                       ? 'visade passager'
                       : language === 'fr'
                       ? 'passages affichés'
@@ -358,11 +392,15 @@ export default function App() {
                   <Headphones className="w-4 h-4 animate-pulse" />
                   <span>
                     {isContinuousAudioOpen
-                      ? language === 'sv'
+                      ? language === 'ar'
+                        ? 'المشغل الصوتي نشط'
+                        : language === 'sv'
                         ? 'Ljudspelare aktiv'
                         : language === 'fr'
                         ? 'Lecteur audio actif'
                         : 'Audio Player Active'
+                      : language === 'ar'
+                      ? 'الاستماع المستمر (المشي / السيارة)'
                       : language === 'sv'
                       ? 'Lyssna handsfree (Promenad/Bil)'
                       : language === 'fr'
@@ -437,7 +475,7 @@ export default function App() {
         )}
 
         {/* Ethical Scripture Footer */}
-        <Footer />
+        <Footer language={language} />
       </main>
 
       {/* Classical Tafsir Drawer */}

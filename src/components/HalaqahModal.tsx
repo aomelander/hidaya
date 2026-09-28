@@ -24,7 +24,23 @@ interface HalaqahModalProps {
   language: Language;
 }
 
-const UI_TEXT = {
+const UI_TEXT: Record<Language, {
+  modalTitle: string;
+  modalSubtitle: string;
+  step1Title: string;
+  step1Desc: string;
+  step2Title: string;
+  step2Desc: string;
+  step3Title: string;
+  step3Desc: string;
+  step4Title: string;
+  step4Desc: string;
+  commitmentPlaceholder: string;
+  saveCommitment: string;
+  savedCommitment: string;
+  printBtn: string;
+  closeBtn: string;
+}> = {
   en: {
     modalTitle: "Halaqah Circle • Family & Group Contemplation",
     modalSubtitle: "A 5–10 minute guided sitting to bring Quranic wisdom into your home and community",
@@ -76,6 +92,23 @@ const UI_TEXT = {
     printBtn: "Imprimer la fiche Halaqah",
     closeBtn: "Fermer l'assise",
   },
+  ar: {
+    modalTitle: "حلقة التدبر • مدارسة عائلية وجماعية",
+    modalSubtitle: "جلسة مباركة مدتها ٥-١٠ دقائق لترسيخ الهداية القرآنية في بيتك ومجتمعك",
+    step1Title: "١. الإنصات في سكينة وخشوع",
+    step1Desc: "أغمض عينيك أو تابع مع التلاوة العطرة بصوت القارئ، ودع السكينة تغشى المكان.",
+    step2Title: "٢. القراءة الجماعية المتأنية",
+    step2Desc: "يقرأ أحد الحاضرين الآية الكريمة، ويقرأ آخر المعنى والتفسير الميسر بوضوح وتأمل.",
+    step3Title: "٣. أسئلة المدارسة والحوار الصادق",
+    step3Desc: "يدور الحديث بين الحاضرين بلطف، حيث يشارك كل فرد أثره في واقعه دون تكلف.",
+    step4Title: "٤. ميثاق العمل الأسري / الجماعي",
+    step4Desc: "اتفقوا على مبدأ سلوكي عملي تلتزم به الأسرة أو الحلقة طوال هذا الأسبوع.",
+    commitmentPlaceholder: "مثال: 'هذا الأسبوع عند حدوث أي خلاف في المنزل، نتوقف ١٠ ثوانٍ قبل الرد ونتعامل بالرفق.'",
+    saveCommitment: "حفظ ميثاق الحلقة",
+    savedCommitment: "تم حفظ الميثاق بنجاح!",
+    printBtn: "طباعة بطاقة الحلقة",
+    closeBtn: "إتمام الجلسة",
+  },
 };
 
 export const HalaqahModal: React.FC<HalaqahModalProps> = ({
@@ -108,6 +141,11 @@ export const HalaqahModal: React.FC<HalaqahModalProps> = ({
       `Où dans notre quotidien (à l'école, au travail ou à la maison) est-il le plus difficile d'appliquer ce verset ?`,
       `Quelle différence positive ressentirions-nous dans notre foyer si nous mettions en pratique ce rappel ?`,
       `Quelle habitude pourrions-nous changer ensemble cette semaine pour incarner cette valeur ?`,
+    ],
+    ar: [
+      `أين نجد في واقعنا اليومي (في العمل، أو الدراسة، أو البيت) أكبر تحدٍ في تطبيق هذا التوجيه القرآني؟`,
+      `كيف ستتغير سكينة بيتنا وعلاقاتنا هذا الأسبوع إذا جعلنا هذا المعنى القرآني حاضراً في تعاملاتنا؟`,
+      `ما هي العادة العملية البسيطة التي نتفق جميعاً على البدء بها لتجسيد هذه الآية؟`,
     ],
   };
 

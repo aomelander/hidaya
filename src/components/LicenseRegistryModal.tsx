@@ -25,7 +25,22 @@ export const LicenseRegistryModal: React.FC<LicenseRegistryModalProps> = ({
       ? LICENSE_REGISTRY
       : LICENSE_REGISTRY.filter((e) => e.contentType === filterType);
 
-  const t = {
+  const tRecord: Record<Language, {
+    title: string;
+    subtitle: string;
+    coreRuleTitle: string;
+    coreRuleText: string;
+    filterAll: string;
+    colSource: string;
+    colType: string;
+    colLicense: string;
+    colPermissions: string;
+    colAudit: string;
+    display: string;
+    store: string;
+    export: string;
+    close: string;
+  }> = {
     en: {
       title: 'Content License & Theological Audit Registry',
       subtitle: 'Complete transparency on scripture sources, translation rights, exegesis, and legal compliance.',
@@ -77,7 +92,26 @@ export const LicenseRegistryModal: React.FC<LicenseRegistryModalProps> = ({
       export: 'Exporter',
       close: 'Fermer le registre',
     },
-  }[language];
+    ar: {
+      title: 'سجل تراخيص المحتوى والتدقيق الشرعي والمنهجي',
+      subtitle: 'شفافية كاملة حول مصادر النص القرآني، حقوق الترجمات، كتب التفسير المعتمدة، والتراخيص القانونية.',
+      coreRuleTitle: 'مبدؤنا الصارم في أمانة النقل',
+      coreRuleText:
+        'عدم توليد أو تحريف النص القرآني مطلقاً. عدم تخمين الربط الموضوعي. عدم استقاء بيانات غير موثقة من الإنترنت. التزام مسار: المصدر المعتمد ← حقوق النشر ← الترخيص ← الاستخدام المباح.',
+      filterAll: 'جميع المصادر',
+      colSource: 'المصدر والهيئة المعتمدة',
+      colType: 'نوع المحتوى',
+      colLicense: 'الترخيص والحقوق',
+      colPermissions: 'مصفوفة الصلاحيات',
+      colAudit: 'التدقيق والتوثيق',
+      display: 'العرض',
+      store: 'الحفظ',
+      export: 'التصدير',
+      close: 'إغلاق السجل',
+    },
+  };
+
+  const t = tRecord[language] || tRecord.en;
 
   return (
     <div

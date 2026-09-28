@@ -13,10 +13,10 @@ interface SessionDepthSelectorProps {
 interface DepthOption {
   id: SessionDepth;
   minutes: number;
-  label: { en: string; sv: string; fr: string };
-  badge: { en: string; sv: string; fr: string };
-  description: { en: string; sv: string; fr: string };
-  versesEst: { en: string; sv: string; fr: string };
+  label: { en: string; sv: string; fr: string; ar: string };
+  badge: { en: string; sv: string; fr: string; ar: string };
+  description: { en: string; sv: string; fr: string; ar: string };
+  versesEst: { en: string; sv: string; fr: string; ar: string };
   icon: React.ReactNode;
 }
 
@@ -24,53 +24,57 @@ const DEPTH_OPTIONS: DepthOption[] = [
   {
     id: '2min',
     minutes: 2,
-    label: { en: 'A Moment', sv: 'Ett ögonblick', fr: 'Un instant' },
-    badge: { en: '2 min', sv: '2 min', fr: '2 min' },
+    label: { en: 'A Moment', sv: 'Ett ögonblick', fr: 'Un instant', ar: 'لحظة تدبر' },
+    badge: { en: '2 min', sv: '2 min', fr: '2 min', ar: 'دقيقتان' },
     description: {
       en: '1–2 verses + quick practical anchor',
       sv: '1–2 verser + snabb praktisk förankring',
       fr: '1–2 versets + ancrage pratique immédiat',
+      ar: 'آية أو آيتان مع أثر عملي مباشر',
     },
-    versesEst: { en: '1–2 verses', sv: '1–2 verser', fr: '1–2 versets' },
+    versesEst: { en: '1–2 verses', sv: '1–2 verser', fr: '1–2 versets', ar: 'آية أو آيتان' },
     icon: <Zap className="w-3.5 h-3.5" />,
   },
   {
     id: '10min',
     minutes: 10,
-    label: { en: 'Reflect', sv: 'Begrunda', fr: 'Réfléchir' },
-    badge: { en: '10 min', sv: '10 min', fr: '10 min' },
+    label: { en: 'Reflect', sv: 'Begrunda', fr: 'Réfléchir', ar: 'تأمل وتدبر' },
+    badge: { en: '10 min', sv: '10 min', fr: '10 min', ar: '١٠ دقائق' },
     description: {
       en: '2–3 verses + translation + reflection prompt',
       sv: '2–3 verser + översättning + reflektion',
       fr: '2–3 versets + traduction + méditation',
+      ar: '٢-٣ آيات مع التفسير وسؤال الاستبصار',
     },
-    versesEst: { en: '2–3 verses', sv: '2–3 verser', fr: '2–3 versets' },
+    versesEst: { en: '2–3 verses', sv: '2–3 verser', fr: '2–3 versets', ar: '٢-٣ آيات' },
     icon: <Clock className="w-3.5 h-3.5" />,
   },
   {
     id: '30min',
     minutes: 30,
-    label: { en: 'Explore', sv: 'Utforska', fr: 'Explorer' },
-    badge: { en: '30 min', sv: '30 min', fr: '30 min' },
+    label: { en: 'Explore', sv: 'Utforska', fr: 'Explorer', ar: 'استكشاف سياقي' },
+    badge: { en: '30 min', sv: '30 min', fr: '30 min', ar: '٣٠ دقيقة' },
     description: {
       en: '3–5 passages + context + tafsir & recitation',
       sv: '3–5 passager + sammanhang + tafsir & recitation',
       fr: '3–5 passages + contexte + tafsir & récitation',
+      ar: '٣-٥ مقاطع مع السياق والتفسير والتلاوة',
     },
-    versesEst: { en: '3–5 passages', sv: '3–5 passager', fr: '3–5 passages' },
+    versesEst: { en: '3–5 passages', sv: '3–5 passager', fr: '3–5 passages', ar: '٣-٥ مقاطع' },
     icon: <Compass className="w-3.5 h-3.5" />,
   },
   {
     id: '60min',
     minutes: 60,
-    label: { en: 'Deep Study', sv: 'Djupstudie', fr: 'Étude profonde' },
-    badge: { en: '60 min', sv: '60 min', fr: '60 min' },
+    label: { en: 'Deep Study', sv: 'Djupstudie', fr: 'Étude profonde', ar: 'مدارسة معمقة' },
+    badge: { en: '60 min', sv: '60 min', fr: '60 min', ar: '٦٠ دقيقة' },
     description: {
       en: 'Full passages + comparative tafsir + root words',
       sv: 'Fullständiga passager + jämförande tafsir + rotord',
       fr: 'Passages complets + tafsir comparatif + racines',
+      ar: 'مقاطع كاملة مع التفسير المقارن ودلالات الألفاظ',
     },
-    versesEst: { en: 'Full theme study', sv: 'Hel temastudie', fr: 'Étude thématique' },
+    versesEst: { en: 'Full theme study', sv: 'Hel temastudie', fr: 'Étude thématique', ar: 'دراسة موضوعية كاملة' },
     icon: <BookOpen className="w-3.5 h-3.5" />,
   },
 ];
@@ -86,7 +90,9 @@ export const SessionDepthSelector: React.FC<SessionDepthSelectorProps> = ({
         <span className="text-xs font-bold uppercase tracking-wider text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-amber-500" />
           <span>
-            {language === 'sv'
+            {language === 'ar'
+              ? 'حدد عمق الجلسة وزمن التدبر'
+              : language === 'sv'
               ? 'Välj din tidsram (Sessionens djup)'
               : language === 'fr'
               ? 'Choisissez votre durée de méditation'

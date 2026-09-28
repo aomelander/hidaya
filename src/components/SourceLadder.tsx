@@ -40,16 +40,19 @@ const LADDER_LEVELS: LadderLevel[] = [
       en: "Original Quranic Arabic",
       sv: "Ursprunglig Quran-arabiska",
       fr: "Texte Coranique Arabe Original",
+      ar: "النص القرآني الشريف بالرسم العثماني",
     },
     description: {
       en: "Divine revelation in the verified Uthmani script (Medina Mushaf via Tanzil). Never generated or altered by AI.",
       sv: "Gudomlig uppenbarelsetext i verifierad Uthmani-skrift (Medina Mushaf via Tanzil). Skapas aldrig av AI.",
       fr: "Révélation divine en graphie Uthmani certifiée (Médine Mushaf via Tanzil). Jamais générée par IA.",
+      ar: "الوحي الإلهي المحفوظ بالرسم العثماني المعتمد (مصحف المدينة النبوية عبر تنزيل). لا يتدخل فيه الذكاء الاصطناعي قطعاً.",
     },
     sourceExample: {
       en: "Source: Tanzil Project & King Fahd Glorious Qur'an Printing Complex (Hafs 'an 'Asim)",
       sv: "Källa: Tanzil Project & King Fahd Qur'an Printing Complex (Hafs 'an 'Asim)",
       fr: "Source: Tanzil Project & Complexe du Roi Fahd (Hafs 'an 'Asim)",
+      ar: "المصدر: مشروع تنزيل ومجمع الملك فهد لطباعة المصحف الشريف (رواية حفص عن عاصم)",
     },
     colorBg: "bg-emerald-900/10 dark:bg-emerald-950/40",
     colorBorder: "border-emerald-700/40",
@@ -62,16 +65,19 @@ const LADDER_LEVELS: LadderLevel[] = [
       en: "Attributed Human Translation",
       sv: "Tillskriven mänsklig översättning",
       fr: "Traduction Humaine Attribuée",
+      ar: "التفسير الميسر والمعاني المعتمدة",
     },
     description: {
       en: "Certified scholarly translation to your language, explicitly attributed to recognized human translators.",
       sv: "Verifierad akademisk översättning med tydlig källangivelse till erkända mänskliga översättare.",
       fr: "Traduction savante reconnue dans votre langue, explicitement attribuée à son auteur.",
+      ar: "بيان معاني الآيات من مصادر معتمدة وموثقة لغوياً وتفسيرياً، منسوبة بوضوح إلى أهل العلم.",
     },
     sourceExample: {
       en: "English: Saheeh International | Swedish: Knut Bernström | French: Muhammad Hamidullah",
       sv: "Svenska: Mohammed Knut Bernström | Engelska: Saheeh Int. | Franska: M. Hamidullah",
       fr: "Français: Muhammad Hamidullah | Anglais: Saheeh Int. | Suédois: Knut Bernström",
+      ar: "العربية: التفسير الميسر (مجمع الملك فهد) | السويدية: كنوت برنستروم | الفرنسية: محمد حميد الله",
     },
     colorBg: "bg-blue-900/10 dark:bg-blue-950/40",
     colorBorder: "border-blue-700/40",
@@ -84,16 +90,19 @@ const LADDER_LEVELS: LadderLevel[] = [
       en: "Classical Tafsir (Exegesis)",
       sv: "Klassisk Tafsir (Koran-kommentar)",
       fr: "Tafsir Classique (Exégèse)",
+      ar: "التفاسير الكبرى المأثورة",
     },
     description: {
       en: "Authentic interpretations from major classical scholars, citing historical books and centuries.",
       sv: "Autentiska tolkningar från klassiska lärda med angivande av verk och tidsperiod.",
       fr: "Interprétations authentiques issues des grands exégètes classiques, avec mention de l'ouvrage.",
+      ar: "بيان معاني الآيات من أمهات كتب التفسير المأثورة عن السلف وأئمة التفسير الموثوقين مع ذكر المصنفات.",
     },
     sourceExample: {
       en: "Sources: Ibn Kathir (8th H), Al-Sa'di (14th H), Al-Muyassar (King Fahd Complex)",
       sv: "Källor: Ibn Kathir (1300-tal), Al-Sa'di (1900-tal), Al-Muyassar (King Fahd-komplexet)",
       fr: "Sources: Ibn Kathir (8e H), Al-Sa'di (14e H), Al-Muyassar (Complexe Roi Fahd)",
+      ar: "المصادر المعتمدة: تفسير ابن كثير، تفسير السعدي (تيسير الكريم الرحمن)، التفسير الميسر",
     },
     colorBg: "bg-purple-900/10 dark:bg-purple-950/40",
     colorBorder: "border-purple-700/40",
@@ -106,16 +115,19 @@ const LADDER_LEVELS: LadderLevel[] = [
       en: "Sacred Context & Asbab al-Nuzul",
       sv: "Sammanhang & Uppenbarelsebakgrund",
       fr: "Contexte Historique & Asbab al-Nuzul",
+      ar: "السياق القرآني وأسباب النزول",
     },
     description: {
       en: "Historical circumstances of revelation (Meccan/Medinan period) and thematic placement within the Surah.",
       sv: "Historiska uppenbarelseomständigheter (Mecka/Medina) och versens plats i surans helhet.",
       fr: "Circonstances historiques de la révélation (période mecquoise/médinoise) et unité thématique.",
+      ar: "الظروف التاريخية للنزول (مكي/مدني) وموقع الآية وسياقها الموضوعي ضمن السورة الكريمة.",
     },
     sourceExample: {
       en: "Context: Circumstances of revelation & surrounding verses (Before & After)",
       sv: "Kontext: Historisk bakgrund och omgivande verser (före och efter)",
       fr: "Contexte: Circonstances de révélation et versets environnants",
+      ar: "السياق: أسباب النزول المأثورة والآيات المحيطة (قبل وبعد)",
     },
     colorBg: "bg-amber-900/10 dark:bg-amber-950/40",
     colorBorder: "border-amber-700/40",
@@ -128,16 +140,19 @@ const LADDER_LEVELS: LadderLevel[] = [
       en: "Hidaya Topic Mapping (Relevance)",
       sv: "Hidayas ämneskoppling (Relevans)",
       fr: "Cartographie Thématique Hidaya (Pertinence)",
+      ar: "مخطط الهداية والصلة بواقع الإنسان",
     },
     description: {
       en: "Structured categorization mapping human life situations and emotional needs to relevant Quranic principles.",
       sv: "Strukturerad koppling som matchar mänskliga livssituationer och känslor mot Quranens principer.",
       fr: "Mise en relation structurée entre situations de vie, émotions et principes coraniques.",
+      ar: "تصنيف منهجي يربط واقع الإنسان وحاجاته النفسية والوجدانية بالأصول والتوجيهات القرآنية المناسبة.",
     },
     sourceExample: {
       en: "Curated Verse-Topic Graph (Emotion, Situation, Core Need, Spiritual Principle)",
       sv: "Kurerat vers-ämnesdiagram (Känsla, situation, behov, andlig princip)",
       fr: "Graphe thématique verset-situation (Émotion, besoin, principe spirituel)",
+      ar: "رسم بياني للهداية: المشاعر، الحالة الحياتية، الحاجة النفسية، المبدأ الإيماني",
     },
     colorBg: "bg-teal-900/10 dark:bg-teal-950/40",
     colorBorder: "border-teal-700/40",
@@ -150,16 +165,19 @@ const LADDER_LEVELS: LadderLevel[] = [
       en: "From Quran to Life: Reflection Prompts",
       sv: "Från Quran till liv: Reflektionsfrågor",
       fr: "Du Coran à la Vie : Invites de Réflexion",
+      ar: "من القرآن إلى الحياة: محاور التدبر والعمل",
     },
     description: {
       en: "Contemplative prompts and micro-actions. Clearly marked as contemporary human reflections, not divine laws.",
       sv: "Eftertankar och handlingsförslag. Tydligt märkta som nutida reflektioner, inte religiösa domar.",
       fr: "Questions introspectives et actions concrètes. Clairement identifiées comme méditations humaines.",
+      ar: "أسئلة تدبرية وخطوات عملية محددة. مصنفة بوضوح كخواطر تدبر وتطبيق بشري معاصر وليست أحكاماً شرعية قطعية.",
     },
     sourceExample: {
       en: "4-Step Cycle: Understand → Reflect → Apply → Live & Carry",
       sv: "4-stegsmodell: Förstå → Reflektera → Tillämpa → Efterfölj i livet",
       fr: "Cycle en 4 étapes: Comprendre → Méditer → Appliquer → Incarner au quotidien",
+      ar: "دورة التدبر الرباعية: افهم الآية ← تأمل في نفسك ← بادر بالعمل ← احمل المعنى في حياتك",
     },
     colorBg: "bg-amber-500/10 dark:bg-amber-950/40",
     colorBorder: "border-amber-600/40",
@@ -167,7 +185,16 @@ const LADDER_LEVELS: LadderLevel[] = [
   },
 ];
 
-const UI_STRINGS = {
+const UI_STRINGS: Record<Language, {
+  title: string;
+  shortTitle: string;
+  subtitle: string;
+  expandBtn: string;
+  collapseBtn: string;
+  closeBtn: string;
+  guaranteeTitle: string;
+  guaranteeText: string;
+}> = {
   en: {
     title: "Source Transparency Ladder",
     shortTitle: "Source Ladder",
@@ -197,6 +224,16 @@ const UI_STRINGS = {
     closeBtn: "Fermer",
     guaranteeTitle: "Garantie Éthique & Épistémologique :",
     guaranteeText: "Hidaya ne mélange jamais le texte coranique avec des suppositions d'IA ni ne fusionne divers avis sous une formule floue. Chaque niveau est rigoureusement séparé et attribué.",
+  },
+  ar: {
+    title: "سلّم شفافية المصادر والأصول",
+    shortTitle: "سلّم المصادر",
+    subtitle: "اعرف دائماً وبكل دقة ويقين مصدر كل طبقة معرفية في التطبيق.",
+    expandBtn: "عرض سلّم شفافية المصادر (6 مستويات)",
+    collapseBtn: "إخفاء سلّم المصادر",
+    closeBtn: "إغلاق",
+    guaranteeTitle: "الضمانة الأخلاقية والمنهجية:",
+    guaranteeText: "تلتزم هداية بعدم خلط النص القرآني المقدس مع آراء الذكاء الاصطناعي، أو دمج التفاسير تحت عبارة مبهمة مثل 'الإسلام يقول'. كل مستوى معزول وموثق ومعزو لأصله بدقة.",
   },
 };
 
