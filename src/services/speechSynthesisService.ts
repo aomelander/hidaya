@@ -1,8 +1,9 @@
 /**
  * @file speechSynthesisService.ts
- * @description Advanced browser SpeechSynthesis engine with dynamic high-quality voice selection,
- * natural cadence calibration, and strict single-language isolation.
- * Prevents language-mixing (e.g. English text sent to Swedish TTS engine) and eliminates robotic artifacts.
+ * @description Hybrid speech synthesis engine combining high-fidelity server-side AI voice synthesis
+ * (via /api/tts powered by Gemini TTS) for natural native Swedish pronunciation with local
+ * browser SpeechSynthesis fallback when offline.
+ * Strictly prevents English phoneme butchering when reading Swedish or other non-English translations.
  */
 
 import { Language } from '../types';
@@ -19,10 +20,15 @@ export interface SpeakOptions {
 class SpeechSynthesisEngine {
   private cachedVoices: SpeechSynthesisVoice[] = [];
   private isVoicesLoaded = false;
+  private currentAudioElement: HTMLAudioElement | null = null;
+  private audioCache = new Map<string, string>(); // text_lang -> base64 audio data url
+  private isSpeakingActive = false;
 
   constructor() {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      this.initVoices();
+    if (typeof window !== 'undefined') {
+      if ('speechSynthesis' in window) {
+        this.initVoices();
+      }
     }
   }
 
@@ -76,7 +82,7 @@ class SpeechSynthesisEngine {
 
   /**
    * Resolves the highest quality native voice matching the specified target language.
-   * Prefers natural, neural, or enhanced operating system voices over robotic defaults.
+   * Ensures Swedish text is NEVER matched with an English voice.
    */
   public async getBestVoice(language: Language): Promise<SpeechSynthesisVoice | null> {
     const voices = await this.getAvailableVoices();
@@ -85,12 +91,21 @@ class SpeechSynthesisEngine {
     const targetPrefix =
       language === 'sv' ? 'sv' : language === 'fr' ? 'fr' : language === 'ar' ? 'ar' : 'en';
 
-    const matchingVoices = voices.filter((v) =>
-      v.lang.toLowerCase().startsWith(targetPrefix)
-    );
+    const matchingVoices = voices.filter((v) => {
+      const langLower = v.lang.toLowerCase().replace('_', '-');
+      return (
+        langLower.startsWith(targetPrefix) ||
+        (language === 'sv' && (v.name.toLowerCase().includes('swedish') || v.name.toLowerCase().includes('svensk'))) ||
+        (language === 'fr' && (v.name.toLowerCase().includes('french') || v.name.toLowerCase().includes('français')))
+      );
+    });
 
     if (matchingVoices.length === 0) {
-      return null;
+      // Crucial: Return null instead of falling back to default English voice when language is not English
+      if (language !== 'en') {
+        return null;
+      }
+      return voices[0] || null;
     }
 
     // Quality ranking keywords
@@ -102,6 +117,8 @@ class SpeechSynthesisEngine {
       'siri',
       'alva',
       'oskar',
+      'klara',
+      'astrid',
       'audrey',
       'thomas',
       'tarik',
@@ -119,27 +136,15 @@ class SpeechSynthesisEngine {
   }
 
   /**
-   * Detects if the given text appears to be primarily English.
-   * Used for guardrails against feeding English text to non-English TTS voices.
-   */
-  public isPrimarilyEnglish(text: string): boolean {
-    if (!text || text.trim().length === 0) return false;
-    // Check for common English stop words
-    const englishWordMatches = text.match(/\b(the|and|who|with|from|which|what|your|how|where|reflect|understand|action|into)\b/gi);
-    return !!englishWordMatches && englishWordMatches.length >= 2;
-  }
-
-  /**
-   * Speaks text with strict language consistency and natural cadence.
-   * If text is detected as mismatched with active language, speech is skipped safely
-   * to avoid humiliating phoneme butchering.
+   * Speaks text prioritizing server-side AI voice synthesis for natural Swedish/multilingual audio.
+   * Gracefully falls back to browser TTS if offline or if API is unconfigured.
    */
   public async speak(
     text: string,
     language: Language,
     options: SpeakOptions = {}
   ): Promise<void> {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (typeof window === 'undefined') {
       options.onEnd?.();
       return;
     }
@@ -149,28 +154,113 @@ class SpeechSynthesisEngine {
       return;
     }
 
-    // In Arabic mode, authentic Quran audio is prioritized; TTS only speaks if explicitly Arabic text
+    // Stop any existing speech or audio
+    this.cancel();
+    this.isSpeakingActive = true;
+
+    // In Arabic mode, authentic studio recitation is prioritized over TTS
     if (language === 'ar') {
       const isArabicChar = /[\u0600-\u06FF]/.test(text);
       if (!isArabicChar) {
-        // Refuse to play non-Arabic English text into Arabic voice
+        this.isSpeakingActive = false;
         options.onEnd?.();
         return;
       }
     }
 
-    // In Swedish or French mode, strictly forbid playing English text into the TTS engine
-    if ((language === 'sv' || language === 'fr') && this.isPrimarilyEnglish(text)) {
-      console.warn(`[SpeechEngine] Suppressing mismatched English speech text in '${language}' mode.`);
+    // 1. First, attempt Server-Side AI Voice synthesis (ideal for Swedish natural tone)
+    const cacheKey = `${language}_${text.trim()}`;
+    let audioDataUrl = this.audioCache.get(cacheKey);
+
+    if (!audioDataUrl) {
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text.trim(), language }),
+        });
+
+        if (res.ok) {
+          const data = (await res.json()) as { audio?: string; fallback?: boolean };
+          if (data.audio && !data.fallback) {
+            audioDataUrl = data.audio;
+            this.audioCache.set(cacheKey, audioDataUrl);
+          }
+        }
+      } catch (err) {
+        console.info('[SpeechService] Server AI TTS unreachable, attempting browser fallback:', err);
+      }
+    }
+
+    // If server audio was successfully retrieved, play it through HTMLAudioElement
+    if (audioDataUrl && this.isSpeakingActive) {
+      try {
+        const audio = new Audio(audioDataUrl);
+        this.currentAudioElement = audio;
+
+        audio.onplay = () => {
+          options.onStart?.();
+        };
+
+        audio.onended = () => {
+          this.isSpeakingActive = false;
+          this.currentAudioElement = null;
+          options.onEnd?.();
+        };
+
+        audio.onerror = (e) => {
+          console.warn('[SpeechService] HTML5 Audio playback error:', e);
+          this.isSpeakingActive = false;
+          this.currentAudioElement = null;
+          // Fall back to browser utterance
+          this.speakWithBrowserUtterance(text, language, options);
+        };
+
+        await audio.play();
+        return;
+      } catch (err) {
+        console.warn('[SpeechService] Audio play error, falling back to browser SpeechSynthesis:', err);
+      }
+    }
+
+    // 2. Fallback to Browser SpeechSynthesis with strict language enforcement
+    if (this.isSpeakingActive) {
+      this.speakWithBrowserUtterance(text, language, options);
+    }
+  }
+
+  /**
+   * Safe browser speech utterance fallback with strict native voice requirements.
+   */
+  private async speakWithBrowserUtterance(
+    text: string,
+    language: Language,
+    options: SpeakOptions = {}
+  ): Promise<void> {
+    if (!('speechSynthesis' in window)) {
+      this.isSpeakingActive = false;
       options.onEnd?.();
       return;
     }
 
     try {
-      this.cancel();
+      const voice = await this.getBestVoice(language);
+
+      // CRITICAL GUARDRAIL: If language is Swedish and no Swedish voice is installed on the device,
+      // DO NOT pass Swedish text to an English TTS engine (this causes horrific English phoneme reading).
+      if (language === 'sv' && !voice) {
+        console.warn(
+          '[SpeechService] No native Swedish voice found in browser. Suppressing playback to prevent English butchering.'
+        );
+        this.isSpeakingActive = false;
+        options.onError?.(
+          new Error('Ingen svensk röst hittades på din enhet. Aktivera svenskt talspråk i webbläsarens inställningar.')
+        );
+        options.onEnd?.();
+        return;
+      }
 
       const utterance = new SpeechSynthesisUtterance(text);
-      const voice = await this.getBestVoice(language);
 
       if (voice) {
         utterance.voice = voice;
@@ -186,7 +276,6 @@ class SpeechSynthesisEngine {
             : 'en-US';
       }
 
-      // Natural, contemplative pacing (0.92 is calm and dignified)
       utterance.rate = options.rate ?? 0.92;
       utterance.pitch = options.pitch ?? 1.0;
       utterance.volume = options.volume ?? 1.0;
@@ -196,30 +285,60 @@ class SpeechSynthesisEngine {
       };
 
       utterance.onend = () => {
+        this.isSpeakingActive = false;
         options.onEnd?.();
       };
 
       utterance.onerror = (err) => {
-        console.debug('[SpeechEngine] Utterance error or cancelled:', err);
+        this.isSpeakingActive = false;
         options.onError?.(err);
         options.onEnd?.();
       };
 
       window.speechSynthesis.speak(utterance);
     } catch (err) {
-      console.error('[SpeechEngine] Failed to speak text:', err);
+      this.isSpeakingActive = false;
+      console.error('[SpeechService] Browser TTS failed:', err);
       options.onError?.(err);
       options.onEnd?.();
     }
   }
 
   /**
-   * Immediately stops any active speech.
+   * Immediately stops any active speech or server audio playback.
    */
   public cancel(): void {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    this.isSpeakingActive = false;
+
+    if (this.currentAudioElement) {
+      try {
+        this.currentAudioElement.pause();
+        this.currentAudioElement.currentTime = 0;
+      } catch {
+        // Ignore pause errors
+      }
+      this.currentAudioElement = null;
     }
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // Ignore cancel errors
+      }
+    }
+  }
+
+  /**
+   * Returns whether speech is currently playing.
+   */
+  public isSpeaking(): boolean {
+    return (
+      this.isSpeakingActive ||
+      (typeof window !== 'undefined' &&
+        'speechSynthesis' in window &&
+        window.speechSynthesis.speaking)
+    );
   }
 }
 

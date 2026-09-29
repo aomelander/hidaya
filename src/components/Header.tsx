@@ -38,6 +38,7 @@ interface HeaderProps {
   perspectiveMode?: PerspectiveMode;
   onTogglePerspective?: () => void;
   reflectionCount?: number;
+  onOpenCustomization?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -60,6 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   perspectiveMode = 'devotional',
   onTogglePerspective,
   reflectionCount = 0,
+  onOpenCustomization,
 }) => {
   const [showPreferencesMenu, setShowPreferencesMenu] = React.useState(false);
 
@@ -297,72 +299,34 @@ export const Header: React.FC<HeaderProps> = ({
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          {/* Mobile Preferences Trigger */}
-          <div className="lg:hidden relative">
+          {/* Customization & Preferences Trigger (Mobile + Desktop) */}
+          {onOpenCustomization && (
             <button
-              onClick={() => setShowPreferencesMenu(!showPreferencesMenu)}
-              className="p-2 rounded-lg bg-white dark:bg-emerald-950/60 border border-slate-300 dark:border-emerald-800 text-slate-700 dark:text-slate-200"
-              title="Display preferences"
-              aria-label="Display preferences menu"
+              onClick={onOpenCustomization}
+              className="p-2 rounded-lg bg-emerald-900/5 dark:bg-emerald-800/20 border border-emerald-900/15 dark:border-emerald-700/30 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 transition-all cursor-pointer flex items-center gap-1.5"
+              title={
+                language === 'sv'
+                  ? 'Inställningar & djup'
+                  : language === 'fr'
+                  ? 'Préférences & profondeur'
+                  : language === 'ar'
+                  ? 'الإعدادات والعمق'
+                  : 'Preferences & Depth'
+              }
+              aria-label="Open Preferences and Depth"
             >
-              <SlidersHorizontal className="w-4 h-4" />
+              <SlidersHorizontal className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+              <span className="hidden sm:inline text-xs font-semibold">
+                {language === 'sv'
+                  ? 'Inställningar'
+                  : language === 'fr'
+                  ? 'Préférences'
+                  : language === 'ar'
+                  ? 'الإعدادات'
+                  : 'Preferences'}
+              </span>
             </button>
-
-            {showPreferencesMenu && (
-              <div className="absolute right-0 mt-2 w-56 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-emerald-800 rounded-xl shadow-xl z-50 text-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600 dark:text-slate-300">Arabic Font Size</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => onScaleChange(Math.max(0.9, arabicScale - 0.1))}
-                      className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded"
-                    >
-                      -
-                    </button>
-                    <span className="font-mono">{Math.round(arabicScale * 100)}%</span>
-                    <button
-                      onClick={() => onScaleChange(Math.min(1.6, arabicScale + 0.1))}
-                      className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600 dark:text-slate-300">Transliteration</span>
-                  <button
-                    onClick={onToggleTransliteration}
-                    className={`px-2 py-0.5 rounded text-[11px] ${
-                      showTransliteration ? 'bg-emerald-700 text-white' : 'bg-slate-200 dark:bg-slate-800'
-                    }`}
-                  >
-                    {showTransliteration ? 'On' : 'Off'}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600 dark:text-slate-300">High Contrast</span>
-                  <button
-                    onClick={onToggleHighContrast}
-                    className={`px-2 py-0.5 rounded text-[11px] ${
-                      isHighContrast ? 'bg-amber-600 text-white' : 'bg-slate-200 dark:bg-slate-800'
-                    }`}
-                  >
-                    {isHighContrast ? 'On' : 'Off'}
-                  </button>
-                </div>
-
-                <button
-                  onClick={onOpenDisclaimer}
-                  className="w-full text-left pt-2 border-t border-slate-200 dark:border-slate-800 text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5"
-                >
-                  <Info className="w-3.5 h-3.5" />
-                  <span>Boundaries & Ethics</span>
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </header>

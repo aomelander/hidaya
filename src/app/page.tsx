@@ -3,12 +3,21 @@
 /**
  * @file page.tsx
  * @description Main application page for Hidaya: Quran Guidance & Reflection.
- * Orchestrates modular components: header, hero, search bar, mode tabs,
- * context analysis, passage cards, and contemplation drawers/modals.
+ * Refined for mobile ergonomics, decluttered viewport, and serene spiritual focus.
+ * Puts the Daily North Star front-and-center and moves secondary customization
+ * into an ergonomic collapsible bottom sheet.
  */
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Headphones } from 'lucide-react';
+import {
+  Sparkles,
+  Headphones,
+  SlidersHorizontal,
+  Compass,
+  Search,
+  Bookmark,
+  BookOpen,
+} from 'lucide-react';
 import {
   Language,
   QuranVerseFixture,
@@ -26,15 +35,13 @@ import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { Header } from '../components/Header';
 import { DailyNorthStar } from '../components/DailyNorthStar';
 import { EntryModeTabs } from '../components/EntryModeTabs';
-import { SphereFilter } from '../components/SphereFilter';
 import { GuidanceSearchBar } from '../components/GuidanceSearchBar';
 import { QuickChoicePills } from '../components/QuickChoicePills';
 import { GuidanceContextBanner } from '../components/GuidanceContextBanner';
 import { OffTopicBanner } from '../components/OffTopicBanner';
-import { SessionDepthSelector } from '../components/SessionDepthSelector';
-import { ExplanationDepthSelector } from '../components/ExplanationDepthSelector';
 import { ContinuousSessionAudioPlayer } from '../components/ContinuousSessionAudioPlayer';
 import { VerseCard } from '../components/VerseCard';
+import { CustomizationSheet } from '../components/CustomizationSheet';
 import { Footer } from '../components/Footer';
 
 // Modals & Drawers
@@ -55,7 +62,7 @@ import { InquirerPerspectiveBanner } from '../components/InquirerPerspectiveBann
 export default function App() {
   const [mounted, setMounted] = useState(false);
 
-  // User Preferences State (initialized with deterministic defaults matching SSR)
+  // User Preferences State
   const [language, setLanguage] = useState<Language>(APP_CONFIG.DEFAULTS.LANGUAGE);
   const [arabicScale, setArabicScale] = useState<number>(APP_CONFIG.DEFAULTS.ARABIC_SCALE);
   const [showTransliteration, setShowTransliteration] = useState<boolean>(
@@ -77,6 +84,7 @@ export default function App() {
   const [activeAudioVerseId, setActiveAudioVerseId] = useState<string | null>(null);
 
   // Modals & Drawers Visibility State
+  const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
   const [selectedTafsirVerse, setSelectedTafsirVerse] = useState<QuranVerseFixture | null>(null);
   const [selectedReflectionVerse, setSelectedReflectionVerse] = useState<QuranVerseFixture | null>(null);
   const [selectedHalaqahVerse, setSelectedHalaqahVerse] = useState<QuranVerseFixture | null>(null);
@@ -195,6 +203,15 @@ export default function App() {
     executeSearch(searchQuery, language);
   };
 
+  const scrollToSearch = () => {
+    const el = document.getElementById('guidance-portal');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div
       dir={language === 'ar' ? 'rtl' : 'ltr'}
@@ -228,10 +245,11 @@ export default function App() {
           setPerspectiveMode((prev) => (prev === 'devotional' ? 'inquirer' : 'devotional'))
         }
         reflectionCount={mounted ? Object.keys(reflections).length : 0}
+        onOpenCustomization={() => setIsCustomizationOpen(true)}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-10 no-print">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 pb-24 md:pb-12 no-print">
         {/* Inquirer Perspective Banner (if active) */}
         {perspectiveMode === 'inquirer' && (
           <InquirerPerspectiveBanner
@@ -241,68 +259,74 @@ export default function App() {
           />
         )}
 
-        {/* Sacred Hero Introduction */}
-        <section className="text-center space-y-4 max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-900/5 dark:bg-emerald-800/20 text-emerald-800 dark:text-emerald-300 text-xs font-semibold border border-emerald-900/10 dark:border-emerald-700/30">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>
-              {language === 'ar'
-                ? 'هداية قرآنية أصيلة وتدبر مأثور للحياة اليومية'
-                : language === 'sv'
-                ? 'Källförankrad Quranisk vägledning och reflektion'
-                : language === 'fr'
-                ? 'Guidance coranique fondée sur les sources et méditation'
-                : 'Source-Grounded Quranic Guidance & Contemplation'}
-            </span>
-          </div>
-
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-emerald-950 dark:text-emerald-50">
-            {language === 'ar'
-              ? 'أقبل على القرآن في كل أحوال قلبك'
-              : language === 'sv'
-              ? 'Vänd dig till Koranen i varje sinnestillstånd'
-              : language === 'fr'
-              ? 'Tournez-vous vers le Coran en tout état de cœur'
-              : 'Turn to the Quran in Every State of Heart'}
-          </h2>
-
-          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
-            {language === 'ar'
-              ? 'اكتشف الآيات المعتمدة، والتفاسير المأثورة الموثقة، وإطار تدبر عملي يعالج قراراتك، مشاعرك، وتزكية نفسك.'
-              : language === 'sv'
-              ? 'Upptäck verifierade passager, klassisk tafsir och ett handlingsinriktat reflektionsramverk för livets beslut, känslor och karaktärstillväxt.'
-              : language === 'fr'
-              ? 'Découvrez des versets authentiques, l’exégèse classique (Tafsir) et un cadre de réflexion pratique pour vos décisions et l’apaisement du cœur.'
-              : 'Discover verified passages, classical exegesis (Tafsir), and an actionable reflection framework for real-life decisions, emotions, and character growth.'}
-          </p>
+        {/* 1. Daily North Star (Dagens Ledstjärna) - Direct on Launch */}
+        <section aria-label="Daily Contemplation Anchor" className="pt-1">
+          <DailyNorthStar
+            language={language}
+            arabicScale={arabicScale}
+            showTransliteration={showTransliteration}
+            onSelectVerse={handleSelectNorthStarVerse}
+            onOpenReflection={(v) => setSelectedReflectionVerse(v)}
+          />
         </section>
 
-        {/* Daily North Star (Dagens Ledstjärna) */}
-        <DailyNorthStar
-          language={language}
-          arabicScale={arabicScale}
-          showTransliteration={showTransliteration}
-          onSelectVerse={handleSelectNorthStarVerse}
-          onOpenReflection={(v) => setSelectedReflectionVerse(v)}
-        />
+        {/* 2. Guidance Discovery Portal ("What brings you here today?") */}
+        <section
+          id="guidance-portal"
+          aria-label="Guidance Portal"
+          className="space-y-4 p-5 sm:p-7 rounded-3xl bg-white dark:bg-emerald-950/30 border border-slate-200/80 dark:border-emerald-800/40 shadow-xs"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-emerald-900/30 pb-3">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50">
+                {language === 'ar'
+                  ? 'ما الذي يشغل قلبك اليوم؟'
+                  : language === 'sv'
+                  ? 'Vad söker du i Quranen just nu?'
+                  : language === 'fr'
+                  ? 'Que cherchez-vous dans le Coran en cet instant ?'
+                  : 'What brings you to the Quran today?'}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {language === 'ar'
+                  ? 'اكتب، تحدث، أو اختر من الحالات الوجدانية'
+                  : language === 'sv'
+                  ? 'Skriv din situation, tala eller välj en känsla'
+                  : language === 'fr'
+                  ? 'Écrivez, parlez ou choisissez un sentiment'
+                  : 'Write your situation, speak, or select what you feel'}
+              </p>
+            </div>
 
-        {/* 3 Entry Modes Navigation Tabs */}
-        <EntryModeTabs
-          activeMode={activeMode}
-          onSelectMode={setActiveMode}
-          onOpenUnsureModal={() => setIsUnsureModalOpen(true)}
-          language={language}
-        />
+            {/* Quick Button to Open Depth & Settings Sheet */}
+            <button
+              type="button"
+              onClick={() => setIsCustomizationOpen(true)}
+              className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-900/5 dark:bg-emerald-800/20 text-emerald-900 dark:text-emerald-200 border border-emerald-900/15 dark:border-emerald-700/30 hover:bg-emerald-900/10 transition-colors cursor-pointer active:scale-98"
+              aria-label="Open contemplation depth and settings"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+              <span>
+                {language === 'sv'
+                  ? 'Inställningar & djup'
+                  : language === 'fr'
+                  ? 'Préférences & profondeur'
+                  : language === 'ar'
+                  ? 'الإعدادات والعمق'
+                  : 'Preferences & Depth'}
+              </span>
+            </button>
+          </div>
 
-        {/* 3 Human Spheres Filter: Individual, Family, Society */}
-        <SphereFilter
-          activeSphere={activeSphere}
-          onSelectSphere={setActiveSphere}
-          language={language}
-        />
+          {/* 3 Entry Modes Navigation Tabs */}
+          <EntryModeTabs
+            activeMode={activeMode}
+            onSelectMode={setActiveMode}
+            onOpenUnsureModal={() => setIsUnsureModalOpen(true)}
+            language={language}
+          />
 
-        {/* Search Input Bar (Text + Voice) */}
-        <div>
+          {/* Search Input Bar (Text + Voice) */}
           <GuidanceSearchBar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -314,19 +338,40 @@ export default function App() {
             language={language}
           />
 
-          {/* Quick Choice Pills */}
+          {/* Quick Choice Pills with Progressive Disclosure */}
           <QuickChoicePills
             activeMode={activeMode}
             onSelectPill={(pill) => handleQuickPillSelect(pill, language)}
           />
-        </div>
+
+          {/* Quiet Active Configuration Pill */}
+          <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-emerald-900/20">
+            <div className="flex items-center gap-2">
+              <span className="capitalize">{explanationDepth} depth</span>
+              <span>·</span>
+              <span>{sessionDepth} session</span>
+              <span>·</span>
+              <span className="capitalize">
+                {activeSphere === 'all' ? 'All Life Spheres' : `${activeSphere} sphere`}
+              </span>
+            </div>
+            <button
+              onClick={() => setIsCustomizationOpen(true)}
+              className="text-emerald-700 dark:text-emerald-400 font-semibold hover:underline cursor-pointer"
+            >
+              {language === 'sv' ? 'Ändra inställningar' : 'Customize settings'}
+            </button>
+          </div>
+        </section>
 
         {/* Loading Indicator */}
         {isAnalyzing && (
           <div className="text-center py-10 space-y-3" role="status" aria-live="polite">
             <div className="w-10 h-10 border-3 border-emerald-800 border-t-transparent rounded-full animate-spin mx-auto"></div>
             <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">
-              Contemplating your situation and retrieving verified Quranic sources...
+              {language === 'sv'
+                ? 'Söker i verifierade Quran-källor...'
+                : 'Contemplating your situation and retrieving verified Quranic sources...'}
             </p>
           </div>
         )}
@@ -350,79 +395,56 @@ export default function App() {
           />
         )}
 
-        {/* Verse Presentation Cards */}
+        {/* 3. Verse Presentation Cards & Streamlined Results */}
         {!isAnalyzing && displayedPassages.length > 0 && (
           <section id="passages-section" aria-label="Quranic Passages" className="space-y-6 scroll-mt-20">
-            {/* Session Depth & Exegesis Control Bar */}
-            <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-emerald-950/30 border border-slate-200 dark:border-emerald-800/40 shadow-xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-emerald-900/40 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-950 dark:text-emerald-200">
-                    {language === 'ar'
-                      ? 'تخصيص جلسة التدبر'
-                      : language === 'sv'
-                      ? 'Konfigurera din session'
-                      : language === 'fr'
-                      ? 'Personnaliser votre session'
-                      : 'Configure Your Contemplation Session'}
-                  </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    ({displayedPassages.length}{' '}
-                    {language === 'ar'
-                      ? 'مقاطع معروضة'
-                      : language === 'sv'
-                      ? 'visade passager'
-                      : language === 'fr'
-                      ? 'passages affichés'
-                      : 'passages shown'})
-                  </span>
-                </div>
+            {/* Streamlined Passages Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-emerald-950/30 border border-slate-200/80 dark:border-emerald-800/40 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                <span className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-emerald-100">
+                  {displayedPassages.length}{' '}
+                  {language === 'ar'
+                    ? 'مقاطع قرآنية موثقة'
+                    : language === 'sv'
+                    ? 'verifierade passager'
+                    : language === 'fr'
+                    ? 'passages vérifiés'
+                    : 'verified passages'}
+                </span>
+                <span className="text-xs text-slate-400 hidden sm:inline">·</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline capitalize">
+                  {explanationDepth} depth · {sessionDepth}
+                </span>
+              </div>
 
-                {/* Continuous Hands-Free Audio Launcher */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCustomizationOpen(true)}
+                  className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-900/5 dark:bg-emerald-800/20 text-emerald-900 dark:text-emerald-200 border border-emerald-900/10 dark:border-emerald-700/30 hover:bg-emerald-900/10 transition-colors cursor-pointer"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>{language === 'sv' ? 'Ändra djup' : 'Adjust Depth'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setIsContinuousAudioOpen(!isContinuousAudioOpen)}
-                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                  className={`min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${
                     isContinuousAudioOpen
-                      ? 'bg-amber-500 text-emerald-950 hover:bg-amber-400'
-                      : 'bg-emerald-900 text-white dark:bg-emerald-700 hover:bg-emerald-800'
+                      ? 'bg-amber-500 text-emerald-950'
+                      : 'bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 text-white'
                   }`}
                 >
-                  <Headphones className="w-4 h-4 animate-pulse" />
+                  <Headphones className="w-3.5 h-3.5" />
                   <span>
                     {isContinuousAudioOpen
-                      ? language === 'ar'
-                        ? 'المشغل الصوتي نشط'
-                        : language === 'sv'
-                        ? 'Ljudspelare aktiv'
-                        : language === 'fr'
-                        ? 'Lecteur audio actif'
-                        : 'Audio Player Active'
-                      : language === 'ar'
-                      ? 'الاستماع المستمر (المشي / السيارة)'
-                      : language === 'sv'
-                      ? 'Lyssna handsfree (Promenad/Bil)'
-                      : language === 'fr'
-                      ? 'Écoute mains libres (Marche/Voiture)'
-                      : 'Listen Hands-Free (Walking/Car)'}
+                      ? language === 'sv' ? 'Ljud aktivt' : 'Audio Active'
+                      : language === 'sv' ? 'Lyssna' : 'Listen'}
                   </span>
                 </button>
               </div>
-
-              {/* Duration Selector */}
-              <SessionDepthSelector
-                currentDepth={sessionDepth}
-                onSelectDepth={setSessionDepth}
-                language={language}
-              />
-
-              {/* Exegesis Depth Selector */}
-              <ExplanationDepthSelector
-                currentDepth={explanationDepth}
-                onSelectDepth={setExplanationDepth}
-                language={language}
-              />
             </div>
 
             {/* Displayed Verses List */}
@@ -448,55 +470,144 @@ export default function App() {
                   onOpenVisualCard={(v) => setSelectedVisualCardVerse(v)}
                   explanationDepth={explanationDepth}
                   perspectiveMode={perspectiveMode}
-                  sourceIndicator={
-                    analysisResult?.source === 'cache'
-                      ? 'Cached Reflection (0 LLM Calls)'
-                      : analysisResult?.source === 'gemini_synthesis'
-                      ? 'AI Sourced Synthesis'
-                      : 'Direct Database Match (0 LLM Calls)'
-                  }
                 />
               </div>
             ))}
           </section>
         )}
-
-        {/* Continuous Session Audio Player (Hands-Free Walking/Car/Resting Mode) */}
-        {isContinuousAudioOpen && displayedPassages.length > 0 && (
-          <ContinuousSessionAudioPlayer
-            verses={displayedPassages}
-            language={language}
-            onActiveVerseChange={(verseId) => setActiveAudioVerseId(verseId)}
-            onClose={() => {
-              setIsContinuousAudioOpen(false);
-              setActiveAudioVerseId(null);
-            }}
-          />
-        )}
-
-        {/* Ethical Scripture Footer */}
-        <Footer language={language} />
       </main>
 
-      {/* Classical Tafsir Drawer */}
+      {/* 4. Hands-Free Continuous Session Audio Player */}
+      {isContinuousAudioOpen && (
+        <ContinuousSessionAudioPlayer
+          verses={displayedPassages.length > 0 ? displayedPassages : selectedPassages}
+          language={language}
+          onActiveVerseChange={(verseId) => setActiveAudioVerseId(verseId)}
+          onClose={() => setIsContinuousAudioOpen(false)}
+        />
+      )}
+
+      {/* 5. Mobile Fixed Bottom Navigation Bar (Natural Thumb Zone) */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FAF8F5]/95 dark:bg-[#071712]/95 backdrop-blur-md border-t border-emerald-900/10 dark:border-emerald-800/30 h-15 px-3 flex items-center justify-around pb-safe"
+      >
+        <button
+          onClick={scrollToTop}
+          className="min-h-[44px] min-w-[44px] flex flex-col items-center justify-center text-slate-600 dark:text-slate-300 hover:text-emerald-700 transition-colors"
+          title="Daily North Star"
+        >
+          <Compass className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          <span className="text-[10px] font-medium tracking-tight mt-0.5">
+            {language === 'sv' ? 'Ledstjärna' : 'North Star'}
+          </span>
+        </button>
+
+        <button
+          onClick={scrollToSearch}
+          className="min-h-[44px] min-w-[44px] flex flex-col items-center justify-center text-slate-600 dark:text-slate-300 hover:text-emerald-700 transition-colors"
+          title="Search Guidance"
+        >
+          <Search className="w-5 h-5" />
+          <span className="text-[10px] font-medium tracking-tight mt-0.5">
+            {language === 'sv' ? 'Sök' : 'Guidance'}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setIsContinuousAudioOpen(!isContinuousAudioOpen)}
+          className={`min-h-[44px] min-w-[44px] flex flex-col items-center justify-center transition-colors ${
+            isContinuousAudioOpen
+              ? 'text-amber-600 dark:text-amber-400'
+              : 'text-slate-600 dark:text-slate-300 hover:text-emerald-700'
+          }`}
+          title="Audio Session"
+        >
+          <Headphones className="w-5 h-5" />
+          <span className="text-[10px] font-medium tracking-tight mt-0.5">
+            {language === 'sv' ? 'Lyssna' : 'Audio'}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setIsCustomizationOpen(true)}
+          className="min-h-[44px] min-w-[44px] flex flex-col items-center justify-center text-slate-600 dark:text-slate-300 hover:text-emerald-700 transition-colors"
+          title="Preferences & Depth"
+        >
+          <SlidersHorizontal className="w-5 h-5" />
+          <span className="text-[10px] font-medium tracking-tight mt-0.5">
+            {language === 'sv' ? 'Inställningar' : 'Depth'}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setIsBookmarksOpen(true)}
+          className="min-h-[44px] min-w-[44px] flex flex-col items-center justify-center text-slate-600 dark:text-slate-300 hover:text-emerald-700 transition-colors relative"
+          title="Saved Reflections"
+        >
+          <Bookmark className="w-5 h-5" />
+          {bookmarks.length > 0 && (
+            <span className="absolute top-1.5 right-3 w-3.5 h-3.5 bg-amber-500 text-emerald-950 text-[9px] font-bold rounded-full flex items-center justify-center">
+              {bookmarks.length}
+            </span>
+          )}
+          <span className="text-[10px] font-medium tracking-tight mt-0.5">
+            {language === 'sv' ? 'Sparat' : 'Saved'}
+          </span>
+        </button>
+      </nav>
+
+      {/* Global Footer */}
+      <Footer language={language} />
+
+      {/* Collapsible Preferences & Depth Bottom Sheet */}
+      <CustomizationSheet
+        isOpen={isCustomizationOpen}
+        onClose={() => setIsCustomizationOpen(false)}
+        language={language}
+        sessionDepth={sessionDepth}
+        onSessionDepthChange={setSessionDepth}
+        explanationDepth={explanationDepth}
+        onExplanationDepthChange={setExplanationDepth}
+        activeSphere={activeSphere}
+        onSphereChange={setActiveSphere}
+        arabicScale={arabicScale}
+        onArabicScaleChange={setArabicScale}
+        showTransliteration={showTransliteration}
+        onToggleTransliteration={() => setShowTransliteration(!showTransliteration)}
+        isHighContrast={isHighContrast}
+        onToggleHighContrast={() => setIsHighContrast(!isHighContrast)}
+        perspectiveMode={perspectiveMode}
+        onTogglePerspective={() =>
+          setPerspectiveMode((prev) => (prev === 'devotional' ? 'inquirer' : 'devotional'))
+        }
+      />
+
+      {/* Tafsir Drawer (Multiple Scholarly Viewpoints) */}
       <TafsirDrawer
         verse={selectedTafsirVerse}
         isOpen={!!selectedTafsirVerse}
         onClose={() => setSelectedTafsirVerse(null)}
       />
 
-      {/* "From Quran to Life" Reflection Drawer */}
+      {/* Reflection Journal Drawer */}
       <ReflectionDrawer
         verse={selectedReflectionVerse}
         isOpen={!!selectedReflectionVerse}
-        onClose={() => setSelectedReflectionVerse(null)}
+        onClose={() => {
+          setSelectedReflectionVerse(null);
+          setReflections(StorageService.getReflections());
+        }}
         language={language}
       />
 
       {/* Bookmarks & Saved Reflections Modal */}
       <BookmarksModal
         isOpen={isBookmarksOpen}
-        onClose={() => setIsBookmarksOpen(false)}
+        onClose={() => {
+          setIsBookmarksOpen(false);
+          setBookmarks(StorageService.getBookmarks());
+        }}
         allVerses={QURAN_FIXTURES}
         language={language}
         onSelectVerse={(v) => {
