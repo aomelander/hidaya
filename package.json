@@ -9,6 +9,8 @@
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "db:seed": "tsx src/lib/db/seedFullQuran.ts",
+    "db:seed-master": "npx tsx src/lib/db/seedMasterQuran.ts",
+    "db:embed": "npx tsx src/lib/db/generateEmbeddings.ts",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "deploy": "vinext-cloudflare deploy --config dist/server/wrangler.json",
     "preview": "npm run build && npm run start --",
