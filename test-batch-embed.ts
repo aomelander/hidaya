@@ -17,7 +17,10 @@ async function run() {
       ]
     })
   });
-  const data = await res.json();
+  const data = (await res.json()) as {
+    embeddings?: Array<{ values: number[] }>;
+    [key: string]: unknown;
+  };
   console.log("Response:", Object.keys(data));
   if (data.embeddings) {
     console.log("Embeddings count:", data.embeddings.length);

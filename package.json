@@ -11,6 +11,7 @@
     "db:seed": "tsx src/lib/db/seedFullQuran.ts",
     "db:seed-master": "npx tsx src/lib/db/seedMasterQuran.ts",
     "db:embed": "npx tsx src/lib/db/generateEmbeddings.ts",
+    "db:embed-check": "npx tsx src/lib/db/generateEmbeddings.ts --check",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "deploy": "vinext-cloudflare deploy --config dist/server/wrangler.json",
     "preview": "npm run build && npm run start --",

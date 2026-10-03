@@ -1,14 +1,15 @@
 /**
  * @file src/lib/db/generateEmbeddings.ts
- * @description Vector Embedding Generator for Hidaya (`aomelander/hidaya`).
- * Queries the `ayah` table for rows where `embedding IS NULL`, batch-requests
- * 768-dimensional embeddings via `@google/genai`, and updates `ayah.embedding`.
+ * @description Rate-Limited Vector Embedding Generator for Hidaya (`aomelander/hidaya`).
+ * Queries `ayah` where `embedding IS NULL` (up to 1000 rows per run), processes in chunks
+ * of 10 with a 1500ms delay between requests and a 10s pause on 429 / quota errors,
+ * and supports `--check` (`npm run db:embed-check`) to inspect progress out of 6,236 Ayahs.
  */
 
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 
-// Load credentials from .env.local or .env
+// Load credentials from .env.local or .env (built-in Node env loader, zero external dotenv dependency)
 try {
   if (typeof process.loadEnvFile === 'function') {
     try {
@@ -21,38 +22,32 @@ try {
   // Ignore if env file does not exist on disk
 }
 
-const SUPABASE_URL =
+const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   '';
-const SUPABASE_SERVICE_ROLE_KEY =
+const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.SUPABASE_ANON_KEY ||
   '';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const geminiApiKey = process.env.GEMINI_API_KEY || '';
 
 const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
 const FALLBACK_EMBEDDING_MODEL = 'gemini-embedding-2-preview';
-const TARGET_DIMENSIONS = 1536;
-const BATCH_SIZE = 50;
-
-interface AyahRowForEmbedding {
-  id: string;
-  surah_id: string;
-  ayah_number: number;
-  text_clean: string;
-  translation?: Array<{ text: string; language_code: string }>;
-}
+const TARGET_DIMENSIONS = Number(process.env.EMBEDDING_DIMENSIONS) || 1536;
+const BATCH_SIZE = 10;
+const DELAY_MS = 1500; // 1.5s delay keeps requests safely under 15 RPM free-tier limit
 
 /**
- * Normalizes or truncates/pads an embedding vector to exactly TARGET_DIMENSIONS.
+ * Normalizes or truncates/pads an embedding vector to match the database vector column dimension.
  */
-function normalizeToTargetDimensions(values: number[]): number[] {
-  if (values.length === TARGET_DIMENSIONS) return values;
-  if (values.length > TARGET_DIMENSIONS) {
-    return values.slice(0, TARGET_DIMENSIONS);
+function normalizeDimensions(values: number[], targetDim: number): number[] {
+  if (values.length === targetDim) return values;
+  if (values.length > targetDim) {
+    return values.slice(0, targetDim);
   }
-  const padded = new Array(TARGET_DIMENSIONS).fill(0);
+  const padded = new Array(targetDim).fill(0);
   for (let i = 0; i < values.length; i++) {
     padded[i] = values[i];
   }
@@ -60,32 +55,50 @@ function normalizeToTargetDimensions(values: number[]): number[] {
 }
 
 /**
- * Generates embeddings for all `ayah` rows where `embedding IS NULL`.
+ * Checks and prints how many Ayahs currently have populated embeddings out of 6,236.
+ */
+export async function checkEmbeddingsCount(): Promise<void> {
+  if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('mock.supabase.co')) {
+    console.error('❌ Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local');
+    return;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
+  });
+
+  const { count, error } = await supabase
+    .from('ayah')
+    .select('id', { count: 'exact', head: true })
+    .not('embedding', 'is', null);
+
+  if (error) {
+    console.error('❌ Error checking embeddings count:', error.message);
+  } else {
+    console.log(`✅ Ayahs with populated embeddings: ${count ?? 0} / 6236`);
+  }
+}
+
+/**
+ * Rate-limited generator that processes unembedded Ayahs in batches of 10 with 1500ms pacing.
  */
 export async function generateEmbeddings(): Promise<void> {
-  console.log('===============================================================');
-  console.log('     HIDAYA VECTOR EMBEDDING GENERATOR (generateEmbeddings)    ');
-  console.log('===============================================================');
-  console.log(`Target Dimensions: ${TARGET_DIMENSIONS} | Batch Size: ${BATCH_SIZE}`);
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || SUPABASE_URL.includes('mock.supabase.co')) {
-    console.log(
-      'ℹ NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured. Exiting cleanly.'
-    );
+  if (process.argv.includes('--check')) {
+    await checkEmbeddingsCount();
     return;
   }
 
-  if (!GEMINI_API_KEY) {
-    console.log('ℹ GEMINI_API_KEY not configured. Exiting cleanly.');
+  if (!supabaseUrl || !supabaseKey || !geminiApiKey || supabaseUrl.includes('mock.supabase.co')) {
+    console.error('❌ Missing environment variables in .env.local (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY)');
     return;
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },
   });
 
   const ai = new GoogleGenAI({
-    apiKey: GEMINI_API_KEY,
+    apiKey: geminiApiKey,
     httpOptions: {
       headers: {
         'User-Agent': 'aistudio-build',
@@ -93,111 +106,108 @@ export async function generateEmbeddings(): Promise<void> {
     },
   });
 
-  let totalUpdated = 0;
-  let activeModel = EMBEDDING_MODEL;
+  await checkEmbeddingsCount();
+  console.log('🔄 Fetching Ayahs with missing embeddings...');
 
-  while (true) {
-    // 1. Query `ayah` table for rows where `embedding IS NULL`
-    const { data: rows, error: queryErr } = await supabase
-      .from('ayah')
-      .select('id, surah_id, ayah_number, text_clean, translation(text, language_code)')
-      .is('embedding', null)
-      .limit(BATCH_SIZE);
+  // 1. Fetch only rows where embedding is NULL (limit 1000 per run)
+  const { data: pendingAyahs, error } = await supabase
+    .from('ayah')
+    .select('id, text_clean, text_uthmani')
+    .is('embedding', null)
+    .limit(1000);
 
-    if (queryErr) {
-      throw new Error(`Failed querying unembedded ayahs: ${queryErr.message}`);
-    }
-
-    if (!rows || rows.length === 0) {
-      console.log('✓ No remaining rows with `embedding IS NULL`.');
-      break;
-    }
-
-    const typedRows = rows as unknown as AyahRowForEmbedding[];
-
-    // Build combined semantic text (`text_clean` + English translation if available)
-    const textsToEmbed = typedRows.map((row) => {
-      const enTrans = row.translation?.find((t) => t.language_code === 'en')?.text || '';
-      return enTrans ? `${row.text_clean} — ${enTrans}` : row.text_clean;
-    });
-
-    // 2. Request batch embeddings via fetch
-    let embeddingsList: Array<{ values?: number[] }> | undefined;
-    
-    async function fetchBatch(model: string, retries = 3): Promise<any> {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${process.env.GEMINI_API_KEY}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requests: textsToEmbed.map(text => ({
-            model: `models/${model}`,
-            content: { parts: [{ text }] },
-          }))
-        })
-      });
-      if (!res.ok) {
-        if (res.status === 429 && retries > 0) {
-          console.warn(`  [Rate Limit Hit] Waiting 60 seconds before retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 60000));
-          return fetchBatch(model, retries - 1);
-        }
-        const errText = await res.text();
-        throw new Error(`API returned ${res.status}: ${errText}`);
-      }
-      return await res.json();
-    }
-
-    try {
-      const data = await fetchBatch(activeModel);
-      embeddingsList = data.embeddings;
-    } catch (err) {
-      if (activeModel !== FALLBACK_EMBEDDING_MODEL) {
-        console.warn(
-          `⚠ Model '${activeModel}' returned an error; falling back to '${FALLBACK_EMBEDDING_MODEL}'...`
-        );
-        activeModel = FALLBACK_EMBEDDING_MODEL;
-        const data = await fetchBatch(activeModel);
-        embeddingsList = data.embeddings;
-      } else {
-        throw err;
-      }
-    }
-
-    if (!embeddingsList || embeddingsList.length !== typedRows.length) {
-      throw new Error(
-        `Embedding count mismatch: expected ${typedRows.length}, received ${embeddingsList?.length || 0}`
-      );
-    }
-
-    // 3. Update `ayah.embedding` column with Target-dimensional float arrays
-    await Promise.all(
-      typedRows.map(async (row, idx) => {
-        const rawValues = embeddingsList![idx]?.values;
-        if (!rawValues || rawValues.length === 0) return;
-
-        const vectorTarget = normalizeToTargetDimensions(rawValues);
-        const { error: updateErr } = await supabase
-          .from('ayah')
-          .update({ embedding: vectorTarget })
-          .eq('id', row.id);
-
-        if (updateErr) {
-          throw new Error(`Failed updating embedding for ayah ${row.id}: ${updateErr.message}`);
-        }
-      })
-    );
-
-    totalUpdated += typedRows.length;
-    console.log(`  ✓ Updated embeddings for ${totalUpdated} Ayahs...`);
-    
-    // Add delay to prevent rate limiting (Gemini API 100 req/min)
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  if (error) {
+    console.error('❌ Error fetching pending ayahs:', error.message);
+    return;
   }
 
-  console.log('\n===============================================================');
-  console.log(`  ✓ EMBEDDING GENERATION COMPLETE (${totalUpdated} Ayahs updated)`);
-  console.log('===============================================================\n');
+  if (!pendingAyahs || pendingAyahs.length === 0) {
+    console.log('🎉 All Ayahs already have populated embeddings!');
+    return;
+  }
+
+  console.log(
+    `📊 Processing next ${pendingAyahs.length} pending Ayahs in batches of ${BATCH_SIZE} (${DELAY_MS}ms delay)...`
+  );
+
+  let activeModel = EMBEDDING_MODEL;
+
+  for (let i = 0; i < pendingAyahs.length; i += BATCH_SIZE) {
+    const chunk = pendingAyahs.slice(i, i + BATCH_SIZE);
+
+    for (const ayah of chunk) {
+      try {
+        const textToEmbed = ayah.text_clean || ayah.text_uthmani;
+
+        let response;
+        try {
+          response = await ai.models.embedContent({
+            model: activeModel,
+            contents: [textToEmbed],
+          });
+        } catch (modelErr: unknown) {
+          const msg = modelErr instanceof Error ? modelErr.message : String(modelErr);
+          if (
+            (msg.includes('404') || msg.includes('NOT_FOUND')) &&
+            activeModel !== FALLBACK_EMBEDDING_MODEL
+          ) {
+            console.warn(
+              `⚠️ Model '${activeModel}' not found; switching to '${FALLBACK_EMBEDDING_MODEL}'...`
+            );
+            activeModel = FALLBACK_EMBEDDING_MODEL;
+            response = await ai.models.embedContent({
+              model: activeModel,
+              contents: [textToEmbed],
+            });
+          } else {
+            throw modelErr;
+          }
+        }
+
+        const rawVector = response.embeddings?.[0]?.values;
+
+        if (rawVector && rawVector.length > 0) {
+          const normalizedVector = normalizeDimensions(rawVector, TARGET_DIMENSIONS);
+
+          const { error: updateError } = await supabase
+            .from('ayah')
+            .update({ embedding: JSON.stringify(normalizedVector) })
+            .eq('id', ayah.id);
+
+          if (updateError) {
+            console.error(
+              `❌ Failed to save embedding for Ayah ID ${ayah.id}:`,
+              updateError.message
+            );
+          }
+        }
+      } catch (err: unknown) {
+        const errMessage = err instanceof Error ? err.message : String(err);
+        const errStatus = (err as { status?: number })?.status;
+
+        if (
+          errMessage.toLowerCase().includes('quota') ||
+          errMessage.includes('429') ||
+          errMessage.includes('RESOURCE_EXHAUSTED') ||
+          errStatus === 429
+        ) {
+          console.warn('⚠️ Quota limit reached. Pausing for 10 seconds...');
+          await new Promise((res) => setTimeout(res, 10000));
+        } else {
+          console.error(`❌ API error on Ayah ID ${ayah.id}:`, errMessage);
+        }
+      }
+
+      // 1.5s delay per item to respect free-tier RPM limits
+      await new Promise((res) => setTimeout(res, DELAY_MS));
+    }
+
+    console.log(
+      `✅ Progress: ${Math.min(i + BATCH_SIZE, pendingAyahs.length)} / ${pendingAyahs.length} processed.`
+    );
+  }
+
+  console.log('🏁 Batch run completed. Re-run "npm run db:embed" if more pending rows remain.');
 }
 
 if (

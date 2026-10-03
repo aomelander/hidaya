@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan to remove the top Guidance Context Banner and fully localize all VerseCard metadata, AudioPlayer labels, Classical Tafsir, Reflection prompts, and Context explanations into Swedish, French, Arabic, and English.",
-  "updatedAt":  "2026-10-03T20:06:06.877068638Z",
+  "summary":  "Implementation plan to update src/lib/db/generateEmbeddings.ts with rate-limited 10-ayah chunks, a 1.5s delay between requests, 429 quota backoff, and an embedding status check script.",
+  "updatedAt":  "2026-10-03T23:01:56.544364816Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
