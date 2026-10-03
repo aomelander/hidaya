@@ -33,7 +33,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
 const FALLBACK_EMBEDDING_MODEL = 'gemini-embedding-2-preview';
-const TARGET_DIMENSIONS = 768;
+const TARGET_DIMENSIONS = 1536;
 const BATCH_SIZE = 50;
 
 interface AyahRowForEmbedding {
@@ -45,9 +45,9 @@ interface AyahRowForEmbedding {
 }
 
 /**
- * Normalizes or truncates/pads an embedding vector to exactly 768 dimensions.
+ * Normalizes or truncates/pads an embedding vector to exactly TARGET_DIMENSIONS.
  */
-function normalizeTo768(values: number[]): number[] {
+function normalizeToTargetDimensions(values: number[]): number[] {
   if (values.length === TARGET_DIMENSIONS) return values;
   if (values.length > TARGET_DIMENSIONS) {
     return values.slice(0, TARGET_DIMENSIONS);
@@ -121,31 +121,44 @@ export async function generateEmbeddings(): Promise<void> {
       return enTrans ? `${row.text_clean} — ${enTrans}` : row.text_clean;
     });
 
-    // 2. Request batch embeddings from @google/genai
+    // 2. Request batch embeddings via fetch
     let embeddingsList: Array<{ values?: number[] }> | undefined;
-    try {
-      const response = await ai.models.embedContent({
-        model: activeModel,
-        contents: textsToEmbed,
-        config: {
-          outputDimensionality: TARGET_DIMENSIONS,
-        },
+    
+    async function fetchBatch(model: string, retries = 3): Promise<any> {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${process.env.GEMINI_API_KEY}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requests: textsToEmbed.map(text => ({
+            model: `models/${model}`,
+            content: { parts: [{ text }] },
+          }))
+        })
       });
-      embeddingsList = response.embeddings;
+      if (!res.ok) {
+        if (res.status === 429 && retries > 0) {
+          console.warn(`  [Rate Limit Hit] Waiting 60 seconds before retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 60000));
+          return fetchBatch(model, retries - 1);
+        }
+        const errText = await res.text();
+        throw new Error(`API returned ${res.status}: ${errText}`);
+      }
+      return await res.json();
+    }
+
+    try {
+      const data = await fetchBatch(activeModel);
+      embeddingsList = data.embeddings;
     } catch (err) {
       if (activeModel !== FALLBACK_EMBEDDING_MODEL) {
         console.warn(
           `⚠ Model '${activeModel}' returned an error; falling back to '${FALLBACK_EMBEDDING_MODEL}'...`
         );
         activeModel = FALLBACK_EMBEDDING_MODEL;
-        const fallbackResponse = await ai.models.embedContent({
-          model: activeModel,
-          contents: textsToEmbed,
-          config: {
-            outputDimensionality: TARGET_DIMENSIONS,
-          },
-        });
-        embeddingsList = fallbackResponse.embeddings;
+        const data = await fetchBatch(activeModel);
+        embeddingsList = data.embeddings;
       } else {
         throw err;
       }
@@ -157,16 +170,16 @@ export async function generateEmbeddings(): Promise<void> {
       );
     }
 
-    // 3. Update `ayah.embedding` column with 768-dimensional float arrays
+    // 3. Update `ayah.embedding` column with Target-dimensional float arrays
     await Promise.all(
       typedRows.map(async (row, idx) => {
         const rawValues = embeddingsList![idx]?.values;
         if (!rawValues || rawValues.length === 0) return;
 
-        const vector768 = normalizeTo768(rawValues);
+        const vectorTarget = normalizeToTargetDimensions(rawValues);
         const { error: updateErr } = await supabase
           .from('ayah')
-          .update({ embedding: vector768 })
+          .update({ embedding: vectorTarget })
           .eq('id', row.id);
 
         if (updateErr) {
@@ -177,6 +190,9 @@ export async function generateEmbeddings(): Promise<void> {
 
     totalUpdated += typedRows.length;
     console.log(`  ✓ Updated embeddings for ${totalUpdated} Ayahs...`);
+    
+    // Add delay to prevent rate limiting (Gemini API 100 req/min)
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   console.log('\n===============================================================');
