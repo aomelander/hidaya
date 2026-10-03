@@ -82,6 +82,19 @@ function resolveTranslation(
 }
 
 /**
+ * Prioritizes tafsir records matching the requested language_code (e.g., 'ar' for Tafsir Al-Muyassar / Ibn Kathir).
+ */
+function resolveTafsirs(
+  tafsirs: RetrievedTafsir[] = [],
+  preferredLanguage: LanguageCode = 'en'
+): RetrievedTafsir[] {
+  if (!tafsirs || tafsirs.length === 0) return [];
+  const exactMatches = tafsirs.filter((t) => t.language_code === preferredLanguage);
+  const otherMatches = tafsirs.filter((t) => t.language_code !== preferredLanguage);
+  return [...exactMatches, ...otherMatches];
+}
+
+/**
  * Simulates: ORDER BY relevance_score DESC, RANDOM() LIMIT limit
  * Allows varied relevant results across consecutive calls while preserving relevance hierarchy.
  */
@@ -108,8 +121,33 @@ function applyScoreAndRandomOrder<T extends { relevance_score: number }>(
 
 export class RetrievalService {
   /**
+   * Explicitly queries Supabase `tafsir` table for `language_code = language` (e.g., 'ar' for Tafsir Al-Muyassar / Ibn Kathir).
+   */
+  static async fetchTafsirByLanguage(
+    language: LanguageCode = 'ar',
+    limit: number = 10
+  ): Promise<RetrievedTafsir[]> {
+    if (useMock) {
+      return SEED_FIXTURES.flatMap((f) => f.tafsirs).filter((t) => t.language_code === language);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('tafsir')
+        .select('id, scholar_name, work_title, text, language_code')
+        .eq('language_code', language)
+        .limit(limit);
+
+      if (error || !data) return [];
+      return data as RetrievedTafsir[];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Stage 1: Query ayah_topic and live ayah/translation tables for categorical/emotional matches.
-   * Supports language parameter ('en' | 'sv' | 'fr') with fallback to 'en'.
+   * Supports language parameter ('en' | 'sv' | 'fr' | 'ar') with fallback to 'en'.
    * Applies score-based sorting + dynamic randomization (ORDER BY relevance_score DESC, RANDOM() LIMIT 3).
    */
   static async findDirectMatches(
@@ -206,7 +244,7 @@ export class RetrievalService {
           },
           translations: orderedList,
           selectedTranslation: selected,
-          tafsirs: r.ayah.tafsir || [],
+          tafsirs: resolveTafsirs(r.ayah.tafsir || [], language),
           topic: r.topic,
         };
       });
@@ -351,7 +389,7 @@ export class RetrievalService {
               },
               translations: orderedList,
               selectedTranslation: selected,
-              tafsirs: row.ayah.tafsir || [],
+              tafsirs: resolveTafsirs(row.ayah.tafsir || [], language),
               topic: firstTopic?.topic,
             },
           });
@@ -398,7 +436,7 @@ export class RetrievalService {
         ayah: f.ayah,
         translations: orderedList,
         selectedTranslation: selected,
-        tafsirs: f.tafsirs,
+        tafsirs: resolveTafsirs(f.tafsirs, language),
         topic: f.topic,
       };
     });
@@ -443,7 +481,7 @@ export class RetrievalService {
         ayah: f.ayah,
         translations: orderedList,
         selectedTranslation: selected,
-        tafsirs: f.tafsirs,
+        tafsirs: resolveTafsirs(f.tafsirs, language),
         topic: f.topic,
       };
     });

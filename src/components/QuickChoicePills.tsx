@@ -2,8 +2,8 @@
 
 /**
  * @file QuickChoicePills.tsx
- * @description Curated clickable contemplation options with compact mobile ergonomics and progressive disclosure.
- * Prevents overwhelming users on small viewports while keeping deep topic paths accessible.
+ * @description Curated clickable contemplation options with compact mobile ergonomics,
+ * progressive disclosure, and 100% locale synchronization (en, sv, fr, ar).
  */
 
 import React, { useState } from 'react';
@@ -26,8 +26,9 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { EntryMode, QuickPill } from '../types';
+import { EntryMode, Language, QuickPill } from '../types';
 import { QUICK_CHOICE_PILLS } from '../data/quranFixtures';
+import { getDictionary } from '../lib/i18n/dictionaries';
 
 /**
  * Helper function to lazily render an icon by fixture icon name.
@@ -71,14 +72,17 @@ function getPillIcon(iconName: string): React.ReactNode {
 
 interface QuickChoicePillsProps {
   activeMode: EntryMode;
+  language?: Language;
   onSelectPill: (pill: QuickPill) => void;
 }
 
 export const QuickChoicePills: React.FC<QuickChoicePillsProps> = ({
   activeMode,
+  language = 'en',
   onSelectPill,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const dict = getDictionary(language);
   const currentPills = QUICK_CHOICE_PILLS.filter((p) => p.category === activeMode);
 
   // Show first 4 pills by default on mobile, or all if expanded
@@ -87,20 +91,26 @@ export const QuickChoicePills: React.FC<QuickChoicePillsProps> = ({
 
   return (
     <div className="mt-3 max-w-3xl mx-auto">
-      <div className="flex flex-wrap items-center gap-2">
-        {displayedPills.map((pill) => (
-          <button
-            key={pill.id}
-            type="button"
-            onClick={() => onSelectPill(pill)}
-            className="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-emerald-950/40 border border-slate-200 dark:border-emerald-800/40 text-slate-700 dark:text-slate-200 hover:border-emerald-600 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all cursor-pointer shadow-2xs active:scale-98"
-          >
-            <span className="text-amber-600 dark:text-amber-400 shrink-0">
-              {getPillIcon(pill.iconName)}
-            </span>
-            <span className="truncate">{pill.label}</span>
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2 rtl:space-x-reverse">
+        {displayedPills.map((pill) => {
+          const localizedLabel =
+            dict.quickPills?.[pill.id] ||
+            (language === 'ar' && pill.labelArabic ? pill.labelArabic : pill.label);
+
+          return (
+            <button
+              key={pill.id}
+              type="button"
+              onClick={() => onSelectPill(pill)}
+              className="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-emerald-950/40 border border-slate-200 dark:border-emerald-800/40 text-slate-700 dark:text-slate-200 hover:border-emerald-600 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all cursor-pointer shadow-2xs active:scale-98"
+            >
+              <span className="text-amber-600 dark:text-amber-400 shrink-0">
+                {getPillIcon(pill.iconName)}
+              </span>
+              <span className="truncate">{localizedLabel}</span>
+            </button>
+          );
+        })}
 
         {hasMore && (
           <button
@@ -109,7 +119,11 @@ export const QuickChoicePills: React.FC<QuickChoicePillsProps> = ({
             className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-900/5 dark:hover:bg-emerald-800/20 border border-dashed border-emerald-800/20 transition-colors cursor-pointer"
             aria-expanded={isExpanded}
           >
-            <span>{isExpanded ? 'Less' : `+${currentPills.length - 4} more`}</span>
+            <span>
+              {isExpanded
+                ? dict.showLessPills
+                : `+${currentPills.length - 4} ${dict.showMorePills}`}
+            </span>
             {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
         )}

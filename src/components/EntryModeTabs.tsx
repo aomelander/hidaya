@@ -2,158 +2,95 @@
 
 /**
  * @file EntryModeTabs.tsx
- * @description Tab navigation for the 3 core guidance entry modes:
- * 1. In This Moment (immediate emotions/crisis)
- * 2. Big Questions (existential purpose/suffering)
- * 3. Character & Growth (moral cultivation/virtues)
- * Also includes the trigger for the "Unsure what you need" spiritual compass.
+ * @description Clean 3-tab segmented control for Guidance entry modes (Moment, Questions, Growth)
+ * with zero popup triggers and full RTL & Arabic localization support.
  */
 
 import React from 'react';
-import { Compass, ArrowRight } from 'lucide-react';
 import { EntryMode, Language } from '../types';
+import { getDictionary } from '../lib/i18n/dictionaries';
 
 interface EntryModeTabsProps {
   activeMode: EntryMode;
   onSelectMode: (mode: EntryMode) => void;
-  onOpenUnsureModal: () => void;
   language: Language;
+  onOpenUnsureModal?: () => void;
 }
 
 export const EntryModeTabs: React.FC<EntryModeTabsProps> = ({
   activeMode,
   onSelectMode,
-  onOpenUnsureModal,
   language,
 }) => {
+  const dict = getDictionary(language);
+
   return (
-    <section aria-label="Guidance Entry Modes" className="space-y-3">
-      {/* 3 Entry Modes Navigation Tabs */}
-      <div className="flex p-1.5 rounded-2xl bg-emerald-900/5 dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 max-w-2xl mx-auto shadow-xs">
+    <section
+      aria-label={dict.modeTitle}
+      dir={language === 'ar' ? 'rtl' : 'ltr'}
+    >
+      <div
+        role="tablist"
+        className="flex items-center p-1 rounded-2xl bg-emerald-900/5 dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 max-w-xl mx-auto rtl:space-x-reverse"
+      >
         <button
           type="button"
           onClick={() => onSelectMode('moment')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
+          className={`flex-1 min-h-[42px] py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer text-center whitespace-nowrap truncate ${
             activeMode === 'moment'
-              ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-sm'
+              ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
               : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
           }`}
           aria-selected={activeMode === 'moment'}
           role="tab"
         >
-          <span className="block font-bold">
-            {language === 'ar'
-              ? '١. في هذه اللحظة'
-              : language === 'sv'
-              ? '1. I stunden'
-              : language === 'fr'
-              ? '1. En ce moment'
-              : '1. In This Moment'}
-          </span>
-          <span
-            className={`text-[10px] hidden sm:block ${
-              activeMode === 'moment' ? 'text-emerald-100' : 'text-slate-400'
-            }`}
-          >
-            {language === 'ar'
-              ? 'المشاعر والمواقف'
-              : language === 'sv'
-              ? 'Känslor & situationer'
-              : language === 'fr'
-              ? 'Émotions & situations'
-              : 'Emotions & Situations'}
-          </span>
+          {language === 'ar'
+            ? 'في هذه اللحظة'
+            : language === 'sv'
+            ? 'I stunden'
+            : language === 'fr'
+            ? 'En ce moment'
+            : 'In This Moment'}
         </button>
 
         <button
           type="button"
           onClick={() => onSelectMode('questions')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
+          className={`flex-1 min-h-[42px] py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer text-center whitespace-nowrap truncate ${
             activeMode === 'questions'
-              ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-sm'
+              ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
               : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
           }`}
           aria-selected={activeMode === 'questions'}
           role="tab"
         >
-          <span className="block font-bold">
-            {language === 'ar'
-              ? '٢. أسئلة كبرى'
-              : language === 'sv'
-              ? '2. Stora frågor'
-              : language === 'fr'
-              ? '2. Grandes questions'
-              : '2. Big Questions'}
-          </span>
-          <span
-            className={`text-[10px] hidden sm:block ${
-              activeMode === 'questions' ? 'text-emerald-100' : 'text-slate-400'
-            }`}
-          >
-            {language === 'ar'
-              ? 'الغاية، العدل، الموت'
-              : language === 'sv'
-              ? 'Syfte, rättvisa, död'
-              : language === 'fr'
-              ? 'Sens, justice, mort'
-              : 'Purpose, Justice, Death'}
-          </span>
+          {language === 'ar'
+            ? 'أسئلة كبرى'
+            : language === 'sv'
+            ? 'Stora frågor'
+            : language === 'fr'
+            ? 'Grandes questions'
+            : 'Big Questions'}
         </button>
 
         <button
           type="button"
           onClick={() => onSelectMode('growth')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
+          className={`flex-1 min-h-[42px] py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer text-center whitespace-nowrap truncate ${
             activeMode === 'growth'
-              ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-sm'
+              ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
               : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
           }`}
           aria-selected={activeMode === 'growth'}
           role="tab"
         >
-          <span className="block font-bold">
-            {language === 'ar'
-              ? '٣. التزكية والخلق'
-              : language === 'sv'
-              ? '3. Karaktär & växande'
-              : language === 'fr'
-              ? '3. Caractère & élévation'
-              : '3. Character & Growth'}
-          </span>
-          <span
-            className={`text-[10px] hidden sm:block ${
-              activeMode === 'growth' ? 'text-emerald-100' : 'text-slate-400'
-            }`}
-          >
-            {language === 'ar'
-              ? 'الصبر، التواضع، حفظ اللسان'
-              : language === 'sv'
-              ? 'Tålamod, ödmjukhet, gott tal'
-              : language === 'fr'
-              ? 'Patience, humilité, bonté'
-              : 'Patience, Humility, Speech'}
-          </span>
-        </button>
-      </div>
-
-      {/* "I don't know what I need" helper button */}
-      <div className="text-center">
-        <button
-          type="button"
-          onClick={onOpenUnsureModal}
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-600/30 transition-all cursor-pointer shadow-2xs"
-        >
-          <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-          <span>
-            {language === 'ar'
-              ? 'لست متأكداً مما تحتاجه؟ دع هداية ترشد قلبك'
-              : language === 'sv'
-              ? 'Osäker på vad du behöver? Låt Hidaya guida ditt hjärta'
-              : language === 'fr'
-              ? 'Vous ne savez pas par où commencer ? Laissez Hidaya vous guider'
-              : 'Unsure where to start? Let Hidaya guide your heart'}
-          </span>
-          <ArrowRight className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+          {language === 'ar'
+            ? 'التزكية والخلق'
+            : language === 'sv'
+            ? 'Karaktär & växande'
+            : language === 'fr'
+            ? 'Caractère & élévation'
+            : 'Character & Growth'}
         </button>
       </div>
     </section>

@@ -193,7 +193,50 @@ Unveils the physical, concrete desert metaphors embedded in classical Arabic roo
 
 ---
 
-## 9. Progressive Web App (PWA) & Offline Cache
+## 9. Calm Sanctuary 5-Tab Architecture & Multilingual Localization
 
-- Service Worker (`/public/sw.js`) provides offline caching for app shell, Daily North Star, and verified local fixtures.
-- Installable on desktop and mobile (`manifest.json`) with standalone display mode.
+### Zero-Popup 5-Tab Workspace
+To preserve a calm, contemplative reading environment on both mobile and desktop, Hidaya uses a zero-popup 5-tab architecture controlled by `BottomNav`:
+1. **Guidance (`guidance`)**: Search bar, 3 entry modes, curated quick choice pills, and `VerseCard` list.
+2. **Audio (`audio`)**: Dedicated continuous hands-free recitation and translation session player (`ContinuousSessionAudioPlayer`).
+3. **North Star (`northstar`)**: Daily rotating contemplation passage (`DailyNorthStar`) with heart-check and micro-action.
+4. **Journal (`journal`)**: Inline saved verses, personal 4-step reflections, JSON backup/restore, and offline status badge (`JournalDrawer` in `inlinePage` mode).
+5. **Preferences (`settings`)**: Language, theme, session duration, explanation depth, typography scaling, and offline storage/PWA installation (`CustomizationSheet` in `inlinePage` mode).
+
+### Inline VerseCard Disclosure (Zero Modals)
+Each `VerseCard` displays **Level 1 (Verified Uthmani Arabic)**, **Level 2 (Certified Translation)**, and the inline **`AudioPlayer`** by default. Below the player sits a single-row 3-segment tab bar (`grid-cols-3`) that starts collapsed by default:
+- **Tafsir (Level 3)**: Expands inline with a single-row 3-column scholar switcher (`Ibn Kathir` · `Al-Sa'di` · `Al-Muyassar`) and revelation context (`Asbab al-Nuzul`).
+- **Reflection (Level 4)**: Expands the 4-step *From Quran to Life* personal contemplation journal inline.
+- **Context**: Expands relevance mapping, the contextual boundary guard (*What this verse is NOT saying*), and preceding/following verses.
+
+### Complete 4-Language Localization (`EN`, `SV`, `FR`, `AR`)
+- **`src/data/localizedVerseContent.ts`**: Centralizes localized Surah prefixes (`Surah`, `Sura`, `Sourate`, `سورة`), Surah name meanings, revelation eras (`Medinan`/`Medinsk`/`Médinoise`/`مدنية`), revelation contexts, and Classical Tafsir commentaries (`Ibn Kathir`, `Al-Sa'di`, `Al-Muyassar`) across English, Swedish, French, and Arabic.
+- **`src/data/localizedReflections.ts`**: Provides native 4-step reflection prompts in `en`, `sv`, `fr`, and `ar` so neither the UI nor the TTS audio engine ever leaks English into non-English sessions.
+
+---
+
+## 10. Progressive Web App (PWA) & Multi-Tier Offline Cache Strategy
+
+Hidaya implements a 3-bucket Service Worker (`/public/sw.js`) paired with a client-side synchronization SDK (`src/services/offlineCacheService.ts` and `src/hooks/useOfflineStatus.ts`):
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     Service Worker (/public/sw.js)                       │
+├────────────────────────┬─────────────────────────┬───────────────────────┤
+│   hidaya-shell-v2      │   hidaya-passages-v2    │   hidaya-audio-v2     │
+│ Stale-While-Revalidate │ Network-First / Precache│ Cache-First On-Demand │
+│ • App shell HTML/JS/CSS│ • /api/offline-passages │ • Per-verse MP3 audio │
+│ • Manifest & SVG icons │ • All built-in verses   │   saved via AudioPlayer│
+│ • Google Fonts         │ • Bookmarked & searched │   or Journal/Settings │
+│                        │   verses + translations │                       │
+└────────────────────────┴─────────────────────────┴───────────────────────┘
+```
+
+1. **Automatic Passage & Translation Precaching (`hidaya-passages-v2`)**:
+   - On Service Worker installation and client mount, Hidaya fetches `/api/offline-passages` and caches all built-in verified Quranic passages, translations (`en`, `sv`, `fr`, `ar`), and Classical Tafsir citations as individual virtual JSON records (`/offline-data/verse/<id>.json`) mirrored in `localStorage`.
+   - Searching or bookmarking any verse automatically syncs that passage into `hidaya-passages-v2`.
+2. **Optional Per-Verse Audio Caching (`hidaya-audio-v2`)**:
+   - Keeps default storage lightweight by caching text/translations automatically while allowing users to save or remove individual verse MP3 recitations via the **Save Audio / Offline Audio** button in `AudioPlayer` and `JournalDrawer`, or batch-cache all bookmarked verses in `Preferences`.
+3. **Inline Offline Status & Standalone Install (`useOfflineStatus`)**:
+   - Displays a quiet inline status indicator (`Offline Ready · X passages cached · Y audio cached`) inside the **Journal** and **Preferences** tabs, alongside an inline **Install Hidaya App** button supporting Chromium `beforeinstallprompt` and iOS Safari home-screen guidance.
+

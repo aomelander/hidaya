@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for mobile-first decluttering with collapsible settings bottom sheets, Daily North Star launch focus, and high-fidelity server-side Swedish AI voice synthesis.",
-  "updatedAt":  "2026-09-28T20:35:10.906774664Z",
+  "summary":  "Implementation plan to remove the top Guidance Context Banner and fully localize all VerseCard metadata, AudioPlayer labels, Classical Tafsir, Reflection prompts, and Context explanations into Swedish, French, Arabic, and English.",
+  "updatedAt":  "2026-10-03T20:06:06.877068638Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

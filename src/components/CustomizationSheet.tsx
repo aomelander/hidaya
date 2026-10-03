@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useEffect } from 'react';
+/**
+ * @file src/components/CustomizationSheet.tsx
+ * @description Preferences & Contemplation Depth view supporting dedicated inline tab rendering
+ * (`inlinePage` mode with zero popups) and including an inline Offline Storage & PWA Install
+ * section to manage cached Quranic passages, translations, and per-verse audio recitations.
+ */
+
+import React, { useEffect, useState } from 'react';
 import {
   X,
   SlidersHorizontal,
@@ -11,6 +18,13 @@ import {
   Eye,
   Check,
   RotateCcw,
+  Globe,
+  Moon,
+  Sun,
+  Download,
+  Trash2,
+  WifiOff,
+  Smartphone,
 } from 'lucide-react';
 import {
   Language,
@@ -22,11 +36,20 @@ import {
 import { SessionDepthSelector } from './SessionDepthSelector';
 import { ExplanationDepthSelector } from './ExplanationDepthSelector';
 import { SphereFilter } from './SphereFilter';
+import { OfflineCacheService } from '../services/offlineCacheService';
+import { StorageService } from '../services/storage';
+import { QURAN_FIXTURES } from '../data/quranFixtures';
+import { useOfflineStatus } from '../hooks/useOfflineStatus';
 
-interface CustomizationSheetProps {
+export interface CustomizationSheetProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
+  inlinePage?: boolean;
   language: Language;
+  onLanguageChange?: (lang: Language) => void;
+  // Theme state
+  isDark?: boolean;
+  onToggleDark?: () => void;
   // Session & Depth State
   sessionDepth: SessionDepth;
   onSessionDepthChange: (depth: SessionDepth) => void;
@@ -47,15 +70,32 @@ interface CustomizationSheetProps {
   onTogglePerspective: () => void;
 }
 
+const LANGUAGE_OPTIONS: { code: Language; label: string; native: string }[] = [
+  { code: 'en', label: 'English', native: 'English' },
+  { code: 'sv', label: 'Swedish', native: 'Svenska' },
+  { code: 'fr', label: 'French', native: 'Français' },
+  { code: 'ar', label: 'Arabic', native: 'العربية' },
+];
+
 const UI_TEXT: Record<
   Language,
   {
     title: string;
     subtitle: string;
+    languageTab: string;
+    themeLabel: string;
+    darkMode: string;
+    lightMode: string;
     sessionTab: string;
     explanationTab: string;
     spheresTab: string;
     readingTab: string;
+    offlineTab: string;
+    offlineReadyDesc: string;
+    cacheBookmarksAudioBtn: string;
+    clearAudioCacheBtn: string;
+    installAppBtn: string;
+    iosInstallHint: string;
     done: string;
     reset: string;
     arabicSize: string;
@@ -68,12 +108,22 @@ const UI_TEXT: Record<
 > = {
   en: {
     title: 'Preferences & Contemplation Depth',
-    subtitle: 'Customize your session duration, exegesis level, and reading comfort.',
+    subtitle: 'Customize language, theme, offline storage, and reading comfort.',
+    languageTab: 'Language & Appearance',
+    themeLabel: 'Color Theme',
+    darkMode: 'Dark Sanctuary',
+    lightMode: 'Warm Parchment',
     sessionTab: 'Session Length',
     explanationTab: 'Explanation Depth',
     spheresTab: 'Life Spheres',
     readingTab: 'Reading & Typography',
-    done: 'Apply & Return',
+    offlineTab: 'Offline Access & App Installation',
+    offlineReadyDesc: 'All verified Quranic passages, translations (EN/SV/FR/AR), and Tafsir are cached for offline reading.',
+    cacheBookmarksAudioBtn: 'Cache Bookmark Audio',
+    clearAudioCacheBtn: 'Clear Audio Cache',
+    installAppBtn: 'Install Hidaya App',
+    iosInstallHint: 'On iPhone/iPad: tap Share in Safari and choose "Add to Home Screen".',
+    done: 'Return to Guidance',
     reset: 'Reset Defaults',
     arabicSize: 'Arabic Text Scale',
     translit: 'Phonetic Transliteration',
@@ -84,12 +134,22 @@ const UI_TEXT: Record<
   },
   sv: {
     title: 'Inställningar & Reflektionsdjup',
-    subtitle: 'Anpassa din sessionstid, förklaringsnivå och läskomfort.',
+    subtitle: 'Anpassa språk, tema, offlinelagring och läskomfort.',
+    languageTab: 'Språk & Utseende',
+    themeLabel: 'Färgtema',
+    darkMode: 'Mörkt läge',
+    lightMode: 'Ljust läge',
     sessionTab: 'Sessionens längd',
     explanationTab: 'Förklaringsdjup',
     spheresTab: 'Livsområden',
     readingTab: 'Text & Tillgänglighet',
-    done: 'Tillämpa och stäng',
+    offlineTab: 'Offlineåtkomst & Appinstallation',
+    offlineReadyDesc: 'Alla verifierade Quran-passager, översättningar och Tafsir är sparade för läsning utan internet.',
+    cacheBookmarksAudioBtn: 'Spara bokmärkt ljud',
+    clearAudioCacheBtn: 'Rensa ljudcache',
+    installAppBtn: 'Installera Hidaya-appen',
+    iosInstallHint: 'På iPhone/iPad: tryck på Dela i Safari och välj "Lägg till på hemskärmen".',
+    done: 'Tillbaka till vägledning',
     reset: 'Återställ',
     arabicSize: 'Arabisk textstorlek',
     translit: 'Fonetisk translitterering',
@@ -100,12 +160,22 @@ const UI_TEXT: Record<
   },
   fr: {
     title: 'Préférences & Profondeur de Méditation',
-    subtitle: 'Ajustez la durée de votre session, le niveau de tafsir et le confort visuel.',
+    subtitle: 'Ajustez la langue, le thème, le mode hors-ligne et le confort visuel.',
+    languageTab: 'Langue & Apparence',
+    themeLabel: 'Thème visuel',
+    darkMode: 'Mode Sombre',
+    lightMode: 'Mode Clair',
     sessionTab: 'Durée de la session',
     explanationTab: "Niveau d'explication",
     spheresTab: 'Sphères de vie',
     readingTab: 'Typographie & Accessibilité',
-    done: 'Appliquer et fermer',
+    offlineTab: 'Accès Hors-Ligne & Installation',
+    offlineReadyDesc: 'Tous les passages coraniques vérifiés, traductions et Tafsir sont mis en cache pour une lecture sans connexion.',
+    cacheBookmarksAudioBtn: 'Mettre en cache les audios favoris',
+    clearAudioCacheBtn: 'Vider le cache audio',
+    installAppBtn: "Installer l'application Hidaya",
+    iosInstallHint: 'Sur iPhone/iPad : touchez Partager dans Safari puis "Sur l’écran d’accueil".',
+    done: 'Retour à la guidance',
     reset: 'Réinitialiser',
     arabicSize: 'Taille du texte arabe',
     translit: 'Translittération phonétique',
@@ -115,13 +185,23 @@ const UI_TEXT: Record<
     inquirer: 'Curieux (Contexte historique)',
   },
   ar: {
-    title: 'إعدادات الجلسة وعمق التدبر',
-    subtitle: 'خصص مدة جلسة التدبر، ومستوى التفسير، وخصائص القراءة المريحة.',
+    title: 'الإعدادات وعمق التدبر',
+    subtitle: 'خصص اللغة، والمظهر، والتخزين دون اتصال، وخصائص القراءة المريحة.',
+    languageTab: 'اللغة والمظهر',
+    themeLabel: 'نمط الإضاءة',
+    darkMode: 'الوضع الليلي',
+    lightMode: 'الوضع النهاري',
     sessionTab: 'مدة الجلسة',
     explanationTab: 'عمق التفسير',
     spheresTab: 'مجالات الحياة',
     readingTab: 'الخط والإتاحة',
-    done: 'تطبيق وإغلاق',
+    offlineTab: 'القراءة بدون إنترنت وتثبيت التطبيق',
+    offlineReadyDesc: 'جميع المقاطع القرآنية الموثقة والتراجم والتفاسير محفوظة للقراءة بدون اتصال بالإنترنت.',
+    cacheBookmarksAudioBtn: 'حفظ تلاوات المفضلة',
+    clearAudioCacheBtn: 'مسح ذاكرة الصوت',
+    installAppBtn: 'تثبيت تطبيق هداية',
+    iosInstallHint: 'على iPhone/iPad: اضغط على مشاركة في Safari ثم اختر "إضافة إلى الشاشة الرئيسية".',
+    done: 'العودة إلى التوجيه',
     reset: 'إعادة ضبط',
     arabicSize: 'حجم الرسم العثماني',
     translit: 'اللفظ اللاتيني',
@@ -135,7 +215,11 @@ const UI_TEXT: Record<
 export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   isOpen,
   onClose,
+  inlinePage = false,
   language,
+  onLanguageChange,
+  isDark = false,
+  onToggleDark,
   sessionDepth,
   onSessionDepthChange,
   explanationDepth,
@@ -151,257 +235,397 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   perspectiveMode,
   onTogglePerspective,
 }) => {
+  const [isCachingBookmarksAudio, setIsCachingBookmarksAudio] = useState(false);
+  const { isOnline, stats, refreshStats, isInstallable, isInstalled, isIOS, installPWA } =
+    useOfflineStatus();
+
   const t = UI_TEXT[language] || UI_TEXT.en;
 
-  // Handle ESC key to close
   useEffect(() => {
+    if (inlinePage) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        onClose?.();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  // Lock body scroll when open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
+  }, [isOpen, onClose, inlinePage]);
 
   if (!isOpen) return null;
+
+  const handleCacheBookmarksAudio = async () => {
+    if (isCachingBookmarksAudio) return;
+    setIsCachingBookmarksAudio(true);
+    try {
+      const bookmarkIds = StorageService.getBookmarks();
+      const versesToCache = QURAN_FIXTURES.filter((v) => bookmarkIds.includes(v.id));
+      await OfflineCacheService.cacheAudioForVerses(versesToCache);
+      await refreshStats();
+    } finally {
+      setIsCachingBookmarksAudio(false);
+    }
+  };
+
+  const handleClearAudioCache = async () => {
+    await OfflineCacheService.clearAllAudioCache();
+    await refreshStats();
+  };
+
+  const sheetBody = (
+    <div
+      dir={language === 'ar' ? 'rtl' : 'ltr'}
+      className={
+        inlinePage
+          ? 'w-full max-w-2xl mx-auto rounded-3xl flex flex-col bg-white dark:bg-[#0A1E17] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden'
+          : 'w-full max-w-xl max-h-[85vh] rounded-t-2xl overflow-y-auto flex flex-col bg-[#FAF8F5] dark:bg-[#081813] border-t border-emerald-900/20 dark:border-emerald-700/40 shadow-2xl transition-transform animate-in slide-in-from-bottom duration-300'
+      }
+    >
+      {!inlinePage && (
+        <div className="pt-3 pb-1 flex justify-center shrink-0">
+          <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-slate-100 dark:border-emerald-900/30 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-emerald-800/10 dark:bg-emerald-700/20 text-emerald-800 dark:text-emerald-300 flex items-center justify-center">
+            <SlidersHorizontal className="w-4 h-4" />
+          </div>
+          <div>
+            <h2
+              id="customization-title"
+              className="text-base sm:text-lg font-bold text-emerald-950 dark:text-emerald-50 leading-tight"
+            >
+              {t.title}
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t.subtitle}
+            </p>
+          </div>
+        </div>
+
+        {!inlinePage && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 cursor-pointer"
+            aria-label="Close preferences"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Content Body */}
+      <div className="px-6 py-6 space-y-6">
+        {/* Section 0: Language & Theme */}
+        {(onLanguageChange || onToggleDark) && (
+          <div className="space-y-3">
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-amber-600" />
+              {t.languageTab}
+            </span>
+
+            {onLanguageChange && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {LANGUAGE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => onLanguageChange(opt.code)}
+                    className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                      language === opt.code
+                        ? 'bg-emerald-800 text-white border-emerald-700 shadow-2xs'
+                        : 'bg-[#FAF8F5] dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300 hover:border-emerald-600'
+                    }`}
+                  >
+                    <span>{opt.native}</span>
+                    {language === opt.code && <Check className="w-3.5 h-3.5 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {onToggleDark && (
+              <button
+                type="button"
+                onClick={onToggleDark}
+                className="w-full p-3.5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+              >
+                <span>{t.themeLabel}</span>
+                <span className="inline-flex items-center gap-1.5 text-emerald-800 dark:text-amber-400">
+                  {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                  <span>{isDark ? t.darkMode : t.lightMode}</span>
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Section 1: Session Duration */}
+        <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              {t.sessionTab}
+            </span>
+            <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+              {sessionDepth}
+            </span>
+          </div>
+          <SessionDepthSelector
+            currentDepth={sessionDepth}
+            onSelectDepth={onSessionDepthChange}
+            language={language}
+          />
+        </div>
+
+        {/* Section 2: Explanation & Exegesis Depth */}
+        <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-amber-600" />
+              {t.explanationTab}
+            </span>
+            <span className="text-xs capitalize text-slate-500 dark:text-slate-400">
+              {explanationDepth}
+            </span>
+          </div>
+          <ExplanationDepthSelector
+            currentDepth={explanationDepth}
+            onSelectDepth={onExplanationDepthChange}
+            language={language}
+          />
+        </div>
+
+        {/* Section 3: Life Spheres Filter */}
+        <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+          <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-amber-600" />
+            {t.spheresTab}
+          </span>
+          <SphereFilter
+            activeSphere={activeSphere}
+            onSelectSphere={onSphereChange}
+            language={language}
+          />
+        </div>
+
+        {/* Section 4: Typography & Visual Accessibility */}
+        <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+          <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+            <Type className="w-3.5 h-3.5 text-amber-600" />
+            {t.readingTab}
+          </span>
+
+          {/* Arabic Script Scaling */}
+          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30">
+            <div>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                {t.arabicSize}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                {Math.round(arabicScale * 100)}%
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onArabicScaleChange(Math.max(0.8, arabicScale - 0.1))}
+                className="w-9 h-9 rounded-xl border border-slate-300 dark:border-emerald-800 bg-white dark:bg-emerald-900/30 font-bold text-xs flex items-center justify-center cursor-pointer"
+                aria-label="Decrease text scale"
+              >
+                A-
+              </button>
+              <button
+                type="button"
+                onClick={() => onArabicScaleChange(1.0)}
+                className="px-2.5 h-9 rounded-xl border border-slate-200 dark:border-emerald-800 text-xs text-slate-500 flex items-center justify-center cursor-pointer"
+                title="Reset scale"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onArabicScaleChange(Math.min(1.7, arabicScale + 0.1))}
+                className="w-9 h-9 rounded-xl border border-slate-300 dark:border-emerald-800 bg-white dark:bg-emerald-900/30 font-bold text-xs flex items-center justify-center cursor-pointer"
+                aria-label="Increase text scale"
+              >
+                A+
+              </button>
+            </div>
+          </div>
+
+          {/* Toggles Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={onToggleTransliteration}
+              className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all cursor-pointer ${
+                showTransliteration
+                  ? 'bg-emerald-900/10 dark:bg-emerald-800/30 border-emerald-600/50 text-emerald-950 dark:text-emerald-100'
+                  : 'bg-[#FAF8F5] dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              <div>
+                <p className="text-xs font-semibold">{t.translit}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  {showTransliteration ? 'On' : 'Off'}
+                </p>
+              </div>
+              {showTransliteration && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={onToggleHighContrast}
+              className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all cursor-pointer ${
+                isHighContrast
+                  ? 'bg-amber-500/15 dark:bg-amber-500/20 border-amber-600/50 text-amber-950 dark:text-amber-100'
+                  : 'bg-[#FAF8F5] dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              <div>
+                <p className="text-xs font-semibold">{t.highContrast}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  {isHighContrast ? 'High' : 'Standard'}
+                </p>
+              </div>
+              {isHighContrast && <Eye className="w-4 h-4 text-amber-600" />}
+            </button>
+          </div>
+
+          {/* Perspective Mode Switcher */}
+          <div className="p-3.5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/30 border border-emerald-900/10 dark:border-emerald-800/30 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                {t.perspective}
+              </p>
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                {perspectiveMode === 'inquirer' ? t.inquirer : t.devotional}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onTogglePerspective}
+              className="py-2 px-3 text-xs font-semibold rounded-xl border border-emerald-900/15 dark:border-emerald-700/30 bg-white dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-200 cursor-pointer"
+            >
+              {perspectiveMode === 'inquirer' ? t.devotional : t.inquirer}
+            </button>
+          </div>
+        </div>
+
+        {/* Section 5: Offline Storage & PWA Installation */}
+        <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              {!isOnline ? (
+                <WifiOff className="w-3.5 h-3.5 text-amber-600" />
+              ) : (
+                <Download className="w-3.5 h-3.5 text-amber-600" />
+              )}
+              {t.offlineTab}
+            </span>
+            <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium tabular-nums">
+              {stats.cachedPassagesCount} Passages · {stats.cachedAudioCount} Audio
+            </span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 space-y-3">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              {t.offlineReadyDesc}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCacheBookmarksAudio}
+                disabled={isCachingBookmarksAudio}
+                className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>{isCachingBookmarksAudio ? '...' : t.cacheBookmarksAudioBtn}</span>
+              </button>
+
+              {stats.cachedAudioCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAudioCache}
+                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-emerald-800/50 bg-white dark:bg-emerald-950/50 text-slate-600 dark:text-slate-300 hover:text-red-600 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{t.clearAudioCacheBtn}</span>
+                </button>
+              )}
+
+              {!isInstalled && isInstallable && (
+                <button
+                  type="button"
+                  onClick={installPWA}
+                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>{t.installAppBtn}</span>
+                </button>
+              )}
+            </div>
+
+            {!isInstalled && isIOS && (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                {t.iosInstallHint}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Action */}
+      <div className="p-5 border-t border-slate-100 dark:border-emerald-900/30 flex items-center justify-between gap-3 shrink-0">
+        <button
+          type="button"
+          onClick={() => {
+            onArabicScaleChange(1.0);
+            onExplanationDepthChange('context');
+            onSessionDepthChange('10min');
+            onSphereChange('all');
+          }}
+          className="px-3 py-2 text-xs font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+        >
+          {t.reset}
+        </button>
+
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 h-11 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Check className="w-4 h-4" />
+            <span>{t.done}</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  if (inlinePage) {
+    return sheetBody;
+  }
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="customization-title"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs transition-opacity duration-200"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-200"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) onClose?.();
       }}
     >
-      <div
-        className="w-full max-w-xl max-h-[90vh] flex flex-col bg-[#FAF8F5] dark:bg-[#081813] border-t sm:border border-emerald-900/20 dark:border-emerald-700/40 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden transition-transform animate-in slide-in-from-bottom duration-300"
-      >
-        {/* Mobile Grab Handle */}
-        <div className="pt-3 pb-1 flex justify-center sm:hidden">
-          <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
-        </div>
-
-        {/* Sheet Header */}
-        <div className="px-5 py-3.5 border-b border-emerald-900/10 dark:border-emerald-800/30 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-800/10 dark:bg-emerald-700/20 text-emerald-800 dark:text-emerald-300 flex items-center justify-center">
-              <SlidersHorizontal className="w-4 h-4" />
-            </div>
-            <div>
-              <h2
-                id="customization-title"
-                className="text-base font-bold text-emerald-950 dark:text-emerald-50 leading-tight"
-              >
-                {t.title}
-              </h2>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                {t.subtitle}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-emerald-900/5 dark:hover:bg-emerald-800/20 transition-colors cursor-pointer"
-            aria-label="Close preferences"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
-          {/* Section 1: Session Duration */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                {t.sessionTab}
-              </span>
-              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                {sessionDepth} min
-              </span>
-            </div>
-            <SessionDepthSelector
-              currentDepth={sessionDepth}
-              onSelectDepth={onSessionDepthChange}
-              language={language}
-            />
-          </div>
-
-          {/* Section 2: Explanation & Exegesis Depth */}
-          <div className="space-y-2.5 pt-2 border-t border-emerald-900/10 dark:border-emerald-800/30">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-                {t.explanationTab}
-              </span>
-              <span className="text-[11px] capitalize text-slate-500 dark:text-slate-400">
-                {explanationDepth}
-              </span>
-            </div>
-            <ExplanationDepthSelector
-              currentDepth={explanationDepth}
-              onSelectDepth={onExplanationDepthChange}
-              language={language}
-            />
-          </div>
-
-          {/* Section 3: Life Spheres Filter */}
-          <div className="space-y-2.5 pt-2 border-t border-emerald-900/10 dark:border-emerald-800/30">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-amber-600" />
-                {t.spheresTab}
-              </span>
-            </div>
-            <SphereFilter
-              activeSphere={activeSphere}
-              onSelectSphere={onSphereChange}
-              language={language}
-            />
-          </div>
-
-          {/* Section 4: Typography & Visual Accessibility */}
-          <div className="space-y-3 pt-2 border-t border-emerald-900/10 dark:border-emerald-800/30">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <Type className="w-3.5 h-3.5 text-amber-600" />
-              {t.readingTab}
-            </span>
-
-            {/* Arabic Script Scaling */}
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30">
-              <div>
-                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  {t.arabicSize}
-                </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                  Scale: {Math.round(arabicScale * 100)}%
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => onArabicScaleChange(Math.max(0.8, arabicScale - 0.1))}
-                  className="w-9 h-9 rounded-xl border border-slate-300 dark:border-emerald-800 bg-slate-50 dark:bg-emerald-900/30 font-bold text-xs hover:bg-slate-100 transition-colors flex items-center justify-center cursor-pointer"
-                  aria-label="Decrease text scale"
-                >
-                  A-
-                </button>
-                <button
-                  onClick={() => onArabicScaleChange(1.0)}
-                  className="px-2 h-9 rounded-xl border border-slate-200 dark:border-emerald-800 text-[11px] font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center justify-center cursor-pointer"
-                  title="Reset scale"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={() => onArabicScaleChange(Math.min(1.7, arabicScale + 0.1))}
-                  className="w-9 h-9 rounded-xl border border-slate-300 dark:border-emerald-800 bg-slate-50 dark:bg-emerald-900/30 font-bold text-xs hover:bg-slate-100 transition-colors flex items-center justify-center cursor-pointer"
-                  aria-label="Increase text scale"
-                >
-                  A+
-                </button>
-              </div>
-            </div>
-
-            {/* Toggles Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {/* Transliteration Toggle */}
-              <button
-                onClick={onToggleTransliteration}
-                className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
-                  showTransliteration
-                    ? 'bg-emerald-900/10 dark:bg-emerald-800/30 border-emerald-600/50 text-emerald-950 dark:text-emerald-100'
-                    : 'bg-white dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <div>
-                  <p className="text-xs font-semibold">{t.translit}</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    {showTransliteration ? 'Active' : 'Off'}
-                  </p>
-                </div>
-                {showTransliteration && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-              </button>
-
-              {/* High Contrast Toggle */}
-              <button
-                onClick={onToggleHighContrast}
-                className={`p-3 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
-                  isHighContrast
-                    ? 'bg-amber-500/15 dark:bg-amber-500/20 border-amber-600/50 text-amber-950 dark:text-amber-100'
-                    : 'bg-white dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <div>
-                  <p className="text-xs font-semibold">{t.highContrast}</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    {isHighContrast ? 'Active' : 'Standard'}
-                  </p>
-                </div>
-                {isHighContrast && <Eye className="w-4 h-4 text-amber-600" />}
-              </button>
-            </div>
-
-            {/* Perspective Mode Switcher */}
-            <div className="p-3 rounded-2xl bg-white dark:bg-emerald-950/30 border border-emerald-900/10 dark:border-emerald-800/30 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  {t.perspective}
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                  {perspectiveMode === 'inquirer' ? t.inquirer : t.devotional}
-                </span>
-              </div>
-              <button
-                onClick={onTogglePerspective}
-                className="w-full py-2 px-3 text-xs font-semibold rounded-xl border border-emerald-900/15 dark:border-emerald-700/30 bg-emerald-900/5 dark:bg-emerald-800/20 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 transition-colors cursor-pointer text-center"
-              >
-                Switch to {perspectiveMode === 'inquirer' ? 'Devotional View' : 'Inquirer Perspective'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer Fixed Action Button */}
-        <div className="p-4 border-t border-emerald-900/10 dark:border-emerald-800/30 bg-white/60 dark:bg-emerald-950/60 flex items-center justify-between gap-3">
-          <button
-            onClick={() => {
-              onArabicScaleChange(1.0);
-              onExplanationDepthChange('context');
-              onSessionDepthChange('10min');
-              onSphereChange('all');
-            }}
-            className="px-3 py-2 text-xs font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
-          >
-            {t.reset}
-          </button>
-
-          <button
-            onClick={onClose}
-            className="flex-1 max-w-xs h-11 rounded-xl bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 shadow-md shadow-emerald-900/10 transition-transform active:scale-98 cursor-pointer"
-          >
-            <Check className="w-4 h-4" />
-            <span>{t.done}</span>
-          </button>
-        </div>
-      </div>
+      {sheetBody}
     </div>
   );
 };

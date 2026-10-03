@@ -3,7 +3,7 @@
 /**
  * @file useGuidanceSearch.ts
  * @description Custom hook orchestrating Quranic guidance queries, session filtering,
- * and passage selection.
+ * passage selection, and automatic offline caching of searched/selected verses.
  */
 
 import { useState, useCallback, useMemo } from 'react';
@@ -19,8 +19,9 @@ import {
 import { QURAN_FIXTURES } from '../data/quranFixtures';
 import { GuidanceService } from '../services/guidanceService';
 import { StorageService } from '../services/storage';
+import { OfflineCacheService } from '../services/offlineCacheService';
 
-export function useGuidanceSearch(initialLanguage: Language = 'en') {
+export function useGuidanceSearch(_initialLanguage: Language = 'en') {
   const [activeMode, setActiveMode] = useState<EntryMode>('moment');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSphere, setActiveSphere] = useState<LifeSphere>('all');
@@ -42,7 +43,6 @@ export function useGuidanceSearch(initialLanguage: Language = 'en') {
       }
     }
 
-    // Calibrate count by session duration: 2min (1), 10min (up to 3), 30min (up to 5), 60min (all)
     switch (sessionDepth) {
       case '2min':
         return baseList.slice(0, 1);
@@ -56,7 +56,7 @@ export function useGuidanceSearch(initialLanguage: Language = 'en') {
     }
   }, [selectedPassages, activeSphere, sessionDepth]);
 
-  // Execute guidance query
+  // Execute guidance query and automatically cache returned passages for offline reading
   const executeSearch = useCallback(
     async (queryText: string, language: Language, modeOverride?: EntryMode) => {
       if (!queryText.trim()) return;
@@ -72,6 +72,9 @@ export function useGuidanceSearch(initialLanguage: Language = 'en') {
         );
         setAnalysisResult(result);
         setSelectedPassages(passages);
+        if (passages.length > 0) {
+          OfflineCacheService.cachePassages(passages);
+        }
       } catch (err) {
         console.error('[useGuidanceSearch] Search error:', err);
       } finally {
@@ -92,6 +95,7 @@ export function useGuidanceSearch(initialLanguage: Language = 'en') {
 
   const handleSelectSpecificVerse = useCallback((verse: QuranVerseFixture) => {
     setSelectedPassages([verse]);
+    OfflineCacheService.cachePassages([verse]);
     setAnalysisResult({
       status: 'matched',
       detectedSituation: verse.whyThisVerse.situation,

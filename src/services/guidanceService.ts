@@ -549,10 +549,10 @@ export const GuidanceService = {
     }
 
     try {
-      const response = await fetch('/api/guidance', {
+      const response = await fetch(`/api/guidance?lang=${encodeURIComponent(language)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: queryText, language }),
+        body: JSON.stringify({ query: queryText, language, lang: language }),
       });
 
       if (!response.ok) {
@@ -610,7 +610,7 @@ export const GuidanceService = {
       };
     } catch (err) {
       console.warn('[GuidanceService] Backend API request failed; using client fallback:', err);
-      const fallback = performClientSideGuidanceMatch(queryText);
+      const fallback = performClientSideGuidanceMatch(queryText, language);
       return {
         analysisResult: fallback.analysisResult,
         passages: fallback.matchedPassages,

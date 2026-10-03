@@ -2,12 +2,14 @@
 
 /**
  * @file GuidanceSearchBar.tsx
- * @description Accessible search and voice input bar for Quranic contemplation inquiries.
+ * @description Accessible search and voice input bar for Quranic contemplation inquiries with full RTL & Arabic localization.
  */
 
 import React from 'react';
-import { Search, Mic, MicOff } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { EntryMode, Language } from '../types';
+import { getDictionary } from '../lib/i18n/dictionaries';
+import { VoiceSearchButton } from './VoiceSearchButton';
 
 interface GuidanceSearchBarProps {
   searchQuery: string;
@@ -18,6 +20,7 @@ interface GuidanceSearchBarProps {
   onToggleVoice: () => void;
   activeMode: EntryMode;
   language: Language;
+  onVoiceTranscript?: (transcript: string) => void;
 }
 
 export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
@@ -29,41 +32,44 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
   onToggleVoice,
   activeMode,
   language,
+  onVoiceTranscript,
 }) => {
+  const dict = getDictionary(language);
+
   const getPlaceholder = () => {
     if (language === 'ar') {
       return activeMode === 'moment'
-        ? "بماذا تشعر الآن؟ (مثال: 'الغضب في العمل'، 'الحيرة في اتخاذ قرار')..."
+        ? dict.searchPlaceholder
         : activeMode === 'questions'
         ? "ما السؤال الوجودي الذي يشغل قلبك؟ (مثال: 'الحكمة من الابتلاء')..."
         : "ما هو الخلق الذي تسعى لتزكيته؟ (مثال: 'الصبر'، 'حفظ اللسان')...";
     }
     if (language === 'sv') {
       return activeMode === 'moment'
-        ? "Vad känner du? (t.ex. 'Vrede på jobbet', 'Orolig inför beslut')..."
+        ? dict.searchPlaceholder
         : activeMode === 'questions'
         ? "Vilken fråga väger på ditt hjärta? (t.ex. 'Varför lider vi?')..."
         : "Vilken egenskap vill du stärka? (t.ex. 'Tålamod', 'Ödmjukhet')...";
     }
     if (language === 'fr') {
       return activeMode === 'moment'
-        ? "Que ressentez-vous ? (ex. 'Colère au travail', 'Anxiété face au futur')..."
+        ? dict.searchPlaceholder
         : activeMode === 'questions'
         ? "Quelle question pèse sur votre cœur ? (ex. 'Sens de la souffrance')..."
         : "Quel trait de caractère cultivez-vous ? (ex. 'Patience', 'Humilité')...";
     }
     return activeMode === 'moment'
-      ? "What are you feeling? (e.g., 'Anger at work', 'Anxious about decisions')..."
+      ? dict.searchPlaceholder
       : activeMode === 'questions'
       ? "What existential question weighs on your mind? (e.g., 'Purpose of suffering')..."
       : "What character trait are you cultivating? (e.g., 'Humility', 'Tongue control')...";
   };
 
   return (
-    <section aria-label="Search and Voice Input">
+    <section aria-label="Search and Voice Input" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <form onSubmit={onSubmit} className="relative max-w-3xl mx-auto">
-        <div className="relative flex items-center shadow-lg shadow-emerald-950/5 rounded-2xl overflow-hidden bg-white dark:bg-[#0A1E17] border-2 border-emerald-900/15 dark:border-emerald-800/40 focus-within:border-emerald-700 dark:focus-within:border-emerald-500 transition-all">
-          <div className="pl-4 text-emerald-800 dark:text-emerald-400">
+        <div className="relative flex items-center shadow-lg shadow-emerald-950/5 rounded-2xl overflow-hidden bg-white dark:bg-[#0A1E17] border-2 border-emerald-900/15 dark:border-emerald-800/40 focus-within:border-emerald-700 dark:focus-within:border-emerald-500 transition-all rtl:space-x-reverse">
+          <div className="ps-4 pe-1 text-emerald-800 dark:text-emerald-400">
             <Search className="w-5 h-5" />
           </div>
 
@@ -72,47 +78,26 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={getPlaceholder()}
-            className="w-full py-4 pl-3 pr-24 text-sm sm:text-base bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none"
-            aria-label="Contemplation search query"
+            className="w-full py-4 ps-3 pe-28 sm:pe-36 text-sm sm:text-base bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none"
+            aria-label={dict.searchPlaceholder}
           />
 
-          <div className="absolute right-2 flex items-center gap-1.5">
+          <div className="absolute end-2 flex items-center gap-1.5 rtl:space-x-reverse">
             {/* Voice input button */}
-            <button
-              type="button"
-              onClick={onToggleVoice}
-              className={`p-2 rounded-xl transition-all cursor-pointer ${
-                isListening
-                  ? 'bg-red-500 text-white animate-pulse'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-900/10'
-              }`}
-              title={isListening ? 'Listening...' : 'Search by voice'}
-              aria-label={isListening ? 'Listening...' : 'Search by voice'}
-            >
-              {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-            </button>
+            <VoiceSearchButton
+              locale={language}
+              isListening={isListening}
+              onToggleVoice={onToggleVoice}
+              onTranscript={onVoiceTranscript}
+            />
 
             {/* Submit button */}
             <button
               type="submit"
               disabled={isAnalyzing}
-              className="px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white text-xs sm:text-sm font-bold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              className="px-4 py-2 ms-1 me-1 rounded-xl bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white text-xs sm:text-sm font-bold shadow-sm transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap"
             >
-              {isAnalyzing
-                ? language === 'ar'
-                  ? 'جارٍ البحث...'
-                  : language === 'sv'
-                  ? 'Söker...'
-                  : language === 'fr'
-                  ? 'Recherche...'
-                  : 'Seeking...'
-                : language === 'ar'
-                ? 'طلب الهداية'
-                : language === 'sv'
-                ? 'Sök'
-                : language === 'fr'
-                ? 'Chercher'
-                : 'Seek'}
+              {isAnalyzing ? dict.seekingStatus : dict.searchButton}
             </button>
           </div>
         </div>

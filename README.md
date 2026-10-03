@@ -45,6 +45,9 @@ $$\text{Mushaf (Source)} \longrightarrow \text{Individual (Soul)} \longrightarro
 - **Halaqah Circle Mode**: Guided 5–10 minute family or study group sitting (Listen $\rightarrow$ Read Aloud $\rightarrow$ Circle Discussion $\rightarrow$ Home Commitment).
 - **Deep Tadabbur Linguistic Roots**: Unveils the concrete desert metaphors behind Arabic terminology (e.g., *k-dh-m* = tying a bulging water-skin shut; *sh-r-h* = surgical expansion of a constricted chest).
 - **Multi-Format Export**: One-click slide decks (PowerPoint PPTX via `PptxGenJS`), printable PDF study sheets, and shareable visual social cards.
+- **Calm 5-Tab Zero-Popup Workspace**: Dedicated full-page views for **Guidance**, **Audio**, **North Star**, **Journal**, and **Preferences**—eliminating intrusive modal popups.
+- **Complete 4-Language Localization (`EN`, `SV`, `FR`, `AR`)**: Full localization of UI labels, Surah metadata, Classical Tafsir (`Ibn Kathir`, `Al-Sa'di`, `Al-Muyassar`), 4-step Reflection prompts, and Context explanations across English, Swedish, French, and Arabic.
+- **Multi-Tier Offline PWA & Per-Verse Audio Caching**: Precaches all verified Quranic passages and multilingual translations (`hidaya-passages-v2`) for offline reading, with optional one-tap per-verse MP3 audio caching (`hidaya-audio-v2`) and inline offline storage management.
 - **Scholar Editorial Console**: Theological review matrix verifying mapping confidence, Usul al-Din checklist, and reviewer attributions.
 
 ---
@@ -81,7 +84,7 @@ $$\text{Mushaf (Source)} \longrightarrow \text{Individual (Soul)} \longrightarro
                       │              4-Level Presentation             │
                       ├───────────────────────────────────────────────┤
                       │ Level 1: Verified Uthmani Arabic Script       │
-                      │ Level 2: Human Translations (EN / SV / FR)    │
+                      │ Level 2: Human Translations (EN/SV/FR/AR)     │
                       │ Level 3: Classical Tafsir (Ibn Kathir, Sa'di) │
                       │ Level 4: "From Quran to Life" Reflection      │
                       └───────────────────────────────────────────────┘
@@ -96,46 +99,48 @@ hidaya/
 │   ├── workflows/ci.yml             # Automated Typecheck, Lint & Build pipeline
 │   └── pull_request_template.md     # Mandatory theological & quality checklist
 ├── docs/                            # Deep architectural & milestone documentation
-│   ├── ARCHITECTURE.md              # Technical architecture & retrieval flow
+│   ├── ARCHITECTURE.md              # Technical architecture, 5-tab UX & offline flow
 │   └── STATE.md                     # Milestone tracking & deployment status
 ├── public/                          # Static assets, PWA manifest & Service Worker
 │   ├── manifest.json                # PWA configuration
-│   └── sw.js                        # Offline caching service worker
+│   └── sw.js                        # 3-bucket offline Service Worker (shell, passages, audio)
 ├── src/
 │   ├── app/                         # Next.js App Router entry points
 │   │   ├── api/                     # Serverless API endpoints
 │   │   │   ├── guidance/route.ts    # 4-stage retrieval engine endpoint
+│   │   │   ├── offline-passages/route.ts # Precached verified passages & translations feed
+│   │   │   ├── tts/route.ts         # Server-side native TTS synthesis endpoint
 │   │   │   ├── health/route.ts      # Health check and environment probe
 │   │   │   └── test-gemini/route.ts # Gemini integration verification
 │   │   ├── globals.css              # Global styles and Tailwind v4 imports
 │   │   ├── layout.tsx               # Root HTML shell and metadata
-│   │   └── page.tsx                 # Modular orchestrator page
+│   │   └── page.tsx                 # 5-tab workspace orchestrator page
 │   ├── components/                  # Single-responsibility UI components
-│   │   ├── AudioPlayer.tsx          # Single verse audio player with speed controls
-│   │   ├── BookmarksModal.tsx       # Saved verses and reflections drawer
-│   │   ├── ContinuousSessionAudioPlayer.tsx # Hands-free multi-verse player
-│   │   ├── DailyNorthStar.tsx       # Daily contemplation widget
+│   │   ├── AudioPlayer.tsx          # Verse audio player with per-verse offline audio caching
+│   │   ├── BottomNav.tsx            # 5-tab bottom navigation bar
+│   │   ├── ContinuousSessionAudioPlayer.tsx # Hands-free multi-verse audio player
+│   │   ├── CustomizationSheet.tsx   # Preferences, depth & offline cache manager
+│   │   ├── DailyNorthStar.tsx       # Daily contemplation view
 │   │   ├── EntryModeTabs.tsx        # 3 guidance modes selector
 │   │   ├── GuidanceSearchBar.tsx    # Search input with voice recognition
+│   │   ├── JournalDrawer.tsx        # Saved verses, reflections & offline status badge
 │   │   ├── QuickChoicePills.tsx     # Filterable contemplation pill buttons
-│   │   ├── GuidanceContextBanner.tsx # Semantic mapping analysis display
 │   │   ├── OffTopicBanner.tsx       # Courteous off-topic fallback banner
-│   │   ├── VerseCard.tsx            # 4-level stratified passage card
-│   │   ├── SourceLadder.tsx         # 6-level epistemological provenance ladder
-│   │   ├── LinguisticRoots.tsx      # Desert imagery root analysis
-│   │   ├── HalaqahModal.tsx         # Guided family/circle study session
-│   │   ├── EditorialConsoleModal.tsx# Theological audit & review matrix
+│   │   ├── VerseCard.tsx            # 4-level passage card with 3-segment inline tabs
 │   │   ├── Footer.tsx               # Sacred scripture footer
-│   │   └── ...                      # Additional modal dialogs
+│   │   └── ...                      # Additional study components
 │   ├── config/
 │   │   └── appConfig.ts             # Central constants, defaults, and storage keys
-│   ├── data/                        # Verified fixtures and master registries
+│   ├── data/                        # Verified fixtures and localized registries
 │   │   ├── dailyNorthStar.ts        # Rotating daily contemplation dataset
+│   │   ├── localizedReflections.ts  # 4-step reflection prompts in EN / SV / FR / AR
+│   │   ├── localizedVerseContent.ts # Localized Surah metadata, Tafsir & Context (EN/SV/FR/AR)
 │   │   ├── editorialReviews.ts      # Scholar audit reviews dataset
 │   │   ├── licenseRegistry.ts       # Content licensing compliance matrix
-│   │   └── quranFixtures.ts         # Verified passages across en/sv/fr
+│   │   └── quranFixtures.ts         # Verified passages across en/sv/fr/ar
 │   ├── hooks/                       # Custom React hooks
-│   │   ├── useGuidanceSearch.ts     # Search, filter, and session state management
+│   │   ├── useGuidanceSearch.ts     # Search, filter, and automatic passage caching
+│   │   ├── useOfflineStatus.ts      # Online/offline state, cache stats & PWA install hook
 │   │   └── useSpeechRecognition.ts  # Web Speech API wrapper with fallback
 │   ├── lib/
 │   │   ├── db/                      # Database client and retrieval logic
@@ -148,6 +153,7 @@ hidaya/
 │   │   ├── audioReciters.ts         # Murattal audio stream catalog
 │   │   ├── exportService.ts         # PPTX and PDF print orchestrator
 │   │   ├── guidanceService.ts       # API caller and client-side fallback matcher
+│   │   ├── offlineCacheService.ts   # CacheStorage & localStorage offline sync SDK
 │   │   └── storage.ts               # LocalStorage wrapper
 │   └── types.ts                     # Core TypeScript interfaces & enums
 ├── .env.example                     # Fully documented environment template
