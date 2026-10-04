@@ -83,11 +83,14 @@ export default function App() {
   } = useGuidanceSearch(language);
 
   // Web Speech Recognition Hook (ar-SA, sv-SE, fr-FR, en-US)
-  const { isListening, toggleVoiceInput } = useSpeechRecognition({
+  const { isListening, toggleVoiceInput, speechError } = useSpeechRecognition({
     language,
     onResult: (transcript) => {
       setSearchQuery(transcript);
       executeSearch(transcript, language);
+    },
+    onInterim: (interim) => {
+      setSearchQuery(interim);
     },
   });
 
@@ -225,6 +228,7 @@ export default function App() {
                 onSubmit={handleSearchSubmit}
                 isAnalyzing={isAnalyzing}
                 isListening={isListening}
+                speechError={speechError}
                 onToggleVoice={toggleVoiceInput}
                 activeMode={activeMode}
                 language={language}

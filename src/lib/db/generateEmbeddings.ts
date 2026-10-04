@@ -33,12 +33,17 @@ const supabaseKey =
 const geminiApiKey = process.env.GEMINI_API_KEY || '';
 
 const EMBEDDING_MODELS = [
-  'gemini-embedding-001',
   'gemini-embedding-2-preview',
+  'gemini-embedding-001',
 ];
 const TARGET_DIMENSIONS = Number(process.env.EMBEDDING_DIMENSIONS) || 1536;
 const BATCH_SIZE = 50; // 50 ayahs embedded per 1 API call via batchEmbedContents
-const DELAY_BETWEEN_BATCHES_MS = 31000; // Free tier allows 100 embedded items/min -> 50 items every 31s runs with zero 429s
+
+const batchDelayIdx = process.argv.indexOf('--batch-delay');
+const DELAY_BETWEEN_BATCHES_MS = batchDelayIdx !== -1 ? Number(process.argv[batchDelayIdx + 1]) : 9000;
+
+const maxBatchesIdx = process.argv.indexOf('--max-batches');
+const MAX_BATCHES = maxBatchesIdx !== -1 ? Number(process.argv[maxBatchesIdx + 1]) : Infinity;
 
 interface AyahRowForEmbedding {
   id: string;
@@ -138,10 +143,16 @@ async function fetchBatchEmbeddings(
       );
     }
 
-    if ((res.status === 429 || errText.toLowerCase().includes('quota')) && attempt <= 5) {
-      const waitMs = 20000 * attempt;
+    if (res.status === 429 || errText.toLowerCase().includes('quota')) {
+      if (errText.includes('RequestsPerDay') || errText.includes('limit: 1000') || attempt >= 3) {
+        throw new DailyQuotaExhaustedError(
+          model,
+          `Rate limit or quota reached on model '${model}'. Rotating model...`
+        );
+      }
+      const waitMs = 15000 * attempt;
       console.warn(
-        `⚠️ Per-minute 429 rate limit hit on '${model}' (attempt ${attempt}/5). Pausing ${waitMs / 1000}s...`
+        `⚠️ Per-minute 429 rate limit hit on '${model}' (attempt ${attempt}/3). Pausing ${waitMs / 1000}s...`
       );
       await new Promise((r) => setTimeout(r, waitMs));
       return fetchBatchEmbeddings(texts, model, attempt + 1);
@@ -194,8 +205,9 @@ export async function generateEmbeddings(): Promise<void> {
 
   let embeddedCount = await checkEmbeddingsCount(supabase);
   let sessionProcessed = 0;
+  let batchCount = 0;
 
-  while (true) {
+  while (batchCount < MAX_BATCHES) {
     const { data: rows, error: queryErr } = await supabase
       .from('ayah')
       .select('id, surah_id, ayah_number, text_clean, text_uthmani, translation(text, language_code)')
@@ -228,17 +240,31 @@ export async function generateEmbeddings(): Promise<void> {
         const subChunk = typedRows.slice(j, j + 25);
         await Promise.all(
           subChunk.map(async (row, subIdx) => {
-            const rawValues = embeddings[j + subIdx]?.values;
-            if (!rawValues || rawValues.length === 0) return;
+            try {
+              const rawValues = embeddings[j + subIdx]?.values;
+              if (!rawValues || rawValues.length === 0) return;
 
-            const normalized = normalizeDimensions(rawValues, TARGET_DIMENSIONS);
-            const { error: updateErr } = await supabase
-              .from('ayah')
-              .update({ embedding: normalized })
-              .eq('id', row.id);
+              const normalized = normalizeDimensions(rawValues, TARGET_DIMENSIONS);
+              const { error: updateErr } = await supabase
+                .from('ayah')
+                .update({ embedding: normalized })
+                .eq('id', row.id);
 
-            if (updateErr) {
-              console.error(`❌ Update error on Ayah ${row.id}: ${updateErr.message}`);
+              if (updateErr) {
+                console.error(`❌ Update error on Ayah ${row.id}: ${updateErr.message}`);
+              }
+            } catch (err: any) {
+              console.warn(`⚠️ Supabase network retry for Ayah ${row.id}: ${err?.message || err}`);
+              try {
+                await new Promise((r) => setTimeout(r, 1500));
+                const rawValues = embeddings[j + subIdx]?.values;
+                if (!rawValues) return;
+                const normalized = normalizeDimensions(rawValues, TARGET_DIMENSIONS);
+                await supabase
+                  .from('ayah')
+                  .update({ embedding: normalized })
+                  .eq('id', row.id);
+              } catch {}
             }
           })
         );
@@ -249,6 +275,8 @@ export async function generateEmbeddings(): Promise<void> {
       console.log(
         `✅ [${activeModel}] Batch committed (+${typedRows.length}) — Total Embedded: ${embeddedCount} / 6236 (Session: ${sessionProcessed})`
       );
+      batchCount++;
+      if (batchCount >= MAX_BATCHES) break;
     } catch (err: unknown) {
       if (err instanceof DailyQuotaExhaustedError) {
         console.warn(`⚠️ ${err.message}`);
@@ -256,18 +284,27 @@ export async function generateEmbeddings(): Promise<void> {
         if (modelIndex < EMBEDDING_MODELS.length) {
           activeModel = EMBEDDING_MODELS[modelIndex];
           console.log(`🔄 Switching to next embedding model: '${activeModel}'...`);
+          await new Promise((r) => setTimeout(r, 3000));
           continue;
         } else {
-          console.warn(
-            '⏸️ All free-tier daily model quotas (1,000/day per model) have been used for today. Attach a billing-enabled API key in Settings > Secrets or re-run tomorrow.'
-          );
-          break;
+          console.warn('⏸️ Both models experienced rate limits/quotas. Cooling down for 60s before retrying rotation...');
+          await new Promise((r) => setTimeout(r, 60000));
+          modelIndex = 0;
+          activeModel = EMBEDDING_MODELS[0];
+          continue;
         }
       }
 
       const msg = err instanceof Error ? err.message : String(err);
       console.error('⚠️ Batch error:', msg);
-      await new Promise((r) => setTimeout(r, 15000));
+      if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+        modelIndex = (modelIndex + 1) % EMBEDDING_MODELS.length;
+        activeModel = EMBEDDING_MODELS[modelIndex];
+        console.log(`🔄 Rotating to '${activeModel}' after rate-limit response...`);
+        await new Promise((r) => setTimeout(r, 10000));
+      } else {
+        await new Promise((r) => setTimeout(r, 15000));
+      }
     }
 
     await new Promise((r) => setTimeout(r, DELAY_BETWEEN_BATCHES_MS));

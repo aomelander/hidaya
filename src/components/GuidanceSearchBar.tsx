@@ -17,6 +17,7 @@ interface GuidanceSearchBarProps {
   onSubmit: (e: React.FormEvent) => void;
   isAnalyzing: boolean;
   isListening: boolean;
+  speechError?: string | null;
   onToggleVoice: () => void;
   activeMode: EntryMode;
   language: Language;
@@ -29,6 +30,7 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
   onSubmit,
   isAnalyzing,
   isListening,
+  speechError,
   onToggleVoice,
   activeMode,
   language,
@@ -37,6 +39,16 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
   const dict = getDictionary(language);
 
   const getPlaceholder = () => {
+    if (isListening) {
+      return language === 'ar'
+        ? 'جاري الاستماع... تحدث الآن بما تشعر به'
+        : language === 'sv'
+        ? 'Lyssnar... säg dina tankar eller känslor nu'
+        : language === 'fr'
+        ? 'Écoute en cours... exprimez vos pensées maintenant'
+        : 'Listening... speak your reflection now';
+    }
+
     if (language === 'ar') {
       return activeMode === 'moment'
         ? dict.searchPlaceholder
@@ -68,8 +80,14 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
   return (
     <section aria-label="Search and Voice Input" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <form onSubmit={onSubmit} className="relative max-w-3xl mx-auto">
-        <div className="relative flex items-center shadow-lg shadow-emerald-950/5 rounded-2xl overflow-hidden bg-white dark:bg-[#0A1E17] border-2 border-emerald-900/15 dark:border-emerald-800/40 focus-within:border-emerald-700 dark:focus-within:border-emerald-500 transition-all rtl:space-x-reverse">
-          <div className="ps-4 pe-1 text-emerald-800 dark:text-emerald-400">
+        <div className={`relative flex items-center shadow-lg rounded-2xl overflow-hidden bg-white dark:bg-[#0A1E17] border-2 transition-all rtl:space-x-reverse ${
+          isListening
+            ? 'border-red-500 ring-2 ring-red-500/20 shadow-red-500/10'
+            : 'border-emerald-900/15 dark:border-emerald-800/40 focus-within:border-emerald-700 dark:focus-within:border-emerald-500 shadow-emerald-950/5'
+        }`}>
+          <div className={`ps-4 pe-1 transition-colors ${
+            isListening ? 'text-red-500 animate-pulse' : 'text-emerald-800 dark:text-emerald-400'
+          }`}>
             <Search className="w-5 h-5" />
           </div>
 
@@ -89,6 +107,7 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
               isListening={isListening}
               onToggleVoice={onToggleVoice}
               onTranscript={onVoiceTranscript}
+              errorMessage={speechError}
             />
 
             {/* Submit button */}

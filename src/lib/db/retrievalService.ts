@@ -2,12 +2,47 @@ import { createClient } from '@supabase/supabase-js';
 import { SEED_FIXTURES } from './seedFixtures';
 
 // Default to mock URLs if env is not provided during build
-const supabaseUrl = process.env.SUPABASE_URL || 'https://mock.supabase.co';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'mock-key';
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://mock.supabase.co';
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  'mock-key';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Fallback logic enabled if the URL is the mock one or missing
 const useMock = !supabaseUrl || supabaseUrl === 'https://mock.supabase.co';
+
+/**
+ * Generates 1536-dimensional query embedding via Gemini embedding API for semantic vector retrieval.
+ */
+async function fetchQueryEmbedding(text: string): Promise<number[] | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'mock_key') return null;
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'aistudio-build',
+      },
+      body: JSON.stringify({
+        model: 'models/gemini-embedding-001',
+        content: { parts: [{ text }] },
+        outputDimensionality: 1536,
+      }),
+    });
+
+    if (!res.ok) return null;
+    const data = (await res.json()) as { embedding?: { values?: number[] } };
+    return data.embedding?.values || null;
+  } catch {
+    return null;
+  }
+}
 
 export type LanguageCode = 'en' | 'sv' | 'fr' | 'ar';
 
@@ -271,6 +306,67 @@ export class RetrievalService {
     }
 
     try {
+      // 1. Primary: Semantic Vector Search using pgvector & Gemini embedding (1536-dim)
+      const queryEmbedding = await fetchQueryEmbedding(queryText);
+      if (queryEmbedding && queryEmbedding.length === 1536) {
+        const { data: vectorHits, error: vectorErr } = await supabase.rpc('match_verses', {
+          query_embedding: queryEmbedding,
+          match_threshold: 0.45,
+          match_count: 5,
+        });
+
+        if (!vectorErr && vectorHits && vectorHits.length > 0) {
+          const ayahIds = (vectorHits as Array<{ id: string; similarity: number }>).map((h) => h.id);
+          const similarityById = new Map<string, number>();
+          for (const hit of vectorHits as Array<{ id: string; similarity: number }>) {
+            similarityById.set(hit.id, hit.similarity);
+          }
+
+          const { data: dbAyahs, error: hydrateErr } = await supabase
+            .from('ayah')
+            .select(`
+              id,
+              ayah_number,
+              text_uthmani,
+              text_clean,
+              surah!inner(number, name_arabic, name_english, revelation_place),
+              translation(id, language_code, text, source),
+              tafsir(id, scholar_name, work_title, text, language_code),
+              ayah_topic(relevance_score, topic(slug, title, life_domain))
+            `)
+            .in('id', ayahIds);
+
+          if (!hydrateErr && dbAyahs && dbAyahs.length > 0) {
+            const vectorMatches: RetrievedAyahMatch[] = (dbAyahs as any[]).map((a) => {
+              const key = `${a.surah.number}:${a.ayah_number}`;
+              const { selected, orderedList } = resolveTranslation(a.translation || [], language);
+              const firstTopic = a.ayah_topic?.[0];
+              const sim = similarityById.get(a.id) || 0.5;
+
+              return {
+                id: key,
+                ayah_id: key,
+                relevance_score: Math.round(sim * 100),
+                surah: a.surah,
+                ayah: {
+                  ayah_number: a.ayah_number,
+                  text_uthmani: a.text_uthmani,
+                  text_clean: a.text_clean,
+                },
+                translations: orderedList,
+                selectedTranslation: selected,
+                tafsirs: resolveTafsirs(a.tafsir || [], language),
+                topic: firstTopic?.topic,
+              };
+            });
+
+            vectorMatches.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
+            return vectorMatches.slice(0, 3);
+          }
+        }
+      }
+
+      // 2. Secondary fallback: Lexical database token search
       const normalized = (queryText || '').toLowerCase().trim();
       const tokens = normalized.split(/[\s,.'"-]+/).filter((t) => t.length > 2);
 
