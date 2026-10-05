@@ -67,11 +67,14 @@ export const QuickChoicePills: React.FC<QuickChoicePillsProps> = ({
     (language === 'ar' && pill.labelArabic ? pill.labelArabic : pill.label);
 
   // Order groups so the user's preferred activeMode appears first in the dropdown
-  const orderedCategories: { mode: EntryMode; label: string }[] = [
+  const categoriesList: { mode: EntryMode; label: string }[] = [
     { mode: 'moment', label: t.momentGroup },
     { mode: 'questions', label: t.questionsGroup },
     { mode: 'growth', label: t.growthGroup },
-  ].sort((a, b) => (a.mode === activeMode ? -1 : b.mode === activeMode ? 1 : 0));
+  ];
+  const orderedCategories = [...categoriesList].sort((a, b) =>
+    a.mode === activeMode ? -1 : b.mode === activeMode ? 1 : 0
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;

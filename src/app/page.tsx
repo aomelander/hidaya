@@ -17,6 +17,7 @@ import {
   UserReflection,
   PerspectiveMode,
   ReaderProfile,
+  PreferredScholar,
 } from '../types';
 import { Locale, getDictionary } from '../lib/i18n/dictionaries';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
@@ -63,6 +64,7 @@ export default function App() {
     APP_CONFIG.DEFAULTS.HIGH_CONTRAST
   );
   const [readerProfile, setReaderProfile] = useState<ReaderProfile>('adult');
+  const [preferredScholar, setPreferredScholar] = useState<PreferredScholar>('Ibn Kathir');
   const [bookmarks, setBookmarks] = useState<string[]>([APP_CONFIG.DEFAULTS.INITIAL_VERSE_ID]);
   const [, setReflections] = useState<Record<string, UserReflection>>({});
 
@@ -115,6 +117,7 @@ export default function App() {
     setIsDark(StorageService.getDarkMode());
     setIsHighContrast(StorageService.getHighContrast());
     setReaderProfile(StorageService.getReaderProfile());
+    setPreferredScholar(StorageService.getPreferredScholar());
     setBookmarks(StorageService.getBookmarks());
     setReflections(StorageService.getReflections());
     StorageService.recordDailyVisit();
@@ -164,6 +167,11 @@ export default function App() {
     StorageService.setReaderProfile(readerProfile);
   }, [readerProfile, mounted]);
 
+  useEffect(() => {
+    if (!mounted) return;
+    StorageService.setPreferredScholar(preferredScholar);
+  }, [preferredScholar, mounted]);
+
   // Default Verse Load
   useEffect(() => {
     const defaultVerse = QURAN_FIXTURES.find((f) => f.id === '3:134') || QURAN_FIXTURES[0];
@@ -209,11 +217,13 @@ export default function App() {
         lang === 'ar' ? 'font-arabic' : ''
       } bg-[#FAF8F5] dark:bg-[#07140F] text-slate-900 dark:text-slate-100`}
     >
-      {/* Ultra-Minimalist Top Header (Brand + Language Switcher Only) */}
+      {/* Ultra-Minimalist Top Header (Brand + Language Switcher + Preferences Icon) */}
       <Header
         language={language}
         onLanguageChange={setLanguage}
         onSelectHome={() => switchTab('guidance')}
+        onOpenPreferences={() => switchTab('preferences')}
+        isPreferencesOpen={activeNavTab === 'preferences'}
       />
 
       {/* Dedicated Tab Viewport — Each Onglet Manages Its Own Page With Zero Popups */}
@@ -226,48 +236,14 @@ export default function App() {
               aria-label="Guidance Portal"
               className="space-y-4 p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#0A1E17] border border-emerald-900/10 dark:border-emerald-800/35 shadow-2xs"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h1 className="text-lg sm:text-xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50">
-                    {dict.portalTitle}
-                  </h1>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {dict.portalSubtitle}
-                  </p>
-                </div>
-
-                {/* Compact Family Reader Mode Switcher (Standard · Teen · Kids & Family) */}
-                <div
-                  role="group"
-                  aria-label="Reader age profile"
-                  className="inline-flex items-center p-1 rounded-xl bg-emerald-950/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40"
-                >
-                  {(['adult', 'teen', 'kids'] as ReaderProfile[]).map((prof) => {
-                    const active = readerProfile === prof;
-                    return (
-                      <button
-                        key={prof}
-                        type="button"
-                        onClick={() => setReaderProfile(prof)}
-                        className={`min-h-[32px] px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                          active
-                            ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-emerald-900 dark:hover:text-emerald-200'
-                        }`}
-                        aria-pressed={active}
-                      >
-                        {profLabels[prof]}
-                      </button>
-                    );
-                  })}
-                </div>
+              <div>
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50">
+                  {dict.portalTitle}
+                </h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {dict.portalSubtitle}
+                </p>
               </div>
-
-              <EntryModeTabs
-                activeMode={activeMode}
-                onSelectMode={setActiveMode}
-                language={language}
-              />
 
               <GuidanceSearchBar
                 searchQuery={searchQuery}
@@ -333,6 +309,7 @@ export default function App() {
                       explanationDepth={explanationDepth}
                       perspectiveMode={perspectiveMode}
                       readerProfile={readerProfile}
+                      preferredScholar={preferredScholar}
                     />
                   </div>
                 ))}
@@ -388,6 +365,10 @@ export default function App() {
             onToggleDark={() => setIsDark(!isDark)}
             readerProfile={readerProfile}
             onReaderProfileChange={setReaderProfile}
+            activeMode={activeMode}
+            onEntryModeChange={setActiveMode}
+            preferredScholar={preferredScholar}
+            onPreferredScholarChange={setPreferredScholar}
             sessionDepth={sessionDepth}
             onSessionDepthChange={setSessionDepth}
             explanationDepth={explanationDepth}

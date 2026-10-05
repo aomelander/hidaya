@@ -26,6 +26,7 @@ import {
   WifiOff,
   Smartphone,
   Users,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Language,
@@ -539,38 +540,37 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
           </div>
         )}
 
-        {/* Section 0.7: Preferred Classical Tafsir Scholar (Ibn Kathir · Al-Sa'di · Al-Muyassar) */}
+        {/* Section 0.7: Preferred Classical Tafsir Scholar (Ibn Kathir · Al-Sa'di · Al-Muyassar) - Space-saving Dropdown */}
         {onPreferredScholarChange && (
-          <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-              {sLabels.sectionTitle}
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {sLabels.scholars.map((sch) => {
-                const active = preferredScholar === sch.id;
-                return (
-                  <button
-                    key={sch.id}
-                    type="button"
-                    onClick={() => onPreferredScholarChange(sch.id)}
-                    className={`p-3 rounded-2xl border text-start transition-all cursor-pointer ${
-                      active
-                        ? 'bg-emerald-800 text-white border-emerald-700 shadow-2xs'
-                        : 'bg-[#FAF8F5] dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-200 hover:border-emerald-600'
-                    }`}
-                  >
-                    <p className="text-xs font-bold">{sch.label}</p>
-                    <p
-                      className={`text-[11px] mt-0.5 ${
-                        active ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'
-                      }`}
-                    >
-                      {sch.sub}
-                    </p>
-                  </button>
-                );
-              })}
+          <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+            <label
+              htmlFor="scholar-preference-select"
+              className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center justify-between"
+            >
+              <span className="flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-amber-600" />
+                {sLabels.sectionTitle}
+              </span>
+              <span className="text-[11px] font-normal text-amber-700 dark:text-amber-400">
+                {sLabels.scholars.find((s) => s.id === preferredScholar)?.sub || ''}
+              </span>
+            </label>
+            <div className="relative">
+              <select
+                id="scholar-preference-select"
+                value={preferredScholar}
+                onChange={(e) => onPreferredScholarChange(e.target.value as PreferredScholar)}
+                className="w-full min-h-[42px] ps-3.5 pe-10 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-emerald-100 hover:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-colors appearance-none cursor-pointer"
+              >
+                {sLabels.scholars.map((sch) => (
+                  <option key={sch.id} value={sch.id}>
+                    {sch.label} — {sch.sub}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center pe-3.5 text-slate-400">
+                <ChevronDown className="w-4 h-4" />
+              </div>
             </div>
           </div>
         )}
