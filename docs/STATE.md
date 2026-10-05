@@ -53,5 +53,5 @@
 - [x] Milestone 25: Verified Step 3 Provenance UI — 3-Tier exegesis classification (`Classical Scholar`, `AI Translation of Scholar Lecture`, `AI Reflection Synthesis`), interactive Scholar Selector tabs inside `VerseCard` and `TafsirDrawer`, "View Original Arabic Source" modal with verbatim Arabic transcripts, lecture citations, translation audit trails, and strict AGENTS.md compliance across `en`, `sv`, `fr`, and `ar` with `lint_applet` and `compile_applet` passing cleanly.
 
 **Live Production URL:** https://hidaya.hidaya.workers.dev
-**Cloudflare Worker:** hidaya (Version 9506b462-48f1-4edf-bf8e-12eb68727c8f)
+**Cloudflare Worker:** hidaya (Version cf257d4f-8a4b-46f3-af40-098a463336b7)
 **GEMINI_API_KEY:** Configured as Cloudflare secret ✓

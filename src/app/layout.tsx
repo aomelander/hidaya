@@ -5,6 +5,11 @@ import { ServiceWorkerRegistration } from "../components/ServiceWorkerRegistrati
 export const metadata: Metadata = {
   title: "Hidaya - Quranic Guidance & Reflection",
   description: "A contextual Quranic guidance and reflection platform providing verified Uthmani script, translations, classical tafsir, and AI synthesis.",
+
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
   manifest: "/manifest.json",
   themeColor: "#065F46",
   appleWebApp: {
@@ -22,6 +27,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
