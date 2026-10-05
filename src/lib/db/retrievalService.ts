@@ -75,6 +75,10 @@ export interface RetrievedTafsir {
   work_title: string;
   text: string;
   language_code: string;
+  source_type?: string;
+  source_reference?: string;
+  original_arabic_raw?: string;
+  verification_status?: string;
 }
 
 export interface RetrievedAyahMatch {
@@ -245,7 +249,7 @@ export class RetrievalService {
     try {
       const { data, error } = await supabase
         .from('tafsir')
-        .select('id, scholar_name, work_title, text, language_code')
+        .select('id, scholar_name, work_title, text, language_code, source_type, source_reference, original_arabic_raw, verification_status')
         .eq('language_code', language)
         .limit(limit);
 
@@ -357,7 +361,11 @@ export class RetrievalService {
               scholar_name,
               work_title,
               text,
-              language_code
+              language_code,
+              source_type,
+              source_reference,
+              original_arabic_raw,
+              verification_status
             )
           )
         `);
@@ -475,7 +483,7 @@ export class RetrievalService {
               text_clean,
               surah!inner(number, name_arabic, name_english, revelation_place),
               translation(id, language_code, text, source),
-              tafsir(id, scholar_name, work_title, text, language_code),
+              tafsir(id, scholar_name, work_title, text, language_code, source_type, source_reference, original_arabic_raw, verification_status),
               ayah_topic(relevance_score, topic(slug, title, life_domain))
             `)
             .in('id', ayahIds);
@@ -546,7 +554,11 @@ export class RetrievalService {
               scholar_name,
               work_title,
               text,
-              language_code
+              language_code,
+              source_type,
+              source_reference,
+              original_arabic_raw,
+              verification_status
             ),
             ayah_topic(
               relevance_score,

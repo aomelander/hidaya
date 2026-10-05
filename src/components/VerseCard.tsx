@@ -29,6 +29,9 @@ import {
   Download,
   Users,
   Heart,
+  ShieldCheck,
+  FileText,
+  Video,
 } from 'lucide-react';
 import {
   QuranVerseFixture,
@@ -44,6 +47,7 @@ import { StorageService } from '../services/storage';
 import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
 import { getLocalizedReflection } from '../data/localizedReflections';
 import { getAgeAdaptiveContent } from '../data/ageAdaptiveContent';
+import { ScholarProvenanceModal } from './ScholarProvenanceModal';
 
 interface VerseCardProps {
   verse: QuranVerseFixture;
@@ -125,6 +129,11 @@ const UI_TEXT: Record<
     rootImageryTitle: string;
     teenTakeawayTitle: string;
     teenGlossaryTitle: string;
+    viewProvenanceBtn: string;
+    badgeClassical: string;
+    badgeAiTranslated: string;
+    badgeAiSynthesis: string;
+    originalArabicSnippetTitle: string;
   }
 > = {
   en: {
@@ -153,6 +162,11 @@ const UI_TEXT: Record<
     rootImageryTitle: 'Arabic Root Imagery',
     teenTakeawayTitle: 'Key Takeaway for Your Day',
     teenGlossaryTitle: 'Quick Concept Guide',
+    viewProvenanceBtn: 'View Original Arabic Source & Provenance',
+    badgeClassical: 'Classical Scholar',
+    badgeAiTranslated: 'AI Translation of Scholar Lecture',
+    badgeAiSynthesis: 'AI Reflection Synthesis',
+    originalArabicSnippetTitle: 'Verbatim Arabic Source Snippet',
   },
   sv: {
     copyTooltip: 'Kopiera vers',
@@ -180,6 +194,11 @@ const UI_TEXT: Record<
     rootImageryTitle: 'Arabiskt bildspråk & rot',
     teenTakeawayTitle: 'Viktig lärdom för din vardag',
     teenGlossaryTitle: 'Snabb ordlista',
+    viewProvenanceBtn: 'Visa ursprunglig källtext & proveniens',
+    badgeClassical: 'Klassisk lärd',
+    badgeAiTranslated: 'AI-översättning av föreläsning',
+    badgeAiSynthesis: 'AI-reflektionssyntes',
+    originalArabicSnippetTitle: 'Ordagrant arabiskt källutdrag',
   },
   fr: {
     copyTooltip: 'Copier le verset',
@@ -207,6 +226,11 @@ const UI_TEXT: Record<
     rootImageryTitle: 'Racine arabe & image littérale',
     teenTakeawayTitle: "L'essentiel pour ta journée",
     teenGlossaryTitle: 'Repères clés',
+    viewProvenanceBtn: 'Consulter la source arabe originale & audit',
+    badgeClassical: 'Savant classique',
+    badgeAiTranslated: 'Traduction IA de conférence',
+    badgeAiSynthesis: 'Synthèse de méditation IA',
+    originalArabicSnippetTitle: 'Extrait arabe original textuel',
   },
   ar: {
     copyTooltip: 'نسخ الآية',
@@ -234,6 +258,11 @@ const UI_TEXT: Record<
     rootImageryTitle: 'الصورة اللغوية والجذر',
     teenTakeawayTitle: 'خلاصة مُلهمة ليومك',
     teenGlossaryTitle: 'دليل المفاهيم السريع',
+    viewProvenanceBtn: 'عرض النص العربي الأصلي وتوثيق المصدر',
+    badgeClassical: 'عالم كلاسيكي موثق',
+    badgeAiTranslated: 'ترجمة آلية لمحاضرة عالم',
+    badgeAiSynthesis: 'صياغة تدبرية بالذكاء الاصطناعي',
+    originalArabicSnippetTitle: 'النص العربي المنقول بلفظه',
   },
 };
 
@@ -261,6 +290,16 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const [playbackRatio, setPlaybackRatio] = useState(0);
   const [isReciting, setIsReciting] = useState(false);
   const [playbackPhase, setPlaybackPhase] = useState<'recitation' | 'translation' | 'idle'>('idle');
+
+  // Preferred scholar & provenance modal state
+  const [selectedScholar, setSelectedScholar] = useState<string>(preferredScholar);
+  const [provenanceModalOpen, setProvenanceModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (preferredScholar) {
+      setSelectedScholar(preferredScholar);
+    }
+  }, [preferredScholar]);
 
   // Personal reflection inputs (stored locally in browser)
   const [reflectNotes, setReflectNotes] = useState('');
@@ -555,11 +594,14 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       : 'Read this passage within its broader Quranic context and scholarly tradition.');
 
   const hasSavedNotes = Boolean(reflectNotes.trim() || applyNotes.trim() || liveNotes.trim());
+  const availableCitations = localizedDetails.tafsirCitations;
   const currentCitation = useMemo(() => {
-    const idx =
-      preferredScholar === "Al-Sa'di" ? 1 : preferredScholar === 'Al-Muyassar' ? 2 : 0;
-    return localizedDetails.tafsirCitations[idx] || localizedDetails.tafsirCitations[0];
-  }, [localizedDetails.tafsirCitations, preferredScholar]);
+    if (!availableCitations || availableCitations.length === 0) return null;
+    const match = availableCitations.find(
+      (c) => c.scholar.toLowerCase() === selectedScholar.toLowerCase()
+    );
+    return match || availableCitations[0];
+  }, [availableCitations, selectedScholar]);
 
   const rootItem = ageBundle.defaultRoot;
 
@@ -886,21 +928,122 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           </button>
         </div>
 
-        {/* INLINE PANEL 1: LEVEL 3 CLASSICAL TAFSIR (Uses Preferred Scholar from Preferences) */}
+        {/* INLINE PANEL 1: LEVEL 3 CLASSICAL & EXPERT TAFSIR WITH PROVENANCE AUDIT */}
         {activeSection === 'tafsir' && (
           <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/30 border border-emerald-900/10 dark:border-emerald-800/30 space-y-4">
+            {/* Interactive Scholar Selector Bar (Segmented Control) */}
+            {availableCitations.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-emerald-950/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40 text-xs">
+                {availableCitations.map((c) => {
+                  const isActive = currentCitation?.scholar.toLowerCase() === c.scholar.toLowerCase();
+                  const isAiLecture =
+                    c.sourceType === 'ai_translated_expert' ||
+                    c.sourceType === 'expert_transcription';
+                  return (
+                    <button
+                      key={c.scholar}
+                      type="button"
+                      onClick={() => setSelectedScholar(c.scholar)}
+                      className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                        isActive
+                          ? 'bg-white dark:bg-emerald-800 text-emerald-950 dark:text-emerald-50 shadow-2xs font-bold'
+                          : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100 hover:bg-white/40 dark:hover:bg-emerald-900/30'
+                      }`}
+                    >
+                      {isAiLecture && (
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"
+                          title="Transcribed Lecture"
+                        />
+                      )}
+                      <span>{c.scholar}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {currentCitation && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span className="font-semibold text-emerald-900 dark:text-emerald-300">
-                    {currentCitation.scholar} · {currentCitation.sourceBook}{' '}
-                    {currentCitation.century ? `(${currentCitation.century})` : ''}
-                  </span>
-                  <Quote className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 space-y-3.5 shadow-2xs">
+                {/* Header: Scholar info + Provenance Badge + View Original Source Trigger */}
+                <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-emerald-900/40">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-bold text-emerald-950 dark:text-emerald-200">
+                        {currentCitation.scholar}
+                      </h3>
+                      <span className="text-slate-400" aria-hidden="true">
+                        ·
+                      </span>
+                      <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                        {currentCitation.sourceBook}{' '}
+                        {currentCitation.century ? `(${currentCitation.century})` : ''}
+                      </span>
+                    </div>
+
+                    {/* 3-Tier Classification Provenance Badge */}
+                    <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                      {currentCitation.sourceType === 'ai_translated_expert' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-500/15 text-amber-900 dark:text-amber-200 border border-amber-500/35">
+                          <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span>{t.badgeAiTranslated}</span>
+                        </span>
+                      ) : currentCitation.sourceType === 'ai_synthesis' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-purple-500/15 text-purple-900 dark:text-purple-200 border border-purple-500/35">
+                          <Sparkles className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />
+                          <span>{t.badgeAiSynthesis}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
+                          <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <span>{t.badgeClassical}</span>
+                        </span>
+                      )}
+
+                      {currentCitation.sourceReference && (
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:inline truncate max-w-xs font-mono">
+                          · {currentCitation.sourceReference.split(',')[0]}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* "View Original Arabic Source" Drawer/Modal Trigger */}
+                  <button
+                    type="button"
+                    onClick={() => setProvenanceModalOpen(true)}
+                    className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-emerald-200 bg-[#FAF8F5] dark:bg-emerald-900/30 border border-emerald-900/15 dark:border-emerald-700/40 hover:bg-emerald-800 hover:text-white dark:hover:bg-emerald-700 transition-colors shadow-2xs cursor-pointer shrink-0"
+                    title={t.viewProvenanceBtn}
+                    aria-label={t.viewProvenanceBtn}
+                  >
+                    <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>{t.viewProvenanceBtn}</span>
+                  </button>
                 </div>
-                <p className="text-sm leading-relaxed text-slate-800 dark:text-slate-200">
+
+                {/* Verbatim Arabic Quote Excerpt Preview (If available and viewing in EN/SV/FR) */}
+                {currentCitation.originalArabicRaw && language !== 'ar' && (
+                  <div
+                    dir="rtl"
+                    className="p-3 rounded-xl bg-amber-500/5 dark:bg-black/20 border border-amber-600/15 dark:border-emerald-800/30 text-right"
+                  >
+                    <p className="font-arabic text-sm text-slate-800 dark:text-amber-50 leading-loose line-clamp-2 select-text">
+                      &ldquo;{currentCitation.originalArabicRaw}&rdquo;
+                    </p>
+                  </div>
+                )}
+
+                {/* Translated Commentary Text */}
+                <p className="text-sm leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line">
                   {currentCitation.text}
                 </p>
+
+                {/* AI Model Attribution Disclaimer if AI-translated */}
+                {currentCitation.translationDisclaimer && (
+                  <p className="text-[11px] text-amber-900/70 dark:text-amber-300/70 italic pt-1">
+                    * {currentCitation.translationDisclaimer}
+                  </p>
+                )}
               </div>
             )}
 
@@ -1129,6 +1272,14 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           </div>
         )}
       </div>
+
+      <ScholarProvenanceModal
+        isOpen={provenanceModalOpen}
+        onClose={() => setProvenanceModalOpen(false)}
+        citation={currentCitation}
+        verse={verse}
+        language={language}
+      />
     </article>
   );
 };

@@ -146,7 +146,7 @@ export async function seedCompanionGuidance() {
     for (const lang of SUPPORTED_LANGUAGES) {
       const bundle = getAgeAdaptiveContent(fixture, lang);
 
-      // Kids record
+      // 1. Kids profile (Tailored for 8-year-old daughter: story metaphors, calm breathing)
       await supabase.from('verse_companion_guidance').upsert(
         {
           ayah_id: ayahId,
@@ -161,11 +161,41 @@ export async function seedCompanionGuidance() {
       );
       companionRows++;
 
-      // Teen record
+      // 2. Teen profile (Tailored for 13yo son & 17yo daughter: school, identity, resilience)
       await supabase.from('verse_companion_guidance').upsert(
         {
           ayah_id: ayahId,
           audience_profile: 'teen',
+          language_code: lang,
+          story_text: bundle.kids.storyText,
+          family_question: bundle.kids.familyQuestion,
+          action_step: bundle.kids.tryTodayAction,
+          key_takeaway: bundle.teenKeyTakeaway,
+        },
+        { onConflict: 'ayah_id,audience_profile,language_code' }
+      );
+      companionRows++;
+
+      // 3. Family profile (Tailored for living in Sweden: dining table halaqah circle)
+      await supabase.from('verse_companion_guidance').upsert(
+        {
+          ayah_id: ayahId,
+          audience_profile: 'family',
+          language_code: lang,
+          story_text: bundle.kids.storyText,
+          family_question: bundle.kids.familyQuestion,
+          action_step: bundle.kids.tryTodayAction,
+          key_takeaway: bundle.teenKeyTakeaway,
+        },
+        { onConflict: 'ayah_id,audience_profile,language_code' }
+      );
+      companionRows++;
+
+      // 4. General / Adult profile (Tailored for parents: 44yo wife & 49yo father)
+      await supabase.from('verse_companion_guidance').upsert(
+        {
+          ayah_id: ayahId,
+          audience_profile: 'general',
           language_code: lang,
           story_text: null,
           family_question: bundle.kids.familyQuestion,
@@ -176,7 +206,13 @@ export async function seedCompanionGuidance() {
       );
       companionRows++;
 
-      // Roots
+      // Idempotent Linguistic Roots for this Ayah & Language
+      await supabase
+        .from('linguistic_root')
+        .delete()
+        .eq('ayah_id', ayahId)
+        .eq('language_code', lang);
+
       const roots =
         fixture.linguisticRoots && fixture.linguisticRoots.length > 0
           ? fixture.linguisticRoots

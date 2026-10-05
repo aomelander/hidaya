@@ -41,6 +41,10 @@ export interface BackendMatchPayload {
     work_title: string;
     text: string;
     language_code: string;
+    source_type?: string;
+    source_reference?: string;
+    original_arabic_raw?: string;
+    verification_status?: string;
   }>;
   topic?: {
     slug: string;
@@ -132,8 +136,29 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
         found?.text ||
         rawTafsirs[0]?.text ||
         `Classical commentary on Surah ${match.surah?.name_english} (${id}): "${enTrans.text}"`,
+      sourceType: (found?.source_type as any) || 'classical_book',
+      sourceReference: found?.source_reference,
+      originalArabicRaw: found?.original_arabic_raw,
+      verificationStatus: (found?.verification_status as any) || 'verified_canonical',
     };
   };
+
+  const dynamicTafsirCitations =
+    rawTafsirs.length > 0
+      ? rawTafsirs.map((t) => ({
+          scholar: t.scholar_name,
+          sourceBook: t.work_title,
+          text: t.text,
+          sourceType: (t.source_type as any) || 'classical_book',
+          sourceReference: t.source_reference,
+          originalArabicRaw: t.original_arabic_raw,
+          verificationStatus: (t.verification_status as any) || 'verified_canonical',
+        }))
+      : [
+          findScholarTafsir('Ibn Kathir', "Tafsir al-Qur'an al-'Azim"),
+          findScholarTafsir("Al-Sa'di", 'Taysir al-Karim al-Rahman'),
+          findScholarTafsir('Al-Muyassar', 'Al-Tafsir Al-Muyassar'),
+        ];
 
   const revType =
     match.surah.revelation_place?.toLowerCase() === 'medinan' ? 'Medinan' : 'Meccan';
@@ -169,11 +194,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
       mappingExplanation: `Surah ${match.surah.name_english} (${id}) directly addresses your search with verified Quranic guidance.`,
       topics: match.topic ? [match.topic.title] : ['Guidance'],
     },
-    tafsirCitations: [
-      findScholarTafsir('Ibn Kathir', "Tafsir al-Qur'an al-'Azim"),
-      findScholarTafsir("Al-Sa'di", 'Taysir al-Karim al-Rahman'),
-      findScholarTafsir('Al-Muyassar', 'Al-Tafsir Al-Muyassar'),
-    ],
+    tafsirCitations: dynamicTafsirCitations,
     reflectionFramework: {
       understand: `Pause and absorb the words of Surah ${match.surah.name_english} (${id}) and its call to mindfulness and steadfastness.`,
       reflectPrompt: 'How does this verse speak to what your heart is carrying right now?',

@@ -48,6 +48,34 @@ export interface TafsirCitation {
   translationDisclaimer?: string;
 }
 
+export interface ScholarIngestionPayload {
+  scholarName: string;
+  workTitle: string;
+  surahNumber: number;
+  ayahNumber: number;
+  sourceReference: string;
+  sourceType: TafsirSourceType;
+  sourceUrl?: string;
+  originalArabicRaw: string;
+  verificationStatus?: TafsirVerificationStatus;
+  translations?: {
+    en: string;
+    sv: string;
+    fr: string;
+    ar?: string;
+  };
+  translationDisclaimer?: string;
+  aiModel?: string;
+}
+
+export interface ScholarIngestionRecord extends ScholarIngestionPayload {
+  id: string;
+  ayahId?: string;
+  createdAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
 export interface LinguisticRoot {
   termArabic: string;
   termTransliterated: string;

@@ -27,6 +27,8 @@ import {
   Smartphone,
   Users,
   ChevronDown,
+  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   Language,
@@ -46,6 +48,7 @@ import { OfflineCacheService } from '../services/offlineCacheService';
 import { StorageService } from '../services/storage';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
 import { useOfflineStatus } from '../hooks/useOfflineStatus';
+import { ScholarIngestionModal } from './ScholarIngestionModal';
 
 export interface CustomizationSheetProps {
   isOpen: boolean;
@@ -292,33 +295,41 @@ const SCHOLAR_LABELS: Record<
       { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Classical Hadith & Tradition' },
       { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Heart & Spiritual Wisdom' },
       { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Concise & Direct Clarity' },
+      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Transcribed Lectures & Linguistic Gems' },
+      { id: 'Al-Bouti', label: 'Al-Bouti', sub: 'Fiqh of Sunnah & Heart Purification' },
     ],
   },
   sv: {
-    sectionTitle: 'Föredragen Klassisk Tafsir-lärd',
+    sectionTitle: 'Föredragen Klassisk & Expert Tafsir-lärd',
     entryModeTitle: 'Reflektionsfokus (Ingångsläge)',
     scholars: [
       { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Klassisk tradition & kontext' },
       { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Andlig visdom & hjärtats väg' },
       { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Kortfattad & tydlig innebörd' },
+      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Föreläsningstranskript & språkligt djup' },
+      { id: 'Al-Bouti', label: 'Al-Bouti', sub: 'Själens rening & profetisk visdom' },
     ],
   },
   fr: {
-    sectionTitle: 'Exégète Classique (Tafsir) Préféré',
+    sectionTitle: 'Exégète Classique & Expert (Tafsir) Préféré',
     entryModeTitle: 'Orientation de Méditation',
     scholars: [
       { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Tradition classique & contexte' },
       { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Sagesse spirituelle du cœur' },
       { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Clarté concise & directe' },
+      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Transcriptions de cours & perles linguistiques' },
+      { id: 'Al-Bouti', label: 'Al-Bouti', sub: 'Purification du cœur & sagesse prophétique' },
     ],
   },
   ar: {
-    sectionTitle: 'المفسر المفضل (كتب التفسير المعتمدة)',
+    sectionTitle: 'المفسر المفضل (أمهات التفاسير والمحاضرات الموثقة)',
     entryModeTitle: 'مسار التدبر الافتراضي',
     scholars: [
       { id: 'Ibn Kathir', label: 'ابن كثير', sub: 'تفسير القرآن العظيم بالمأثور' },
       { id: "Al-Sa'di", label: 'السعدي', sub: 'تيسير الكريم الرحمن والمقاصد' },
       { id: 'Al-Muyassar', label: 'التفسير الميسر', sub: 'عبارة وجيزة وواضحة' },
+      { id: "Al-Sha'rawi", label: 'الشعراوي', sub: 'خواطر وتفريغات مرئية وبلاغية' },
+      { id: 'Al-Bouti', label: 'البوطي', sub: 'فقه السيرة وتزكية النفس' },
     ],
   },
 };
@@ -353,6 +364,7 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   onTogglePerspective,
 }) => {
   const [isCachingBookmarksAudio, setIsCachingBookmarksAudio] = useState(false);
+  const [isIngestionModalOpen, setIsIngestionModalOpen] = useState(false);
   const { isOnline, stats, refreshStats, isInstallable, isInstalled, isIOS, installPWA } =
     useOfflineStatus();
 
@@ -791,6 +803,56 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
             )}
           </div>
         </div>
+
+        {/* Section 6: Scholar Lecture Ingestion & Theological Audit Console (Step 4) */}
+        <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              <span>
+                {language === 'ar'
+                  ? 'تدقيق واستيراد تفاسير العلماء (المرحلة ٤)'
+                  : language === 'sv'
+                  ? 'Lärdas föreläsningar & AI-granskning (Steg 4)'
+                  : language === 'fr'
+                  ? 'Ingestion des cours de savants & audit (Étape 4)'
+                  : 'Scholar Lecture Ingestion & Audit (Step 4)'}
+              </span>
+            </span>
+            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+              AGENTS.md Level 3
+            </span>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 space-y-3">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              {language === 'ar'
+                ? 'استيراد تسجيلات ومرئيات الشيخ محمد متولي الشعراوي والدكتور محمد سعيد رمضان البوطي مع ترجمة منضبطة بالذكاء الاصطناعي وتوثيق المصدر بدقة.'
+                : language === 'sv'
+                ? 'Läs in ljud/video-transkriberingar av Sheikh Al-Sha\'rawi och Dr. Al-Bouti med strikt jordad AI-översättning och fullständig ursprungskontroll.'
+                : language === 'fr'
+                ? 'Ingérez les transcriptions de cours de Cheikh Al-Sha\'rawi et Dr. Al-Bouti avec une traduction stricte par IA et une traçabilité totale.'
+                : 'Ingest audio/video transcriptions from Sheikh Al-Sha\'rawi and Dr. Al-Bouti with strict grounded AI translation and complete provenance tracking.'}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setIsIngestionModalOpen(true)}
+              className="min-h-[40px] inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>
+                {language === 'ar'
+                  ? 'فتح لوحة استيراد وتدقيق تفاسير العلماء'
+                  : language === 'sv'
+                  ? 'Öppna inläsnings- och granskningspanelen'
+                  : language === 'fr'
+                  ? 'Ouvrir la console d\'ingestion et d\'audit'
+                  : 'Open Scholar Ingestion & Audit Console'}
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Footer Action */}
@@ -823,20 +885,36 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   );
 
   if (inlinePage) {
-    return sheetBody;
+    return (
+      <>
+        {sheetBody}
+        <ScholarIngestionModal
+          isOpen={isIngestionModalOpen}
+          onClose={() => setIsIngestionModalOpen(false)}
+          language={language}
+        />
+      </>
+    );
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="customization-title"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-200"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose?.();
-      }}
-    >
-      {sheetBody}
-    </div>
+    <>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="customization-title"
+        className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-200"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose?.();
+        }}
+      >
+        {sheetBody}
+      </div>
+      <ScholarIngestionModal
+        isOpen={isIngestionModalOpen}
+        onClose={() => setIsIngestionModalOpen(false)}
+        language={language}
+      />
+    </>
   );
 };

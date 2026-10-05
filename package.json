@@ -11,6 +11,7 @@
     "db:seed": "tsx src/lib/db/seedFullQuran.ts",
     "db:seed-master": "npx tsx src/lib/db/seedMasterQuran.ts",
     "db:seed-companion": "npx tsx src/lib/db/seedCompanionGuidance.ts",
+    "db:ingest-scholar": "npx tsx src/lib/db/ingestScholarTranscription.ts",
     "db:embed": "npx tsx src/lib/db/generateEmbeddings.ts",
     "db:embed-check": "npx tsx src/lib/db/generateEmbeddings.ts --check",
     "start": "wrangler dev --config dist/server/wrangler.json",

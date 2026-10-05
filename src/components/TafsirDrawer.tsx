@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from 'react';
-import { X, ScrollText, History, Quote } from 'lucide-react';
+import { X, ScrollText, History, Quote, ShieldCheck, Sparkles, FileText } from 'lucide-react';
 import { QuranVerseFixture, Language } from '../types';
 import { getDictionary } from '../lib/i18n/dictionaries';
+import { ScholarProvenanceModal } from './ScholarProvenanceModal';
 
 interface TafsirDrawerProps {
   verse: QuranVerseFixture | null;
@@ -18,7 +19,8 @@ export const TafsirDrawer: React.FC<TafsirDrawerProps> = ({
   onClose,
   language = 'en',
 }) => {
-  const [selectedScholar, setSelectedScholar] = useState<'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar'>('Ibn Kathir');
+  const [selectedScholar, setSelectedScholar] = useState<string>('Ibn Kathir');
+  const [provenanceModalOpen, setProvenanceModalOpen] = useState(false);
 
   if (!isOpen || !verse) return null;
 
@@ -123,17 +125,38 @@ export const TafsirDrawer: React.FC<TafsirDrawerProps> = ({
             <div className="p-5 rounded-2xl bg-white dark:bg-emerald-950/30 border border-emerald-900/10 dark:border-emerald-800/30 shadow-sm space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-emerald-900/40">
                 <div>
-                  <h3 className="text-sm font-bold text-emerald-950 dark:text-emerald-200">
-                    {currentCitation.scholar}
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold text-emerald-950 dark:text-emerald-200">
+                      {currentCitation.scholar}
+                    </h3>
+                    {currentCitation.sourceType === 'ai_translated_expert' ? (
+                      <span className="text-[10px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        {language === 'ar' ? 'ترجمة بالذكاء الاصطناعي' : 'AI Translation of Lecture'}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3" />
+                        {language === 'ar' ? 'عالم كلاسيكي موثق' : 'Classical Scholar'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 italic mt-0.5">
                     {language === 'ar' ? 'المصدر: ' : 'Source: '}
                     {currentCitation.sourceBook}
                   </p>
                 </div>
-                <div className="p-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300">
-                  <Quote className="w-4 h-4" />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setProvenanceModalOpen(true)}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-800/10 dark:bg-emerald-700/20 hover:bg-emerald-800/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  title={language === 'ar' ? 'عرض النص العربي الأصلي والتوثيق' : 'View Original Arabic Source'}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">
+                    {language === 'ar' ? 'عرض الأصل' : 'View Source'}
+                  </span>
+                </button>
               </div>
 
               <div className="prose dark:prose-invert max-w-none">
@@ -175,6 +198,14 @@ export const TafsirDrawer: React.FC<TafsirDrawerProps> = ({
           </button>
         </div>
       </div>
+
+      <ScholarProvenanceModal
+        isOpen={provenanceModalOpen}
+        onClose={() => setProvenanceModalOpen(false)}
+        citation={currentCitation}
+        verse={verse}
+        language={language}
+      />
     </div>
   );
 };
