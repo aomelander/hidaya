@@ -10,7 +10,19 @@ export type ExplanationDepth = 'simple' | 'context' | 'tafsir' | 'study';
 
 export type AudioPlaybackMode = 'quran_only' | 'quran_translation' | 'quran_tafsir';
 
-export type PreferredScholar = 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar';
+export type PreferredScholar = 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar' | "Al-Sha'rawi" | 'Al-Bouti';
+
+export type TafsirSourceType =
+  | 'classical_book'
+  | 'expert_transcription'
+  | 'ai_translated_expert'
+  | 'ai_synthesis';
+
+export type TafsirVerificationStatus =
+  | 'verified_canonical'
+  | 'transcription_verified'
+  | 'ai_translated_pending_review'
+  | 'ai_synthesized';
 
 export type ReciterId = 'alafasy' | 'abdulbasit' | 'husary' | 'minshawi' | 'ghamadi';
 
@@ -23,10 +35,17 @@ export interface ReciterInfo {
 }
 
 export interface TafsirCitation {
-  scholar: PreferredScholar;
+  scholar: PreferredScholar | string;
   century?: string;
   sourceBook: string;
   text: string;
+  // Provenance & Transparency Fields (AGENTS.md strict attribution):
+  sourceType?: TafsirSourceType;
+  sourceReference?: string;
+  originalArabicRaw?: string;
+  verificationStatus?: TafsirVerificationStatus;
+  aiModel?: string;
+  translationDisclaimer?: string;
 }
 
 export interface LinguisticRoot {
@@ -89,6 +108,20 @@ export interface SurroundingVerse {
   };
 }
 
+export interface CompanionGuidanceBundle {
+  kids?: {
+    title?: string;
+    storyText: string;
+    familyQuestionTitle?: string;
+    familyQuestion: string;
+    tryTodayLabel?: string;
+    tryTodayAction: string;
+  };
+  teenKeyTakeaway?: string;
+  teenGlossary?: Array<{ term: string; meaning: string }>;
+  defaultRoot?: LinguisticRoot;
+}
+
 export interface QuranVerseFixture {
   id: string; // e.g., "3:134"
   surahNumber: number;
@@ -140,6 +173,7 @@ export interface QuranVerseFixture {
   lifeSphere?: 'individual' | 'family' | 'society';
   linguisticRoots?: LinguisticRoot[];
   halaqahPrompts?: HalaqahPrompts;
+  companionGuidance?: Record<Language, CompanionGuidanceBundle> | CompanionGuidanceBundle;
 }
 
 export type ReaderProfile = 'adult' | 'teen' | 'kids';

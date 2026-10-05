@@ -47,6 +47,7 @@ export interface BackendMatchPayload {
     title: string;
     life_domain: string;
   };
+  companionGuidance?: any;
 }
 
 /**
@@ -83,6 +84,12 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
       f.id.split('-')[0] === id.split('-')[0]
   );
   if (curated) {
+    if (match.companionGuidance) {
+      return {
+        ...curated,
+        companionGuidance: match.companionGuidance,
+      };
+    }
     return curated;
   }
 
@@ -179,6 +186,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
         : match.topic?.life_domain === 'society'
         ? 'society'
         : 'individual',
+    companionGuidance: match.companionGuidance,
   };
 }
 

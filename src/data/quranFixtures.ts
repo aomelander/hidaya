@@ -83,11 +83,11 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       },
       after: {
         verseNumber: "135",
-        arabicText: "وَالَّذِينَ إِذَا فَعَلُوا فَاحِشَةً أَوْ ظَلَمُوا أَنفُسَهُمْ ذَكَرُوا اللَّهَ فَاسْتَغْفَرُوا لِذُنُوبِهِمْ وَمَن يَغْفِرُ الذُّنُوبَ إِلَّا اللَّهُ",
+        arabicText: "وَٱلَّذِينَ إِذَا فَعَلُوا۟ فَٰحِشَةً أَوْ ظَلَمُوٓا۟ أَنفُسَهُمْ ذَكَرُوا۟ ٱللَّهَ فَٱسْتَغْفَرُوا۟ لِذُنُوبِهِمْ وَمَن يَغْفِرُ ٱلذُّنُوبَ إِلَّا ٱللَّهُ وَلَمْ يُصِرُّوا۟ عَلَىٰ مَا فَعَلُوا۟ وَهُمْ يَعْلَمُونَ",
         translations: {
-          en: "And those who, when they commit an immorality or wrong themselves, remember Allah and seek forgiveness for their sins - and who can forgive sins except Allah?",
-          sv: "Och de som, om de har begått en skamlig handling eller gjort orätt mot sig själva, minns Gud och ber om förlåtelse för sina synder.",
-          fr: "Et ceux qui, s'ils ont commis une turpitude ou causé du tort à eux-mêmes, se souviennent d'Allah et demandent pardon pour leurs péchés."
+          en: "And those who, when they commit an immorality or wrong themselves, remember Allah and seek forgiveness for their sins - and who can forgive sins except Allah? - and [who] do not persist in what they have done while they know.",
+          sv: "Och de som, om de har begått en skamlig handling eller tillfogat sig själva orätt, minns Gud och ber Honom om förlåtelse för sina synder - och vem kan förlåta synderna utom Gud? - och som inte fortsätter att begå sådana handlingar mot bättre vetande.",
+          fr: "Et ceux qui, s'ils ont commis une turpitude ou causé du tort à eux-mêmes, se souviennent d'Allah et demandent pardon pour leurs péchés - et qui pardonne les péchés sinon Allah ? - et qui ne persistent pas sciemment dans le mal qu'ils ont fait."
         }
       }
     },

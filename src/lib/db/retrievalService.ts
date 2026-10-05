@@ -1,18 +1,34 @@
 import { createClient } from '@supabase/supabase-js';
 import { SEED_FIXTURES } from './seedFixtures';
 
-// Default to mock URLs if env is not provided during build
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://mock.supabase.co';
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  'mock-key';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Resolve Supabase URL and Key safely, detecting potential swapped environment variables
+function getResolvedSupabaseConfig() {
+  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const envAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const envService = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-// Fallback logic enabled if the URL is the mock one or missing
-const useMock = !supabaseUrl || supabaseUrl === 'https://mock.supabase.co';
+  let resolvedUrl = 'https://kipsrzozphdgbaqrhiok.supabase.co';
+  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
+    resolvedUrl = envUrl;
+  } else if (envAnon.startsWith('http://') || envAnon.startsWith('https://')) {
+    resolvedUrl = envAnon;
+  }
+
+  let resolvedKey = envService;
+  if (!resolvedKey || resolvedKey.startsWith('http')) {
+    resolvedKey =
+      !envAnon.startsWith('http') && envAnon
+        ? envAnon
+        : envUrl && !envUrl.startsWith('http')
+        ? envUrl
+        : 'mock-key';
+  }
+
+  return { url: resolvedUrl, key: resolvedKey, isMock: false };
+}
+
+const { url: supabaseUrl, key: supabaseKey, isMock: useMock } = getResolvedSupabaseConfig();
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
  * Generates 1536-dimensional query embedding via Gemini embedding API for semantic vector retrieval.
@@ -84,6 +100,7 @@ export interface RetrievedAyahMatch {
     title: string;
     life_domain: string;
   };
+  companionGuidance?: any;
 }
 
 /**
@@ -240,6 +257,60 @@ export class RetrievalService {
   }
 
   /**
+   * Fetches companion guidance and linguistic roots directly from Supabase.
+   * Checks normalized relational tables first (if present), then cached_reflection.
+   */
+  static async fetchCompanionGuidanceForMatches(
+    matches: RetrievedAyahMatch[],
+    language: LanguageCode = 'en'
+  ): Promise<RetrievedAyahMatch[]> {
+    if (!matches || matches.length === 0 || useMock) {
+      return matches;
+    }
+
+    try {
+      const hashes = matches.map((m) => `companion_guidance:${m.id}`);
+
+      // Query cached_reflection for live Supabase companion bundles
+      const { data: cachedRows, error: cacheErr } = await supabase
+        .from('cached_reflection')
+        .select('query_hash, response_json')
+        .in('query_hash', [...hashes, 'companion_guidance:all_fixtures']);
+
+      const companionByVerseId = new Map<string, any>();
+
+      if (!cacheErr && cachedRows && cachedRows.length > 0) {
+        for (const row of cachedRows) {
+          if (row.query_hash === 'companion_guidance:all_fixtures' && row.response_json) {
+            for (const [k, v] of Object.entries(row.response_json as Record<string, any>)) {
+              if (!companionByVerseId.has(k)) {
+                companionByVerseId.set(k, v);
+              }
+            }
+          } else if (row.query_hash.startsWith('companion_guidance:')) {
+            const vId = row.query_hash.replace('companion_guidance:', '');
+            companionByVerseId.set(vId, row.response_json);
+          }
+        }
+      }
+
+      return matches.map((match) => {
+        const guidance = companionByVerseId.get(match.id);
+        if (guidance) {
+          return {
+            ...match,
+            companionGuidance: guidance.languages || guidance,
+          };
+        }
+        return match;
+      });
+    } catch (err) {
+      console.warn('[RetrievalService] Error fetching companion guidance from Supabase:', err);
+      return matches;
+    }
+  }
+
+  /**
    * Stage 1: Query ayah_topic and live ayah/translation tables for categorical/emotional matches.
    * Supports language parameter ('en' | 'sv' | 'fr' | 'ar') with fallback to 'en'.
    * Applies score-based sorting + dynamic randomization (ORDER BY relevance_score DESC, RANDOM() LIMIT 3).
@@ -348,7 +419,8 @@ export class RetrievalService {
       const relevantDirect = candidates.filter((c) => (c.relevance_score ?? 1) >= 0.5);
       const pool = relevantDirect.length > 0 ? relevantDirect : candidates;
       const targetLimit = pool.length >= 5 ? 5 : Math.min(pool.length, 5);
-      return capAndGroupConsecutiveMatches(applyScoreAndRandomOrder(pool, targetLimit));
+      const results = capAndGroupConsecutiveMatches(applyScoreAndRandomOrder(pool, targetLimit));
+      return await this.fetchCompanionGuidanceForMatches(results, language);
     } catch (err) {
       console.warn('[RetrievalService] Direct matches live query error, using fallback:', err);
       return this.findDirectMatchesFallback(emotionId, domainId, language);
@@ -433,7 +505,8 @@ export class RetrievalService {
             });
 
             vectorMatches.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
-            return capAndGroupConsecutiveMatches(vectorMatches.slice(0, 5));
+            const grouped = capAndGroupConsecutiveMatches(vectorMatches.slice(0, 5));
+            return await this.fetchCompanionGuidanceForMatches(grouped, language);
           }
         }
       }
@@ -573,7 +646,8 @@ export class RetrievalService {
       const relevantLexical = candidates.filter((c) => c.relevance_score >= 15);
       const pool = relevantLexical.length > 0 ? relevantLexical : candidates;
       const limit = Math.min(pool.length, 5);
-      return applyScoreAndRandomOrder(pool, limit);
+      const results = applyScoreAndRandomOrder(pool, limit);
+      return await this.fetchCompanionGuidanceForMatches(results, language);
     } catch (err) {
       console.warn('[RetrievalService] Vector matches live query error, using fallback:', err);
       return this.findVectorMatchesFallback(queryText, language);

@@ -294,7 +294,13 @@ export function getAgeAdaptiveContent(
   verse: QuranVerseFixture,
   language: Language
 ): AgeAdaptiveBundle {
-  const custom = VERSE_KIDS_STORIES[verse.id]?.[language];
+  // 1. Check if companion guidance was dynamically retrieved from Supabase
+  const dynamicBundle: any =
+    (verse.companionGuidance as any)?.[language] ||
+    (verse.companionGuidance as any)?.languages?.[language];
+
+  // 2. Fall back to static script fixtures if dynamic DB data not yet attached
+  const custom = dynamicBundle || VERSE_KIDS_STORIES[verse.id]?.[language];
   const translationText = verse.translations[language]?.text || verse.translations.en.text;
 
   const titles: Record<
@@ -395,15 +401,15 @@ export function getAgeAdaptiveContent(
 
   return {
     kids: {
-      title: t.title,
-      storyText: chosen.storyText,
-      familyQuestionTitle: t.familyTitle,
-      familyQuestion: chosen.familyQuestion,
-      tryTodayLabel: t.tryLabel,
-      tryTodayAction: chosen.tryTodayAction,
+      title: dynamicBundle?.kids?.title || t.title,
+      storyText: dynamicBundle?.kids?.storyText || dynamicBundle?.story_text || chosen.storyText,
+      familyQuestionTitle: dynamicBundle?.kids?.familyQuestionTitle || t.familyTitle,
+      familyQuestion: dynamicBundle?.kids?.familyQuestion || dynamicBundle?.family_question || chosen.familyQuestion,
+      tryTodayLabel: dynamicBundle?.kids?.tryTodayLabel || t.tryLabel,
+      tryTodayAction: dynamicBundle?.kids?.tryTodayAction || dynamicBundle?.action_step || chosen.tryTodayAction,
     },
-    teenKeyTakeaway: chosen.teenTakeaway,
-    teenGlossary: TEEN_GLOSSARY_BY_LANG[language] || TEEN_GLOSSARY_BY_LANG.en,
-    defaultRoot,
+    teenKeyTakeaway: dynamicBundle?.teenKeyTakeaway || dynamicBundle?.key_takeaway || chosen.teenTakeaway,
+    teenGlossary: dynamicBundle?.teenGlossary || TEEN_GLOSSARY_BY_LANG[language] || TEEN_GLOSSARY_BY_LANG.en,
+    defaultRoot: dynamicBundle?.defaultRoot || defaultRoot,
   };
 }

@@ -30,14 +30,18 @@ CREATE TABLE IF NOT EXISTS translation (
   source TEXT NOT NULL
 );
 
--- Tafsir Table
+-- Tafsir Table with Provenance Tracking
 CREATE TABLE IF NOT EXISTS tafsir (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ayah_id UUID REFERENCES ayah(id) ON DELETE CASCADE,
   scholar_name TEXT NOT NULL,
   work_title TEXT NOT NULL,
   text TEXT NOT NULL,
-  language_code TEXT NOT NULL
+  language_code TEXT NOT NULL,
+  source_type TEXT DEFAULT 'classical_book' CHECK (source_type IN ('classical_book', 'expert_transcription', 'ai_translated_expert', 'ai_synthesis')),
+  source_reference TEXT,
+  original_arabic_raw TEXT,
+  verification_status TEXT DEFAULT 'verified_canonical' CHECK (verification_status IN ('verified_canonical', 'transcription_verified', 'ai_translated_pending_review', 'ai_synthesized'))
 );
 
 -- Topic Table
@@ -71,6 +75,35 @@ CREATE TABLE IF NOT EXISTS user_bookmarks (
   ayah_id UUID REFERENCES ayah(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE (user_id, ayah_id)
+);
+
+-- Verse Companion Guidance (Pedagogical reflections for Kids, Teen, Family)
+CREATE TABLE IF NOT EXISTS verse_companion_guidance (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ayah_id UUID REFERENCES ayah(id) ON DELETE CASCADE,
+  audience_profile TEXT NOT NULL CHECK (audience_profile IN ('kids', 'teen', 'family', 'general')),
+  language_code TEXT NOT NULL CHECK (language_code IN ('en', 'sv', 'fr', 'ar')),
+  story_text TEXT,
+  family_question TEXT,
+  action_step TEXT,
+  key_takeaway TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (ayah_id, audience_profile, language_code)
+);
+
+-- Linguistic Roots Table (Etymology, imagery, depth)
+CREATE TABLE IF NOT EXISTS linguistic_root (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ayah_id UUID REFERENCES ayah(id) ON DELETE CASCADE,
+  term_arabic TEXT NOT NULL,
+  term_transliterated TEXT NOT NULL,
+  root_letters TEXT NOT NULL,
+  language_code TEXT NOT NULL CHECK (language_code IN ('en', 'sv', 'fr', 'ar')),
+  literal_imagery TEXT NOT NULL,
+  spiritual_depth TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- RPC Function for vector search
@@ -111,6 +144,8 @@ ALTER TABLE topic ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ayah_topic ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cached_reflection ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_bookmarks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE verse_companion_guidance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE linguistic_root ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (Public read for content, owner access for user data)
 CREATE POLICY "Allow public read-only access to surah" ON surah FOR SELECT USING (true);
@@ -120,6 +155,8 @@ CREATE POLICY "Allow public read-only access to tafsir" ON tafsir FOR SELECT USI
 CREATE POLICY "Allow public read-only access to topic" ON topic FOR SELECT USING (true);
 CREATE POLICY "Allow public read-only access to ayah_topic" ON ayah_topic FOR SELECT USING (true);
 CREATE POLICY "Allow public read-only access to cached_reflection" ON cached_reflection FOR SELECT USING (true);
+CREATE POLICY "Allow public read-only access to verse_companion_guidance" ON verse_companion_guidance FOR SELECT USING (true);
+CREATE POLICY "Allow public read-only access to linguistic_root" ON linguistic_root FOR SELECT USING (true);
 
 -- User-specific tables policies
 CREATE POLICY "Users can insert their own bookmarks" ON user_bookmarks FOR INSERT WITH CHECK (auth.uid() = user_id);

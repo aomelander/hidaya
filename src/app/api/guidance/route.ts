@@ -3,11 +3,33 @@ import { createClient } from '@supabase/supabase-js';
 import { RetrievalService, LanguageCode } from '../../../lib/db/retrievalService';
 import { GoogleGenAI } from '@google/genai';
 
-const supabaseUrl = process.env.SUPABASE_URL || 'https://mock.supabase.co';
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'mock-key';
+function getResolvedSupabaseConfig() {
+  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const envAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const envService = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+  let resolvedUrl = 'https://kipsrzozphdgbaqrhiok.supabase.co';
+  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
+    resolvedUrl = envUrl;
+  } else if (envAnon.startsWith('http://') || envAnon.startsWith('https://')) {
+    resolvedUrl = envAnon;
+  }
+
+  let resolvedKey = envService;
+  if (!resolvedKey || resolvedKey.startsWith('http')) {
+    resolvedKey =
+      !envAnon.startsWith('http') && envAnon
+        ? envAnon
+        : envUrl && !envUrl.startsWith('http')
+        ? envUrl
+        : 'mock-key';
+  }
+
+  return { url: resolvedUrl, key: resolvedKey, isMock: false };
+}
+
+const { url: supabaseUrl, key: supabaseKey, isMock: useMock } = getResolvedSupabaseConfig();
 const supabase = createClient(supabaseUrl, supabaseKey);
-const useMock = !supabaseUrl || supabaseUrl === 'https://mock.supabase.co';
 
 async function hashString(str: string) {
   const encoder = new TextEncoder();

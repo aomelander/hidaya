@@ -18,6 +18,8 @@ import {
   Headphones,
   BookOpen,
   Quote,
+  Search,
+  X,
 } from 'lucide-react';
 import {
   QuranVerseFixture,
@@ -30,6 +32,7 @@ import { AVAILABLE_RECITERS, getAudioUrlsForVerseRange } from '../services/audio
 import { StorageService } from '../services/storage';
 import { SpeechService } from '../services/speechSynthesisService';
 import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
+import { QURAN_FIXTURES } from '../data/quranFixtures';
 
 interface ContinuousSessionAudioPlayerProps {
   verses: QuranVerseFixture[];
@@ -55,6 +58,8 @@ const AUDIO_UI: Record<
     phaseRecitation: string;
     phaseTranslation: string;
     phaseTafsir: string;
+    searchPlaceholder: string;
+    filterLabel: string;
   }
 > = {
   en: {
@@ -69,6 +74,8 @@ const AUDIO_UI: Record<
     phaseRecitation: 'Reciting Arabic',
     phaseTranslation: 'Reading Translation',
     phaseTafsir: 'Explaining Tafsir',
+    searchPlaceholder: 'Search or filter verses to listen...',
+    filterLabel: 'Select Verse',
   },
   sv: {
     title: 'Ljud & Kontemplation',
@@ -82,6 +89,8 @@ const AUDIO_UI: Record<
     phaseRecitation: 'Reciterar arabiska',
     phaseTranslation: 'Läser översättning',
     phaseTafsir: 'Förklarar Tafsir',
+    searchPlaceholder: 'Sök eller filtrera verser att lyssna på...',
+    filterLabel: 'Välj vers',
   },
   fr: {
     title: 'Sanctuaire Audio & Récitation',
@@ -95,6 +104,8 @@ const AUDIO_UI: Record<
     phaseRecitation: 'Récitation arabe',
     phaseTranslation: 'Lecture traduction',
     phaseTafsir: 'Explication Tafsir',
+    searchPlaceholder: 'Rechercher ou filtrer les versets à écouter...',
+    filterLabel: 'Choisir le verset',
   },
   ar: {
     title: 'الاستماع والتدبر الصوتي',
@@ -108,6 +119,8 @@ const AUDIO_UI: Record<
     phaseRecitation: 'تلاوة قرآنية',
     phaseTranslation: 'قراءة الترجمة',
     phaseTafsir: 'بيان التفسير',
+    searchPlaceholder: 'ابحث في الآيات أو اختر للاستماع والتدبر...',
+    filterLabel: 'اختر الآية',
   },
 };
 
@@ -123,6 +136,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [playbackPhase, setPlaybackPhase] = useState<PlaybackPhase>('idle');
+  const [filterQuery, setFilterQuery] = useState('');
 
   // Multi-verse track progression for consecutive verses (up to 3 consecutive verses)
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
@@ -133,7 +147,33 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const t = AUDIO_UI[language] || AUDIO_UI.en;
 
-  const currentVerse = verses[currentIndex] || verses[0];
+  // Resilient verses pool: use passed verses or fall back to verified fixtures so audio section is NEVER blank
+  const activeVerses = useMemo(() => {
+    return verses && verses.length > 0 ? verses : QURAN_FIXTURES;
+  }, [verses]);
+
+  // Filtered verses pool matching local audio search query
+  const displayedVerses = useMemo(() => {
+    if (!filterQuery.trim()) return activeVerses;
+    const q = filterQuery.toLowerCase().trim();
+    return activeVerses.filter((v) => {
+      const enTrans = v.translations.en?.text || '';
+      const localizedTrans = v.translations[language]?.text || '';
+      const surahName = v.surahNameTransliterated.toLowerCase();
+      const surahArabic = v.surahNameArabic;
+      const topics = (v.topics || []).join(' ').toLowerCase();
+      return (
+        v.id.includes(q) ||
+        surahName.includes(q) ||
+        surahArabic.includes(q) ||
+        enTrans.toLowerCase().includes(q) ||
+        localizedTrans.toLowerCase().includes(q) ||
+        topics.includes(q)
+      );
+    });
+  }, [activeVerses, filterQuery, language]);
+
+  const currentVerse = displayedVerses[currentIndex] || displayedVerses[0] || activeVerses[0];
 
   // Consecutive verses audio tracks (handles single ayah "134" or ranges "5-6" / "133-135")
   const rangeAudioUrls = useMemo(() => {
@@ -152,16 +192,17 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   }, [currentVerse, language]);
 
   const currentTafsirCitation = useMemo(() => {
-    if (!localizedDetails?.tafsirCitations || localizedDetails.tafsirCitations.length === 0) return null;
+    const citations = localizedDetails?.tafsirCitations || currentVerse?.tafsirCitations || [];
+    if (citations.length === 0) return null;
     const scholarIdx =
       preferredScholar === "Al-Sa'di" ? 1 : preferredScholar === 'Al-Muyassar' ? 2 : 0;
-    return localizedDetails.tafsirCitations[scholarIdx] || localizedDetails.tafsirCitations[0];
-  }, [localizedDetails, preferredScholar]);
+    return citations[scholarIdx] || citations[0] || null;
+  }, [localizedDetails, currentVerse, preferredScholar]);
 
   // Texts
   const translationText = useMemo(() => {
     if (!currentVerse) return '';
-    return currentVerse.translations[language]?.text || currentVerse.translations.en.text;
+    return currentVerse.translations[language]?.text || currentVerse.translations.en?.text || '';
   }, [currentVerse, language]);
 
   const tafsirText = currentTafsirCitation?.text || '';
@@ -231,14 +272,14 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
 
   const handleNext = useCallback(() => {
     stopAllSpeech();
-    if (currentIndex < verses.length - 1) {
+    if (currentIndex < displayedVerses.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     } else {
       setIsPlaying(false);
       setPlaybackPhase('idle');
       setCurrentIndex(0);
     }
-  }, [currentIndex, verses.length, stopAllSpeech]);
+  }, [currentIndex, displayedVerses.length, stopAllSpeech]);
 
   const handlePrev = useCallback(() => {
     stopAllSpeech();
@@ -390,7 +431,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     }
   };
 
-  if (!verses || verses.length === 0 || !currentVerse) return null;
+  if (!currentVerse) return null;
 
   const activeReciter =
     AVAILABLE_RECITERS.find((r) => r.id === reciterId) || AVAILABLE_RECITERS[0];
@@ -435,6 +476,36 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                   : t.phaseTafsir}
               </span>
             </div>
+          )}
+        </div>
+
+        {/* Search & Filter Verses within Audio Contemplation */}
+        <div className="relative">
+          <div className="absolute inset-y-0 start-0 ps-3.5 flex items-center pointer-events-none text-emerald-800 dark:text-emerald-400">
+            <Search className="w-4 h-4" />
+          </div>
+          <input
+            type="text"
+            value={filterQuery}
+            onChange={(e) => {
+              setFilterQuery(e.target.value);
+              setCurrentIndex(0);
+            }}
+            placeholder={t.searchPlaceholder}
+            className="w-full py-2.5 ps-10 pe-10 text-xs sm:text-sm rounded-2xl bg-[#FAF8F5] dark:bg-[#071711] border border-emerald-900/15 dark:border-emerald-800/40 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-700 dark:focus:border-emerald-500 transition-colors"
+          />
+          {filterQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterQuery('');
+                setCurrentIndex(0);
+              }}
+              className="absolute inset-y-0 end-0 pe-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              aria-label="Clear filter"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           )}
         </div>
 
@@ -505,7 +576,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
               {totalTracks > 1 ? `(${currentTrackIndex + 1}/${totalTracks})` : ''}
             </span>
             <span className="tabular-nums">
-              {currentIndex + 1} / {verses.length} · {activeReciter.name}
+              {currentIndex + 1} / {displayedVerses.length} · {activeReciter.name}
             </span>
           </div>
 
@@ -639,7 +710,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
             <button
               type="button"
               onClick={handleNext}
-              disabled={currentIndex >= verses.length - 1}
+              disabled={currentIndex >= displayedVerses.length - 1}
               className="min-h-[44px] min-w-[44px] rounded-xl border border-slate-200 dark:border-emerald-800/40 flex items-center justify-center text-slate-700 dark:text-slate-200 disabled:opacity-30 cursor-pointer hover:border-emerald-600 transition-colors"
               aria-label="Next verse"
             >
@@ -688,10 +759,10 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
         {/* Playlist Queue */}
         <div className="pt-4 border-t border-slate-100 dark:border-emerald-900/30 space-y-2">
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
-            {t.queueLabel} ({verses.length})
+            {t.queueLabel} ({displayedVerses.length})
           </span>
           <div className="space-y-1.5 max-h-52 overflow-y-auto pe-1">
-            {verses.map((v, idx) => (
+            {displayedVerses.map((v, idx) => (
               <button
                 key={v.id}
                 type="button"
