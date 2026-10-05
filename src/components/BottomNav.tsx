@@ -13,7 +13,6 @@ import {
   Headphones,
   Compass,
   BookMarked,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { Locale, getDictionary } from '../lib/i18n/dictionaries';
 
@@ -30,7 +29,7 @@ export interface BottomNavProps {
   onToggleAudio: () => void;
   onSelectNorthStar: () => void;
   onOpenJournal: () => void;
-  onOpenPreferences: () => void;
+  onOpenPreferences?: () => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -44,7 +43,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onToggleAudio,
   onSelectNorthStar,
   onOpenJournal,
-  onOpenPreferences,
 }) => {
   const dict = getDictionary(locale);
 
@@ -61,7 +59,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <button
           type="button"
           onClick={onSelectGuidance}
-          className={`min-h-[44px] min-w-[56px] flex flex-col items-center justify-center rounded-xl px-2 py-1 transition-colors cursor-pointer ${
+          className={`min-h-[44px] min-w-[64px] flex flex-col items-center justify-center rounded-xl px-2 py-1 transition-colors cursor-pointer ${
             activeTab === 'guidance' && !isPreferencesOpen && !isJournalOpen
               ? 'text-emerald-800 dark:text-emerald-300 font-semibold'
               : 'text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-300'
@@ -70,7 +68,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           aria-label={dict.searchNav}
         >
           <Search className="w-5 h-5" />
-          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[64px]">
+          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[72px]">
             {dict.searchNav}
           </span>
         </button>
@@ -79,7 +77,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <button
           type="button"
           onClick={onToggleAudio}
-          className={`min-h-[44px] min-w-[56px] flex flex-col items-center justify-center rounded-xl px-2 py-1 transition-colors cursor-pointer relative ${
+          className={`min-h-[44px] min-w-[64px] flex flex-col items-center justify-center rounded-xl px-2 py-1 transition-colors cursor-pointer relative ${
             isAudioActive
               ? 'text-amber-600 dark:text-amber-400 font-semibold'
               : 'text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-300'
@@ -92,7 +90,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           {isAudioActive && (
             <span className="absolute top-1.5 end-3 w-2 h-2 rounded-full bg-amber-500 animate-ping" />
           )}
-          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[64px]">
+          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[72px]">
             {dict.audioNav}
           </span>
         </button>
@@ -101,7 +99,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <button
           type="button"
           onClick={onSelectNorthStar}
-          className={`min-h-[44px] min-w-[56px] flex flex-col items-center justify-center rounded-xl px-2 py-1 transition-colors cursor-pointer ${
+          className={`min-h-[44px] min-w-[64px] flex flex-col items-center justify-center rounded-xl px-2 py-1 transition-colors cursor-pointer ${
             activeTab === 'northStar' && !isPreferencesOpen && !isJournalOpen
               ? 'text-amber-600 dark:text-amber-400 font-semibold'
               : 'text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-300'
@@ -110,7 +108,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           aria-label={dict.northStarNav}
         >
           <Compass className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[68px]">
+          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[72px]">
             {dict.northStarNav}
           </span>
         </button>
@@ -119,7 +117,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <button
           type="button"
           onClick={onOpenJournal}
-          className={`min-h-[44px] min-w-[56px] flex flex-col items-center justify-center rounded-xl px-2 py-1 transition-colors cursor-pointer relative ${
+          className={`min-h-[44px] min-w-[64px] flex flex-col items-center justify-center rounded-xl px-2 py-1 transition-colors cursor-pointer relative ${
             isJournalOpen
               ? 'text-emerald-800 dark:text-emerald-300 font-semibold'
               : 'text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-300'
@@ -133,26 +131,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               {bookmarkCount}
             </span>
           )}
-          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[64px]">
+          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[72px]">
             {dict.savedNav}
-          </span>
-        </button>
-
-        {/* 5. Preferences (Triggers Customization Sheet for Depth, Language & Theme) */}
-        <button
-          type="button"
-          onClick={onOpenPreferences}
-          className={`min-h-[44px] min-w-[56px] flex flex-col items-center justify-center rounded-xl px-2 py-1 transition-colors cursor-pointer ${
-            isPreferencesOpen
-              ? 'text-emerald-800 dark:text-emerald-300 font-semibold'
-              : 'text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-300'
-          }`}
-          title={dict.depthNav}
-          aria-label={dict.depthNav}
-        >
-          <SlidersHorizontal className="w-5 h-5" />
-          <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[68px]">
-            {dict.depthNav}
           </span>
         </button>
       </nav>

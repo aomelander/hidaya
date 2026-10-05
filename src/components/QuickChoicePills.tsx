@@ -2,73 +2,15 @@
 
 /**
  * @file QuickChoicePills.tsx
- * @description Curated clickable contemplation options with compact mobile ergonomics,
- * progressive disclosure, and 100% locale synchronization (en, sv, fr, ar).
+ * @description Compact, space-saving dropdown selector for curated contemplation topics
+ * with 100% locale synchronization (en, sv, fr, ar).
  */
 
 import React, { useState } from 'react';
-import {
-  Flame,
-  Feather,
-  HeartCrack,
-  Activity,
-  SunDim,
-  Compass,
-  RefreshCw,
-  Sparkles,
-  HelpCircle,
-  ShieldAlert,
-  Scale,
-  ShieldCheck,
-  Footprints,
-  MessageSquareOff,
-  Users,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import { Sparkles, ChevronDown } from 'lucide-react';
 import { EntryMode, Language, QuickPill } from '../types';
 import { QUICK_CHOICE_PILLS } from '../data/quranFixtures';
 import { getDictionary } from '../lib/i18n/dictionaries';
-
-/**
- * Helper function to lazily render an icon by fixture icon name.
- */
-function getPillIcon(iconName: string): React.ReactNode {
-  switch (iconName) {
-    case 'Flame':
-      return <Flame className="w-4 h-4" />;
-    case 'Feather':
-      return <Feather className="w-4 h-4" />;
-    case 'HeartCrack':
-      return <HeartCrack className="w-4 h-4" />;
-    case 'Activity':
-      return <Activity className="w-4 h-4" />;
-    case 'SunDim':
-      return <SunDim className="w-4 h-4" />;
-    case 'Compass':
-      return <Compass className="w-4 h-4" />;
-    case 'RefreshCw':
-      return <RefreshCw className="w-4 h-4" />;
-    case 'Sparkles':
-      return <Sparkles className="w-4 h-4" />;
-    case 'HelpCircle':
-      return <HelpCircle className="w-4 h-4" />;
-    case 'ShieldAlert':
-      return <ShieldAlert className="w-4 h-4" />;
-    case 'Scale':
-      return <Scale className="w-4 h-4" />;
-    case 'ShieldCheck':
-      return <ShieldCheck className="w-4 h-4" />;
-    case 'Footprints':
-      return <Footprints className="w-4 h-4" />;
-    case 'MessageSquareOff':
-      return <MessageSquareOff className="w-4 h-4" />;
-    case 'Users':
-      return <Users className="w-4 h-4" />;
-    default:
-      return <Sparkles className="w-4 h-4" />;
-  }
-}
 
 interface QuickChoicePillsProps {
   activeMode: EntryMode;
@@ -76,57 +18,101 @@ interface QuickChoicePillsProps {
   onSelectPill: (pill: QuickPill) => void;
 }
 
+const DROPDOWN_LABELS: Record<
+  Language,
+  {
+    placeholder: string;
+    momentGroup: string;
+    questionsGroup: string;
+    growthGroup: string;
+  }
+> = {
+  en: {
+    placeholder: 'Quick contemplation topics (select a situation or question)...',
+    momentGroup: 'In This Moment',
+    questionsGroup: 'Big Questions',
+    growthGroup: 'Character & Growth',
+  },
+  sv: {
+    placeholder: 'Snabbval för reflektion (välj en situation eller fråga)...',
+    momentGroup: 'I stunden',
+    questionsGroup: 'Stora frågor',
+    growthGroup: 'Karaktär & växande',
+  },
+  fr: {
+    placeholder: 'Thèmes rapides de méditation (choisir une situation ou question)...',
+    momentGroup: 'En ce moment',
+    questionsGroup: 'Grandes questions',
+    growthGroup: 'Caractère & élévation',
+  },
+  ar: {
+    placeholder: 'مواضيع تدبر سريعة (اختر موقفاً أو سؤالاً)...',
+    momentGroup: 'في هذه اللحظة',
+    questionsGroup: 'أسئلة كبرى',
+    growthGroup: 'التزكية والخلق',
+  },
+};
+
 export const QuickChoicePills: React.FC<QuickChoicePillsProps> = ({
   activeMode,
   language = 'en',
   onSelectPill,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedId, setSelectedId] = useState<string>('');
   const dict = getDictionary(language);
-  const currentPills = QUICK_CHOICE_PILLS.filter((p) => p.category === activeMode);
+  const t = DROPDOWN_LABELS[language] || DROPDOWN_LABELS.en;
 
-  // Show first 4 pills by default on mobile, or all if expanded
-  const displayedPills = isExpanded ? currentPills : currentPills.slice(0, 4);
-  const hasMore = currentPills.length > 4;
+  const getLocalizedPillLabel = (pill: QuickPill) =>
+    dict.quickPills?.[pill.id] ||
+    (language === 'ar' && pill.labelArabic ? pill.labelArabic : pill.label);
+
+  // Order groups so the user's preferred activeMode appears first in the dropdown
+  const orderedCategories: { mode: EntryMode; label: string }[] = [
+    { mode: 'moment', label: t.momentGroup },
+    { mode: 'questions', label: t.questionsGroup },
+    { mode: 'growth', label: t.growthGroup },
+  ].sort((a, b) => (a.mode === activeMode ? -1 : b.mode === activeMode ? 1 : 0));
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const id = e.target.value;
+    setSelectedId(id);
+    const found = QUICK_CHOICE_PILLS.find((p) => p.id === id);
+    if (found) {
+      onSelectPill(found);
+    }
+  };
 
   return (
-    <div className="mt-3 max-w-3xl mx-auto">
-      <div className="flex flex-wrap items-center gap-2 rtl:space-x-reverse">
-        {displayedPills.map((pill) => {
-          const localizedLabel =
-            dict.quickPills?.[pill.id] ||
-            (language === 'ar' && pill.labelArabic ? pill.labelArabic : pill.label);
+    <div className="max-w-3xl mx-auto" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="relative flex items-center">
+        <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3.5 text-amber-600 dark:text-amber-400">
+          <Sparkles className="w-4 h-4" />
+        </div>
 
-          return (
-            <button
-              key={pill.id}
-              type="button"
-              onClick={() => onSelectPill(pill)}
-              className="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-emerald-950/40 border border-slate-200 dark:border-emerald-800/40 text-slate-700 dark:text-slate-200 hover:border-emerald-600 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all cursor-pointer shadow-2xs active:scale-98"
-            >
-              <span className="text-amber-600 dark:text-amber-400 shrink-0">
-                {getPillIcon(pill.iconName)}
-              </span>
-              <span className="truncate">{localizedLabel}</span>
-            </button>
-          );
-        })}
+        <select
+          value={selectedId}
+          onChange={handleChange}
+          aria-label={t.placeholder}
+          className="w-full min-h-[42px] ps-9 pe-9 py-2 rounded-xl text-xs sm:text-sm font-medium bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-slate-200 hover:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-colors appearance-none cursor-pointer truncate"
+        >
+          <option value="">{t.placeholder}</option>
+          {orderedCategories.map((cat) => {
+            const groupPills = QUICK_CHOICE_PILLS.filter((p) => p.category === cat.mode);
+            return (
+              <optgroup key={cat.mode} label={cat.label}>
+                {groupPills.map((pill) => (
+                  <option key={pill.id} value={pill.id}>
+                    {getLocalizedPillLabel(pill)}
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
+        </select>
 
-        {hasMore && (
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-900/5 dark:hover:bg-emerald-800/20 border border-dashed border-emerald-800/20 transition-colors cursor-pointer"
-            aria-expanded={isExpanded}
-          >
-            <span>
-              {isExpanded
-                ? dict.showLessPills
-                : `+${currentPills.length - 4} ${dict.showMorePills}`}
-            </span>
-            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-        )}
+        <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center pe-3.5 text-slate-400">
+          <ChevronDown className="w-4 h-4" />
+        </div>
       </div>
     </div>
   );

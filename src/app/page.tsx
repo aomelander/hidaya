@@ -16,6 +16,7 @@ import {
   ExplanationDepth,
   UserReflection,
   PerspectiveMode,
+  ReaderProfile,
 } from '../types';
 import { Locale, getDictionary } from '../lib/i18n/dictionaries';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
@@ -30,13 +31,22 @@ import { DailyNorthStar } from '../components/DailyNorthStar';
 import { EntryModeTabs } from '../components/EntryModeTabs';
 import { GuidanceSearchBar } from '../components/GuidanceSearchBar';
 import { QuickChoicePills } from '../components/QuickChoicePills';
-import { GuidanceContextBanner } from '../components/GuidanceContextBanner';
 import { OffTopicBanner } from '../components/OffTopicBanner';
 import { ContinuousSessionAudioPlayer } from '../components/ContinuousSessionAudioPlayer';
 import { VerseCard } from '../components/VerseCard';
 import { CustomizationSheet } from '../components/CustomizationSheet';
 import { JournalDrawer } from '../components/JournalDrawer';
 import { BottomNav, BottomNavTab } from '../components/BottomNav';
+
+const PROFILE_SWITCH_LABELS: Record<
+  Language,
+  Record<ReaderProfile, string>
+> = {
+  en: { adult: 'Standard', teen: 'Teen (13–17)', kids: 'Kids & Family (8+)' },
+  sv: { adult: 'Standard', teen: 'Ungdom (13–17)', kids: 'Barn & Familj (8+)' },
+  fr: { adult: 'Standard', teen: 'Ados (13–17)', kids: 'Enfants & Famille (8+)' },
+  ar: { adult: 'كامل', teen: 'الشباب (١٣–١٧)', kids: 'الناشئة والأسرة (٨+)' },
+};
 
 export default function App() {
   const [mounted, setMounted] = useState(false);
@@ -52,6 +62,7 @@ export default function App() {
   const [isHighContrast, setIsHighContrast] = useState<boolean>(
     APP_CONFIG.DEFAULTS.HIGH_CONTRAST
   );
+  const [readerProfile, setReaderProfile] = useState<ReaderProfile>('adult');
   const [bookmarks, setBookmarks] = useState<string[]>([APP_CONFIG.DEFAULTS.INITIAL_VERSE_ID]);
   const [, setReflections] = useState<Record<string, UserReflection>>({});
 
@@ -62,6 +73,7 @@ export default function App() {
 
   const lang: Locale = language;
   const dict = getDictionary(lang);
+  const profLabels = PROFILE_SWITCH_LABELS[language] || PROFILE_SWITCH_LABELS.en;
 
   // Guidance Search & Filtering Hook
   const {
@@ -102,8 +114,10 @@ export default function App() {
     setShowTransliteration(StorageService.getShowTransliteration());
     setIsDark(StorageService.getDarkMode());
     setIsHighContrast(StorageService.getHighContrast());
+    setReaderProfile(StorageService.getReaderProfile());
     setBookmarks(StorageService.getBookmarks());
     setReflections(StorageService.getReflections());
+    StorageService.recordDailyVisit();
   }, []);
 
   // Dark Mode Sync
@@ -144,6 +158,11 @@ export default function App() {
     if (!mounted) return;
     StorageService.setHighContrast(isHighContrast);
   }, [isHighContrast, mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    StorageService.setReaderProfile(readerProfile);
+  }, [readerProfile, mounted]);
 
   // Default Verse Load
   useEffect(() => {
@@ -207,13 +226,41 @@ export default function App() {
               aria-label="Guidance Portal"
               className="space-y-4 p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#0A1E17] border border-emerald-900/10 dark:border-emerald-800/35 shadow-2xs"
             >
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50">
-                  {dict.portalTitle}
-                </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {dict.portalSubtitle}
-                </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-lg sm:text-xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50">
+                    {dict.portalTitle}
+                  </h1>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {dict.portalSubtitle}
+                  </p>
+                </div>
+
+                {/* Compact Family Reader Mode Switcher (Standard · Teen · Kids & Family) */}
+                <div
+                  role="group"
+                  aria-label="Reader age profile"
+                  className="inline-flex items-center p-1 rounded-xl bg-emerald-950/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40"
+                >
+                  {(['adult', 'teen', 'kids'] as ReaderProfile[]).map((prof) => {
+                    const active = readerProfile === prof;
+                    return (
+                      <button
+                        key={prof}
+                        type="button"
+                        onClick={() => setReaderProfile(prof)}
+                        className={`min-h-[32px] px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                          active
+                            ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-emerald-900 dark:hover:text-emerald-200'
+                        }`}
+                        aria-pressed={active}
+                      >
+                        {profLabels[prof]}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <EntryModeTabs
@@ -285,6 +332,7 @@ export default function App() {
                       onReflectionSaved={() => setReflections(StorageService.getReflections())}
                       explanationDepth={explanationDepth}
                       perspectiveMode={perspectiveMode}
+                      readerProfile={readerProfile}
                     />
                   </div>
                 ))}
@@ -338,6 +386,8 @@ export default function App() {
             onLanguageChange={setLanguage}
             isDark={isDark}
             onToggleDark={() => setIsDark(!isDark)}
+            readerProfile={readerProfile}
+            onReaderProfileChange={setReaderProfile}
             sessionDepth={sessionDepth}
             onSessionDepthChange={setSessionDepth}
             explanationDepth={explanationDepth}

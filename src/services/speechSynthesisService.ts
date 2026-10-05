@@ -13,6 +13,7 @@ export interface SpeakOptions {
   pitch?: number;
   volume?: number;
   onStart?: () => void;
+  onProgress?: (ratio: number) => void;
   onEnd?: () => void;
   onError?: (err?: unknown) => void;
 }
@@ -21,6 +22,7 @@ class SpeechSynthesisEngine {
   private cachedVoices: SpeechSynthesisVoice[] = [];
   private isVoicesLoaded = false;
   private currentAudioElement: HTMLAudioElement | null = null;
+  private progressTimer: ReturnType<typeof setInterval> | null = null;
   private audioCache = new Map<string, string>(); // text_lang -> base64 audio data url
   private isSpeakingActive = false;
 
@@ -200,9 +202,18 @@ class SpeechSynthesisEngine {
 
         audio.onplay = () => {
           options.onStart?.();
+          options.onProgress?.(0);
+        };
+
+        audio.ontimeupdate = () => {
+          if (audio.duration && audio.duration > 0) {
+            const ratio = Math.min(1, Math.max(0, audio.currentTime / audio.duration));
+            options.onProgress?.(ratio);
+          }
         };
 
         audio.onended = () => {
+          options.onProgress?.(1);
           this.isSpeakingActive = false;
           this.currentAudioElement = null;
           options.onEnd?.();
@@ -276,20 +287,60 @@ class SpeechSynthesisEngine {
             : 'en-US';
       }
 
-      utterance.rate = options.rate ?? 0.92;
+      const rate = options.rate ?? 0.92;
+      utterance.rate = rate;
       utterance.pitch = options.pitch ?? 1.0;
       utterance.volume = options.volume ?? 1.0;
 
+      const totalChars = Math.max(1, text.length);
+      const wordsCount = Math.max(1, text.trim().split(/\s+/).length);
+      // Estimate duration (~360ms per word at rate 1.0) for smooth pacing fallback if onboundary doesn't fire
+      const estimatedDurationMs = Math.max(1200, (wordsCount * 370) / Math.max(0.5, rate));
+      let startTime = Date.now();
+      let boundaryFired = false;
+
+      const clearTimer = () => {
+        if (this.progressTimer) {
+          clearInterval(this.progressTimer);
+          this.progressTimer = null;
+        }
+      };
+
       utterance.onstart = () => {
+        startTime = Date.now();
         options.onStart?.();
+        options.onProgress?.(0);
+        clearTimer();
+        this.progressTimer = setInterval(() => {
+          if (!this.isSpeakingActive) {
+            clearTimer();
+            return;
+          }
+          if (!boundaryFired) {
+            const elapsed = Date.now() - startTime;
+            const estRatio = Math.min(0.98, Math.max(0, elapsed / estimatedDurationMs));
+            options.onProgress?.(estRatio);
+          }
+        }, 70);
+      };
+
+      utterance.onboundary = (event) => {
+        if (typeof event.charIndex === 'number') {
+          boundaryFired = true;
+          const ratio = Math.min(1, Math.max(0, event.charIndex / totalChars));
+          options.onProgress?.(ratio);
+        }
       };
 
       utterance.onend = () => {
+        clearTimer();
+        options.onProgress?.(1);
         this.isSpeakingActive = false;
         options.onEnd?.();
       };
 
       utterance.onerror = (err) => {
+        clearTimer();
         this.isSpeakingActive = false;
         options.onError?.(err);
         options.onEnd?.();
@@ -309,6 +360,11 @@ class SpeechSynthesisEngine {
    */
   public cancel(): void {
     this.isSpeakingActive = false;
+
+    if (this.progressTimer) {
+      clearInterval(this.progressTimer);
+      this.progressTimer = null;
+    }
 
     if (this.currentAudioElement) {
       try {

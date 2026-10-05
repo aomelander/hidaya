@@ -47,7 +47,7 @@ export function useGuidanceSearch(_initialLanguage: Language = 'en') {
       case '2min':
         return baseList.slice(0, 1);
       case '10min':
-        return baseList.slice(0, 3);
+        return baseList.slice(0, 5);
       case '30min':
         return baseList.slice(0, 5);
       case '60min':

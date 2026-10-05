@@ -8,7 +8,9 @@ export type SessionDepth = '2min' | '10min' | '30min' | '60min';
 
 export type ExplanationDepth = 'simple' | 'context' | 'tafsir' | 'study';
 
-export type AudioPlaybackMode = 'quran_only' | 'quran_translation' | 'quran_reflection';
+export type AudioPlaybackMode = 'quran_only' | 'quran_translation' | 'quran_tafsir';
+
+export type PreferredScholar = 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar';
 
 export type ReciterId = 'alafasy' | 'abdulbasit' | 'husary' | 'minshawi' | 'ghamadi';
 
@@ -21,7 +23,7 @@ export interface ReciterInfo {
 }
 
 export interface TafsirCitation {
-  scholar: 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar';
+  scholar: PreferredScholar;
   century?: string;
   sourceBook: string;
   text: string;
@@ -140,6 +142,10 @@ export interface QuranVerseFixture {
   halaqahPrompts?: HalaqahPrompts;
 }
 
+export type ReaderProfile = 'adult' | 'teen' | 'kids';
+
+export type ReflectionMood = 'calm' | 'anxious' | 'grateful' | 'hopeful' | 'overwhelmed';
+
 export interface UserReflection {
   verseId: string;
   date: string;
@@ -148,6 +154,7 @@ export interface UserReflection {
   applyNotes: string;
   liveNotes?: string; // Step 4: One thing I will carry today
   userSituation?: string;
+  mood?: ReflectionMood;
 }
 
 export interface QuickPill {

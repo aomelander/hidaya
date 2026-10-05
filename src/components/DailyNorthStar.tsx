@@ -26,6 +26,7 @@ import {
   getLocalizedText,
 } from '../data/dailyNorthStar';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
+import { StorageService, StreakData } from '../services/storage';
 
 interface DailyNorthStarProps {
   language: Language;
@@ -51,6 +52,8 @@ const UI_STRINGS: Record<Language, {
   todayLabel: string;
   collapse: string;
   expand: string;
+  streakUnit: string;
+  totalDaysUnit: string;
 }> = {
   en: {
     badge: "Today's North Star • Ledstjärna",
@@ -67,7 +70,9 @@ const UI_STRINGS: Record<Language, {
     prevStar: "Previous Day",
     todayLabel: "Today",
     collapse: "Minimize",
-    expand: "Expand North Star"
+    expand: "Expand North Star",
+    streakUnit: "day streak",
+    totalDaysUnit: "days reflected",
   },
   sv: {
     badge: "Dagens Ledstjärna • North Star",
@@ -84,7 +89,9 @@ const UI_STRINGS: Record<Language, {
     prevStar: "Föregående dag",
     todayLabel: "Idag",
     collapse: "Minimera",
-    expand: "Visa Ledstjärnan"
+    expand: "Visa Ledstjärnan",
+    streakUnit: "dagars svit",
+    totalDaysUnit: "dagar i reflektion",
   },
   fr: {
     badge: "Étoile Polaire du Jour • North Star",
@@ -101,7 +108,9 @@ const UI_STRINGS: Record<Language, {
     prevStar: "Jour précédent",
     todayLabel: "Aujourd'hui",
     collapse: "Réduire",
-    expand: "Déployer l'Étoile"
+    expand: "Déployer l'Étoile",
+    streakUnit: "jours consécutifs",
+    totalDaysUnit: "jours médités",
   },
   ar: {
     badge: "نجمة الهداية اليومية • Daily North Star",
@@ -118,7 +127,9 @@ const UI_STRINGS: Record<Language, {
     prevStar: "اليوم السابق",
     todayLabel: "اليوم",
     collapse: "طي النافذة",
-    expand: "عرض نجمة الهداية"
+    expand: "عرض نجمة الهداية",
+    streakUnit: "أيام متتالية",
+    totalDaysUnit: "أيام تدبر",
   }
 };
 
@@ -137,7 +148,12 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
   const [isExpanded, setIsExpanded] = useState(true);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [streak, setStreak] = useState<StreakData>(() => StorageService.recordDailyVisit());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  React.useEffect(() => {
+    setStreak(StorageService.recordDailyVisit());
+  }, []);
 
   const star = DAILY_NORTH_STARS[currentIndex];
   const t = UI_STRINGS[language] || UI_STRINGS.en;
@@ -221,13 +237,17 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
               <Compass className="w-5 h-5 animate-[spin_12s_linear_infinite]" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" />
                   {t.badge}
                 </span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-200 border border-amber-500/30 capitalize">
-                  {todayFormatted}
+                <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                  · {todayFormatted}
+                </span>
+                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 inline-flex items-center gap-1 tabular-nums">
+                  · <Flame className="w-3.5 h-3.5 text-amber-500 inline" /> {streak.currentStreak}{' '}
+                  {t.streakUnit} ({streak.totalDaysActive} {t.totalDaysUnit})
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">

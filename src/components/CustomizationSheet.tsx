@@ -25,6 +25,7 @@ import {
   Trash2,
   WifiOff,
   Smartphone,
+  Users,
 } from 'lucide-react';
 import {
   Language,
@@ -32,10 +33,14 @@ import {
   SessionDepth,
   LifeSphere,
   PerspectiveMode,
+  ReaderProfile,
+  EntryMode,
+  PreferredScholar,
 } from '../types';
 import { SessionDepthSelector } from './SessionDepthSelector';
 import { ExplanationDepthSelector } from './ExplanationDepthSelector';
 import { SphereFilter } from './SphereFilter';
+import { EntryModeTabs } from './EntryModeTabs';
 import { OfflineCacheService } from '../services/offlineCacheService';
 import { StorageService } from '../services/storage';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
@@ -50,6 +55,15 @@ export interface CustomizationSheetProps {
   // Theme state
   isDark?: boolean;
   onToggleDark?: () => void;
+  // Reader Profile (Adult, Teen, Kids & Family)
+  readerProfile?: ReaderProfile;
+  onReaderProfileChange?: (profile: ReaderProfile) => void;
+  // Entry Mode (In This Moment, Big Questions, Character & Growth)
+  activeMode?: EntryMode;
+  onEntryModeChange?: (mode: EntryMode) => void;
+  // Preferred Classical Tafsir Scholar (Ibn Kathir, Al-Sa'di, Al-Muyassar)
+  preferredScholar?: PreferredScholar;
+  onPreferredScholarChange?: (scholar: PreferredScholar) => void;
   // Session & Depth State
   sessionDepth: SessionDepth;
   onSessionDepthChange: (depth: SessionDepth) => void;
@@ -212,6 +226,102 @@ const UI_TEXT: Record<
   },
 };
 
+const PROFILE_LABELS: Record<
+  Language,
+  {
+    sectionTitle: string;
+    adult: string;
+    adultSub: string;
+    teen: string;
+    teenSub: string;
+    kids: string;
+    kidsSub: string;
+  }
+> = {
+  en: {
+    sectionTitle: 'Reader Experience (Family Profiles)',
+    adult: 'Standard',
+    adultSub: 'Full Tafsir & reflection',
+    teen: 'Teen (13–17)',
+    teenSub: 'Key takeaway & glossary',
+    kids: 'Kids & Family (8+)',
+    kidsSub: 'Simple story & family question',
+  },
+  sv: {
+    sectionTitle: 'Läsupplevelse (Familjeprofiler)',
+    adult: 'Standard',
+    adultSub: 'Full Tafsir & reflektion',
+    teen: 'Ungdom (13–17)',
+    teenSub: 'Kärnbudskap & ordlista',
+    kids: 'Barn & Familj (8+)',
+    kidsSub: 'Enkel berättelse & familjefråga',
+  },
+  fr: {
+    sectionTitle: 'Profil de Lecture (Famille)',
+    adult: 'Standard',
+    adultSub: 'Tafsir complet & méditation',
+    teen: 'Ados (13–17)',
+    teenSub: 'Essentiel & repères clés',
+    kids: 'Enfants & Famille (8+)',
+    kidsSub: 'Histoire simple & question en famille',
+  },
+  ar: {
+    sectionTitle: 'نمط القارئ (أفراد الأسرة)',
+    adult: 'الوضع الكامل',
+    adultSub: 'التفسير والتدبر المعمق',
+    teen: 'الشباب (١٣–١٧)',
+    teenSub: 'خلاصة ملهمة ودليل مفاهيم',
+    kids: 'الناشئة والأسرة (٨+)',
+    kidsSub: 'قصة مبسطة وسؤال عائلي',
+  },
+};
+
+const SCHOLAR_LABELS: Record<
+  Language,
+  {
+    sectionTitle: string;
+    scholars: { id: PreferredScholar; label: string; sub: string }[];
+    entryModeTitle: string;
+  }
+> = {
+  en: {
+    sectionTitle: 'Preferred Classical Tafsir Scholar',
+    entryModeTitle: 'Contemplation Focus (Entry Mode)',
+    scholars: [
+      { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Classical Hadith & Tradition' },
+      { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Heart & Spiritual Wisdom' },
+      { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Concise & Direct Clarity' },
+    ],
+  },
+  sv: {
+    sectionTitle: 'Föredragen Klassisk Tafsir-lärd',
+    entryModeTitle: 'Reflektionsfokus (Ingångsläge)',
+    scholars: [
+      { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Klassisk tradition & kontext' },
+      { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Andlig visdom & hjärtats väg' },
+      { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Kortfattad & tydlig innebörd' },
+    ],
+  },
+  fr: {
+    sectionTitle: 'Exégète Classique (Tafsir) Préféré',
+    entryModeTitle: 'Orientation de Méditation',
+    scholars: [
+      { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Tradition classique & contexte' },
+      { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Sagesse spirituelle du cœur' },
+      { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Clarté concise & directe' },
+    ],
+  },
+  ar: {
+    sectionTitle: 'المفسر المفضل (كتب التفسير المعتمدة)',
+    entryModeTitle: 'مسار التدبر الافتراضي',
+    scholars: [
+      { id: 'Ibn Kathir', label: 'ابن كثير', sub: 'تفسير القرآن العظيم بالمأثور' },
+      { id: "Al-Sa'di", label: 'السعدي', sub: 'تيسير الكريم الرحمن والمقاصد' },
+      { id: 'Al-Muyassar', label: 'التفسير الميسر', sub: 'عبارة وجيزة وواضحة' },
+    ],
+  },
+};
+
 export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   isOpen,
   onClose,
@@ -220,6 +330,12 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   onLanguageChange,
   isDark = false,
   onToggleDark,
+  readerProfile = 'adult',
+  onReaderProfileChange,
+  activeMode = 'moment',
+  onEntryModeChange,
+  preferredScholar = 'Ibn Kathir',
+  onPreferredScholarChange,
   sessionDepth,
   onSessionDepthChange,
   explanationDepth,
@@ -240,6 +356,8 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
     useOfflineStatus();
 
   const t = UI_TEXT[language] || UI_TEXT.en;
+  const pLabels = PROFILE_LABELS[language] || PROFILE_LABELS.en;
+  const sLabels = SCHOLAR_LABELS[language] || SCHOLAR_LABELS.en;
 
   useEffect(() => {
     if (inlinePage) return;
@@ -361,6 +479,99 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
                 </span>
               </button>
             )}
+          </div>
+        )}
+
+        {/* Section 0.5: Reader Experience (Standard, Teen 13-17, Kids & Family 8+) */}
+        {onReaderProfileChange && (
+          <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-amber-600" />
+              {pLabels.sectionTitle}
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {(
+                [
+                  { id: 'adult' as ReaderProfile, label: pLabels.adult, sub: pLabels.adultSub },
+                  { id: 'teen' as ReaderProfile, label: pLabels.teen, sub: pLabels.teenSub },
+                  { id: 'kids' as ReaderProfile, label: pLabels.kids, sub: pLabels.kidsSub },
+                ] as const
+              ).map((prof) => {
+                const active = readerProfile === prof.id;
+                return (
+                  <button
+                    key={prof.id}
+                    type="button"
+                    onClick={() => onReaderProfileChange(prof.id)}
+                    className={`p-3 rounded-2xl border text-start transition-all cursor-pointer ${
+                      active
+                        ? 'bg-emerald-800 text-white border-emerald-700 shadow-2xs'
+                        : 'bg-[#FAF8F5] dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-200 hover:border-emerald-600'
+                    }`}
+                  >
+                    <p className="text-xs font-bold">{prof.label}</p>
+                    <p
+                      className={`text-[11px] mt-0.5 ${
+                        active ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {prof.sub}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Section 0.6: Contemplation Focus (In This Moment · Big Questions · Character & Growth) */}
+        {onEntryModeChange && (
+          <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-amber-600" />
+              {sLabels.entryModeTitle}
+            </span>
+            <EntryModeTabs
+              activeMode={activeMode}
+              onSelectMode={onEntryModeChange}
+              language={language}
+            />
+          </div>
+        )}
+
+        {/* Section 0.7: Preferred Classical Tafsir Scholar (Ibn Kathir · Al-Sa'di · Al-Muyassar) */}
+        {onPreferredScholarChange && (
+          <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-amber-600" />
+              {sLabels.sectionTitle}
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {sLabels.scholars.map((sch) => {
+                const active = preferredScholar === sch.id;
+                return (
+                  <button
+                    key={sch.id}
+                    type="button"
+                    onClick={() => onPreferredScholarChange(sch.id)}
+                    className={`p-3 rounded-2xl border text-start transition-all cursor-pointer ${
+                      active
+                        ? 'bg-emerald-800 text-white border-emerald-700 shadow-2xs'
+                        : 'bg-[#FAF8F5] dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-200 hover:border-emerald-600'
+                    }`}
+                  >
+                    <p className="text-xs font-bold">{sch.label}</p>
+                    <p
+                      className={`text-[11px] mt-0.5 ${
+                        active ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {sch.sub}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 

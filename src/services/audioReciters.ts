@@ -47,6 +47,42 @@ export const AVAILABLE_RECITERS: ReciterInfo[] = [
 ];
 
 /**
+ * Computes the ordered array of MP3 stream URLs for a single verse or consecutive verse range
+ * (e.g. "134" -> [003134.mp3], "5-6" -> [094005.mp3, 094006.mp3], capped at 3 consecutive verses max).
+ */
+export function getAudioUrlsForVerseRange(
+  surahNumber: number,
+  verseNumberStr: string,
+  reciterId: ReciterId = 'alafasy'
+): string[] {
+  const reciter =
+    AVAILABLE_RECITERS.find((r) => r.id === reciterId) || AVAILABLE_RECITERS[0];
+
+  const surahPadded = (isNaN(surahNumber) ? 3 : surahNumber).toString().padStart(3, '0');
+  const trimmed = (verseNumberStr || '').trim();
+
+  if (trimmed.includes('-')) {
+    const [startRaw, endRaw] = trimmed.split('-').map((s) => parseInt(s.trim(), 10));
+    if (!isNaN(startRaw) && !isNaN(endRaw) && endRaw >= startRaw) {
+      // Strictly cap at 3 consecutive verses maximum
+      const cappedEnd = Math.min(endRaw, startRaw + 2);
+      const urls: string[] = [];
+      for (let v = startRaw; v <= cappedEnd; v++) {
+        urls.push(`${reciter.baseUrl}/${surahPadded}${v.toString().padStart(3, '0')}.mp3`);
+      }
+      return urls;
+    }
+  }
+
+  const singleAyah = parseInt(trimmed, 10);
+  if (isNaN(singleAyah)) {
+    return [`${reciter.baseUrl}/003134.mp3`];
+  }
+
+  return [`${reciter.baseUrl}/${surahPadded}${singleAyah.toString().padStart(3, '0')}.mp3`];
+}
+
+/**
  * Computes the standardized MP3 audio stream URL for a given Surah and Ayah.
  * Handles single ayah numbers as well as hyphenated ranges (e.g. "5-6" -> selects first ayah 5).
  *
@@ -60,20 +96,5 @@ export function getAudioUrlForVerse(
   verseNumberStr: string,
   reciterId: ReciterId = 'alafasy'
 ): string {
-  const reciter =
-    AVAILABLE_RECITERS.find((r) => r.id === reciterId) || AVAILABLE_RECITERS[0];
-
-  // Extract primary ayah number if given a range like "5-6" or "155-156"
-  const cleanAyahStr = verseNumberStr.split('-')[0].trim();
-  const ayahNum = parseInt(cleanAyahStr, 10);
-
-  if (isNaN(surahNumber) || isNaN(ayahNum)) {
-    // Default fallback to 3:134
-    return `${reciter.baseUrl}/003134.mp3`;
-  }
-
-  const surahPadded = surahNumber.toString().padStart(3, '0');
-  const ayahPadded = ayahNum.toString().padStart(3, '0');
-
-  return `${reciter.baseUrl}/${surahPadded}${ayahPadded}.mp3`;
+  return getAudioUrlsForVerseRange(surahNumber, verseNumberStr, reciterId)[0];
 }

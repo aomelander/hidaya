@@ -287,11 +287,10 @@ export async function generateEmbeddings(): Promise<void> {
           await new Promise((r) => setTimeout(r, 3000));
           continue;
         } else {
-          console.warn('⏸️ Both models experienced rate limits/quotas. Cooling down for 60s before retrying rotation...');
-          await new Promise((r) => setTimeout(r, 60000));
-          modelIndex = 0;
-          activeModel = EMBEDDING_MODELS[0];
-          continue;
+          console.warn(
+            '⏸️ Both embedding models (gemini-embedding-2-preview & gemini-embedding-001) have reached their daily 1,000-item free-tier quota for this API key. Switch GEMINI_API_KEY in Secrets or re-run after quota reset.'
+          );
+          break;
         }
       }
 

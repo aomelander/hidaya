@@ -4,7 +4,7 @@
  * Eliminates magic strings and hardcoded values across the application.
  */
 
-import { Language, SessionDepth, ExplanationDepth, ReciterId, EntryMode } from '../types';
+import { Language, SessionDepth, ExplanationDepth, ReciterId, EntryMode, PreferredScholar } from '../types';
 
 export const APP_CONFIG = {
   APP_NAME: 'Hidaya',
@@ -21,8 +21,10 @@ export const APP_CONFIG = {
     SESSION_DEPTH: '10min' as SessionDepth,
     EXPLANATION_DEPTH: 'context' as ExplanationDepth,
     PREFERRED_RECITER: 'alafasy' as ReciterId,
+    PREFERRED_SCHOLAR: 'Ibn Kathir' as PreferredScholar,
     INITIAL_VERSE_ID: '3:134',
     DEFAULT_ENTRY_MODE: 'moment' as EntryMode,
+    READER_PROFILE: 'adult' as const,
   },
 
   // Local Storage Keys
@@ -36,8 +38,12 @@ export const APP_CONFIG = {
     HIGH_CONTRAST: 'hidaya_pref_high_contrast',
     RECENT_SEARCHES: 'hidaya_recent_searches',
     RECITER: 'hidaya_pref_reciter',
+    SCHOLAR: 'hidaya_pref_scholar',
+    ENTRY_MODE: 'hidaya_pref_entry_mode',
     SESSION_DEPTH: 'hidaya_pref_session_depth',
     INQUIRER_MODE: 'hidaya_pref_inquirer_mode',
+    READER_PROFILE: 'hidaya_pref_reader_profile',
+    STREAK_DATA: 'hidaya_streak_data',
   },
 
   // Limits and Thresholds

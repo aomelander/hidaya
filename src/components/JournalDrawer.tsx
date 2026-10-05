@@ -19,11 +19,46 @@ import {
   Headphones,
   WifiOff,
 } from 'lucide-react';
-import { QuranVerseFixture, Language } from '../types';
+import { QuranVerseFixture, Language, ReflectionMood } from '../types';
 import { StorageService } from '../services/storage';
 import { JournalStorage } from '../lib/storage/journalStorage';
 import { OfflineCacheService } from '../services/offlineCacheService';
 import { useOfflineStatus } from '../hooks/useOfflineStatus';
+
+const MOOD_FILTER_LABELS: Record<Language, Record<ReflectionMood | 'all', string>> = {
+  en: {
+    all: 'All Moods',
+    calm: 'Calm',
+    hopeful: 'Hopeful',
+    grateful: 'Grateful',
+    anxious: 'Anxious',
+    overwhelmed: 'Overwhelmed',
+  },
+  sv: {
+    all: 'Alla känslor',
+    calm: 'Lugn',
+    hopeful: 'Hoppfull',
+    grateful: 'Tacksam',
+    anxious: 'Orolig',
+    overwhelmed: 'Överväldigad',
+  },
+  fr: {
+    all: 'Toutes humeurs',
+    calm: 'Apaisé',
+    hopeful: 'Plein d’espoir',
+    grateful: 'Reconnaissant',
+    anxious: 'Anxieux',
+    overwhelmed: 'Submergé',
+  },
+  ar: {
+    all: 'كل المشاعر',
+    calm: 'مطمئن',
+    hopeful: 'متفائل',
+    grateful: 'شاكر',
+    anxious: 'قلق',
+    overwhelmed: 'مرهق',
+  },
+};
 
 export interface JournalDrawerProps {
   isOpen: boolean;
@@ -138,12 +173,14 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
   const [activeTab, setActiveTab] = useState<'bookmarks' | 'journey'>('bookmarks');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [selectedMood, setSelectedMood] = useState<ReflectionMood | 'all'>('all');
   const [cachedAudioUrls, setCachedAudioUrls] = useState<string[]>([]);
   const [busyAudioVerseId, setBusyAudioVerseId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isOnline, stats, refreshStats } = useOfflineStatus();
   const t = JOURNAL_STRINGS[language] || JOURNAL_STRINGS.en;
+  const moodLabels = MOOD_FILTER_LABELS[language] || MOOD_FILTER_LABELS.en;
 
   useEffect(() => {
     setCachedAudioUrls(OfflineCacheService.getTrackedAudioUrls());
@@ -193,20 +230,25 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
   };
 
   const filteredVerses = bookmarkedVerses.filter((verse) => {
+    const userNote = reflections[verse.id];
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
+      !q ||
       verse.arabicText.includes(searchQuery) ||
-      verse.translations.en.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (verse.translations[language]?.text || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      verse.id.includes(searchQuery);
+      verse.translations.en.text.toLowerCase().includes(q) ||
+      (verse.translations[language]?.text || '').toLowerCase().includes(q) ||
+      verse.id.includes(searchQuery) ||
+      (userNote?.reflectNotes || '').toLowerCase().includes(q) ||
+      (userNote?.applyNotes || '').toLowerCase().includes(q) ||
+      (userNote?.liveNotes || '').toLowerCase().includes(q);
 
     const matchesTopic = selectedTopic ? verse.topics.includes(selectedTopic) : true;
+    const matchesMood = selectedMood === 'all' ? true : userNote?.mood === selectedMood;
     const hasReflection =
-      !!reflections[verse.id]?.reflectNotes ||
-      !!reflections[verse.id]?.applyNotes ||
-      !!reflections[verse.id]?.liveNotes;
+      !!userNote?.reflectNotes || !!userNote?.applyNotes || !!userNote?.liveNotes;
     const matchesTab = activeTab === 'bookmarks' ? true : hasReflection;
 
-    return matchesSearch && matchesTopic && matchesTab;
+    return matchesSearch && matchesTopic && matchesMood && matchesTab;
   });
 
   const content = (
@@ -361,6 +403,25 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
             ))}
           </div>
         )}
+        {/* Mood Filter Controls */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {(['all', 'calm', 'hopeful', 'grateful', 'anxious', 'overwhelmed'] as const).map(
+            (moodKey) => (
+              <button
+                key={moodKey}
+                type="button"
+                onClick={() => setSelectedMood(moodKey)}
+                className={`px-3 py-1 rounded-xl text-xs whitespace-nowrap transition-colors cursor-pointer ${
+                  selectedMood === moodKey
+                    ? 'bg-amber-600 text-white font-semibold'
+                    : 'bg-white dark:bg-emerald-950 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-emerald-800/40'
+                }`}
+              >
+                {moodLabels[moodKey]}
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       {/* Saved Verses List */}
@@ -385,10 +446,22 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
                 key={verse.id}
                 className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/30 border border-emerald-900/10 dark:border-emerald-800/30 space-y-3"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
-                    Surah {verse.surahNameTransliterated} · {verse.id}
-                  </span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="font-bold text-emerald-900 dark:text-emerald-300">
+                      Surah {verse.surahNameTransliterated} · {verse.id}
+                    </span>
+                    {userNote?.mood && (
+                      <span className="text-amber-700 dark:text-amber-400 font-medium">
+                        · {moodLabels[userNote.mood]}
+                      </span>
+                    )}
+                    {userNote?.date && (
+                      <span className="text-slate-400 tabular-nums">
+                        · {userNote.date.slice(0, 10)}
+                      </span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => onRemoveBookmark(verse.id)}

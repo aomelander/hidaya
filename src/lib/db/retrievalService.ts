@@ -154,6 +154,65 @@ function applyScoreAndRandomOrder<T extends { relevance_score: number }>(
   return decorated.slice(0, limit).map((d) => d.item);
 }
 
+/**
+ * Groups consecutive verses from the same Surah when adjacent verses are present or needed
+ * for complete meaning, strictly capped at a maximum of 3 consecutive verses per passage.
+ */
+function capAndGroupConsecutiveMatches(matches: RetrievedAyahMatch[]): RetrievedAyahMatch[] {
+  if (!matches || matches.length === 0) return [];
+
+  // Sort by surah and ayah_number to identify consecutive verses
+  const sorted = [...matches].sort((a, b) => {
+    if (a.surah.number !== b.surah.number) return a.surah.number - b.surah.number;
+    return a.ayah.ayah_number - b.ayah.ayah_number;
+  });
+
+  const grouped: RetrievedAyahMatch[] = [];
+  let i = 0;
+
+  while (i < sorted.length) {
+    const start = sorted[i];
+    const run: RetrievedAyahMatch[] = [start];
+
+    // Collect up to 3 consecutive verses in the same surah
+    while (
+      i + 1 < sorted.length &&
+      run.length < 3 &&
+      sorted[i + 1].surah.number === start.surah.number &&
+      sorted[i + 1].ayah.ayah_number === run[run.length - 1].ayah.ayah_number + 1
+    ) {
+      run.push(sorted[i + 1]);
+      i++;
+    }
+
+    if (run.length === 1) {
+      grouped.push(start);
+    } else {
+      const firstNum = run[0].ayah.ayah_number;
+      const lastNum = run[run.length - 1].ayah.ayah_number;
+      const rangeId = `${start.surah.number}:${firstNum}-${lastNum}`;
+      grouped.push({
+        ...start,
+        id: rangeId,
+        ayah_id: rangeId,
+        ayah: {
+          ...start.ayah,
+          text_uthmani: run.map((r) => r.ayah.text_uthmani).join(' ۝ '),
+          text_clean: run.map((r) => r.ayah.text_clean).join(' '),
+        },
+        selectedTranslation: {
+          ...start.selectedTranslation,
+          text: run.map((r) => r.selectedTranslation.text).join(' '),
+        },
+      });
+    }
+    i++;
+  }
+
+  // Restore relevance ordering
+  return grouped.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
+}
+
 export class RetrievalService {
   /**
    * Explicitly queries Supabase `tafsir` table for `language_code = language` (e.g., 'ar' for Tafsir Al-Muyassar / Ibn Kathir).
@@ -284,8 +343,12 @@ export class RetrievalService {
         };
       });
 
-      // Apply dynamic randomization: ORDER BY relevance_score DESC, RANDOM() LIMIT 3
-      return applyScoreAndRandomOrder(candidates, 3);
+      // Apply dynamic randomization among relevant candidates:
+      // Return up to 5 verses when relevant (typically 3-5)
+      const relevantDirect = candidates.filter((c) => (c.relevance_score ?? 1) >= 0.5);
+      const pool = relevantDirect.length > 0 ? relevantDirect : candidates;
+      const targetLimit = pool.length >= 5 ? 5 : Math.min(pool.length, 5);
+      return capAndGroupConsecutiveMatches(applyScoreAndRandomOrder(pool, targetLimit));
     } catch (err) {
       console.warn('[RetrievalService] Direct matches live query error, using fallback:', err);
       return this.findDirectMatchesFallback(emotionId, domainId, language);
@@ -294,8 +357,9 @@ export class RetrievalService {
 
   /**
    * Stage 3: Semantic & live table search across ayah and translation tables.
-   * Supports language parameter ('en' | 'sv' | 'fr') with fallback to 'en'.
-   * Applies score-based sorting + dynamic randomization (ORDER BY relevance_score DESC, RANDOM() LIMIT 3).
+   * Supports language parameter ('en' | 'sv' | 'fr' | 'ar') with fallback to 'en'.
+   * Dynamically returns 3 to 5 verses when multiple verses are relevant to the query,
+   * or fewer if only 1-2 verses meet the relevance threshold.
    */
   static async findVectorMatches(
     queryText: string,
@@ -311,14 +375,22 @@ export class RetrievalService {
       if (queryEmbedding && queryEmbedding.length === 1536) {
         const { data: vectorHits, error: vectorErr } = await supabase.rpc('match_verses', {
           query_embedding: queryEmbedding,
-          match_threshold: 0.45,
-          match_count: 5,
+          match_threshold: 0.42,
+          match_count: 8,
         });
 
         if (!vectorErr && vectorHits && vectorHits.length > 0) {
-          const ayahIds = (vectorHits as Array<{ id: string; similarity: number }>).map((h) => h.id);
+          const rawHits = vectorHits as Array<{ id: string; similarity: number }>;
+          const topSim = rawHits[0]?.similarity || 0.5;
+          // Only keep hits that are genuinely relevant (within 0.14 of top similarity or >= 0.48)
+          const relevantHits = rawHits.filter(
+            (h, idx) => idx === 0 || (h.similarity >= 0.46 && h.similarity >= topSim - 0.14)
+          );
+          const selectedHits = relevantHits.slice(0, 5);
+
+          const ayahIds = selectedHits.map((h) => h.id);
           const similarityById = new Map<string, number>();
-          for (const hit of vectorHits as Array<{ id: string; similarity: number }>) {
+          for (const hit of selectedHits) {
             similarityById.set(hit.id, hit.similarity);
           }
 
@@ -361,7 +433,7 @@ export class RetrievalService {
             });
 
             vectorMatches.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
-            return vectorMatches.slice(0, 3);
+            return capAndGroupConsecutiveMatches(vectorMatches.slice(0, 5));
           }
         }
       }
@@ -497,9 +569,11 @@ export class RetrievalService {
         relevance_score: v.baseScore,
       }));
 
-      // Dynamic randomization among top matching candidates:
-      // ORDER BY relevance_score DESC, RANDOM() LIMIT 3
-      return applyScoreAndRandomOrder(candidates, 3);
+      // Filter to genuinely relevant candidates (score >= 15) and return up to 5 (3-5 when available)
+      const relevantLexical = candidates.filter((c) => c.relevance_score >= 15);
+      const pool = relevantLexical.length > 0 ? relevantLexical : candidates;
+      const limit = Math.min(pool.length, 5);
+      return applyScoreAndRandomOrder(pool, limit);
     } catch (err) {
       console.warn('[RetrievalService] Vector matches live query error, using fallback:', err);
       return this.findVectorMatchesFallback(queryText, language);
@@ -537,7 +611,7 @@ export class RetrievalService {
       };
     });
 
-    return applyScoreAndRandomOrder(candidates, 3);
+    return applyScoreAndRandomOrder(candidates, Math.min(candidates.length, 5));
   }
 
   /**
@@ -583,9 +657,9 @@ export class RetrievalService {
     });
 
     const matches = scored.filter((s) => s.relevance_score > 1);
-    const candidates = matches.length > 0 ? matches : scored;
+    const candidates = matches.length > 0 ? matches : scored.slice(0, 3);
 
-    return applyScoreAndRandomOrder(candidates, 3);
+    return applyScoreAndRandomOrder(candidates, Math.min(candidates.length, 5));
   }
 
   /**

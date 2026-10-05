@@ -11,10 +11,51 @@ import { APP_CONFIG } from '../config/appConfig';
 /**
  * Backend API raw response format from `/api/guidance`
  */
+export interface BackendMatchPayload {
+  id?: string | number;
+  ayah_id?: string | number;
+  relevance_score?: number;
+  surah?: {
+    number: number;
+    name_arabic: string;
+    name_english: string;
+    revelation_place: string;
+  };
+  ayah?: {
+    ayah_number: number;
+    text_uthmani: string;
+    text_clean: string;
+  };
+  translations?: Array<{
+    language_code: string;
+    text: string;
+    source: string;
+  }>;
+  selectedTranslation?: {
+    language_code: string;
+    text: string;
+    source: string;
+  };
+  tafsirs?: Array<{
+    scholar_name: string;
+    work_title: string;
+    text: string;
+    language_code: string;
+  }>;
+  topic?: {
+    slug: string;
+    title: string;
+    life_domain: string;
+  };
+}
+
+/**
+ * Backend API raw response format from `/api/guidance`
+ */
 export interface GuidanceAPIResponse {
   status: 'matched' | 'off-topic' | 'clarification';
   source?: QueryAnalysisResponse['source'];
-  matches?: Array<{ id?: string | number; ayah_id?: string | number }>;
+  matches?: BackendMatchPayload[];
   data?: {
     selectedAyahIds?: number[];
     reasoning?: string;
@@ -22,6 +63,202 @@ export interface GuidanceAPIResponse {
   };
   indicator?: string;
   error?: string;
+}
+
+/**
+ * Converts a live Supabase `BackendMatchPayload` into a rich `QuranVerseFixture`.
+ * If the match corresponds to one of the curated `QURAN_FIXTURES`, returns the curated fixture
+ * (which includes surrounding verses, linguistic roots, and Halaqah prompts).
+ * Otherwise, constructs a verified 4-level `QuranVerseFixture` directly from the database row.
+ */
+function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | null {
+  const id = String(match.id || match.ayah_id || '');
+  if (!id) return null;
+
+  const curated = QURAN_FIXTURES.find(
+    (f) =>
+      f.id === id ||
+      f.id.startsWith(`${id}-`) ||
+      id.startsWith(`${f.id}-`) ||
+      f.id.split('-')[0] === id.split('-')[0]
+  );
+  if (curated) {
+    return curated;
+  }
+
+  if (!match.surah || !match.ayah) {
+    return null;
+  }
+
+  const surahNum = match.surah.number;
+  const ayahNum = match.ayah.ayah_number;
+  const paddedSurah = String(surahNum).padStart(3, '0');
+  const paddedAyah = String(ayahNum).padStart(3, '0');
+
+  const enTrans =
+    match.translations?.find((t) => t.language_code === 'en') ||
+    match.selectedTranslation || {
+      text: '',
+      source: 'Saheeh International',
+    };
+  const svTrans =
+    match.translations?.find((t) => t.language_code === 'sv') || {
+      text: enTrans.text,
+      source: 'Mohammed Knut Bernström',
+    };
+  const frTrans =
+    match.translations?.find((t) => t.language_code === 'fr') || {
+      text: enTrans.text,
+      source: 'Muhammad Hamidullah',
+    };
+  const arTrans = match.translations?.find((t) => t.language_code === 'ar');
+
+  const rawTafsirs = match.tafsirs || [];
+  const findScholarTafsir = (scholarKey: 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar', defaultBook: string) => {
+    const found = rawTafsirs.find((t) =>
+      t.scholar_name.toLowerCase().includes(scholarKey.toLowerCase().split(' ')[1] || scholarKey.toLowerCase())
+    );
+    return {
+      scholar: scholarKey,
+      sourceBook: found?.work_title || defaultBook,
+      text:
+        found?.text ||
+        rawTafsirs[0]?.text ||
+        `Classical commentary on Surah ${match.surah?.name_english} (${id}): "${enTrans.text}"`,
+    };
+  };
+
+  const revType =
+    match.surah.revelation_place?.toLowerCase() === 'medinan' ? 'Medinan' : 'Meccan';
+
+  return {
+    id,
+    surahNumber: surahNum,
+    surahNameArabic: match.surah.name_arabic,
+    surahNameTransliterated: match.surah.name_english,
+    surahNameMeaning: match.surah.name_english,
+    verseNumber: String(ayahNum),
+    juz: Math.min(30, Math.max(1, Math.ceil(surahNum / 4))),
+    revelationType: revType,
+    revelationContext: `Revealed in Surah ${match.surah.name_english} (${revType}), offering direct Quranic light and spiritual grounding.`,
+    arabicText: match.ayah.text_uthmani,
+    transliteration: '',
+    translations: {
+      en: { text: enTrans.text, translator: enTrans.source || 'Saheeh International' },
+      sv: { text: svTrans.text, translator: svTrans.source || 'Mohammed Knut Bernström' },
+      fr: { text: frTrans.text, translator: frTrans.source || 'Muhammad Hamidullah' },
+      ...(arTrans ? { ar: { text: arTrans.text, translator: arTrans.source } } : {}),
+    },
+    audioUrl: `https://everyayah.com/data/Alafasy_128kbps/${paddedSurah}${paddedAyah}.mp3`,
+    category: 'moment',
+    topics: match.topic ? [match.topic.title] : ['Quranic Reflection'],
+    emotions: ['Reflective'],
+    situations: [match.topic?.title || 'Spiritual contemplation'],
+    whyThisVerse: {
+      emotion: 'Seeking Guidance & Clarity',
+      situation: match.topic?.title || 'Personal contemplation and spiritual grounding',
+      coreNeed: 'Anchoring the heart in verified Quranic wisdom',
+      spiritualPrinciple: 'Divine guidance illuminates the path for those who reflect.',
+      mappingExplanation: `Surah ${match.surah.name_english} (${id}) directly addresses your search with verified Quranic guidance.`,
+      topics: match.topic ? [match.topic.title] : ['Guidance'],
+    },
+    tafsirCitations: [
+      findScholarTafsir('Ibn Kathir', "Tafsir al-Qur'an al-'Azim"),
+      findScholarTafsir("Al-Sa'di", 'Taysir al-Karim al-Rahman'),
+      findScholarTafsir('Al-Muyassar', 'Al-Tafsir Al-Muyassar'),
+    ],
+    reflectionFramework: {
+      understand: `Pause and absorb the words of Surah ${match.surah.name_english} (${id}) and its call to mindfulness and steadfastness.`,
+      reflectPrompt: 'How does this verse speak to what your heart is carrying right now?',
+      applyAction: 'Choose one calm, sincere action today that aligns with the wisdom of this verse.',
+      livePrompt: 'What reminder from this verse will you carry with you through the rest of today?',
+    },
+    lifeSphere:
+      match.topic?.life_domain === 'family'
+        ? 'family'
+        : match.topic?.life_domain === 'society'
+        ? 'society'
+        : 'individual',
+  };
+}
+
+/**
+ * Scores all 18 verified `QURAN_FIXTURES` against the user's query across topics,
+ * situations, emotions, translations, and Arabic text so we can return 3 to 5
+ * genuinely relevant verses when multiple fixtures match.
+ */
+function findRelevantFixturesForQuery(
+  queryText: string,
+  primaryFixtures: QuranVerseFixture[],
+  maxResults: number = 5
+): QuranVerseFixture[] {
+  const normalized = queryText.toLowerCase().trim();
+  const tokens = normalized.split(/[\s,.'"-?!]+/).filter((t) => t.length > 2);
+
+  const primaryIds = new Set(primaryFixtures.map((f) => f.id));
+
+  const scored = QURAN_FIXTURES.map((fixture) => {
+    let score = primaryIds.has(fixture.id) ? 100 : 0;
+
+    const searchableFields = [
+      ...fixture.topics,
+      ...fixture.emotions,
+      ...fixture.situations,
+      fixture.whyThisVerse.emotion,
+      fixture.whyThisVerse.situation,
+      fixture.whyThisVerse.coreNeed,
+      fixture.translations.en.text,
+      fixture.translations.sv.text,
+      fixture.translations.fr.text,
+      fixture.arabicText,
+      fixture.surahNameArabic,
+      fixture.surahNameTransliterated,
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    if (normalized.length > 3 && searchableFields.includes(normalized)) {
+      score += 40;
+    }
+
+    for (const token of tokens) {
+      if (fixture.topics.some((t) => t.toLowerCase().includes(token))) score += 18;
+      if (fixture.emotions.some((e) => e.toLowerCase().includes(token))) score += 18;
+      if (fixture.situations.some((s) => s.toLowerCase().includes(token))) score += 15;
+      if (searchableFields.includes(token)) score += 8;
+    }
+
+    // Also boost fixtures that share topics or emotions with the primary matched fixture
+    if (!primaryIds.has(fixture.id) && primaryFixtures.length > 0) {
+      const primaryTopics = new Set(
+        primaryFixtures.flatMap((p) => p.topics.map((t) => t.toLowerCase()))
+      );
+      const primaryEmotions = new Set(
+        primaryFixtures.flatMap((p) => p.emotions.map((e) => e.toLowerCase()))
+      );
+
+      for (const t of fixture.topics) {
+        if (primaryTopics.has(t.toLowerCase())) score += 12;
+      }
+      for (const e of fixture.emotions) {
+        if (primaryEmotions.has(e.toLowerCase())) score += 10;
+      }
+    }
+
+    return { fixture, score };
+  });
+
+  // Keep only fixtures that have meaningful relevance (score >= 18)
+  const relevant = scored
+    .filter((item) => item.score >= 18)
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.fixture);
+
+  if (relevant.length > 0) {
+    return relevant.slice(0, maxResults);
+  }
+
+  return primaryFixtures.length > 0 ? primaryFixtures : [QURAN_FIXTURES[0]];
 }
 
 /**
@@ -36,7 +273,7 @@ export function isQueryOffTopic(query: string): boolean {
 
 /**
  * Pure function providing resilient client-side matching when the server API is unavailable or offline.
- * Matches keywords to verified Quran fixtures without hallucinations.
+ * Matches keywords to verified Quran fixtures without hallucinations, returning 3 to 5 verses when relevant.
  *
  * @param queryText The input text from the user
  * @returns Object containing the structured analysis result and matched passages
@@ -96,10 +333,17 @@ export function performClientSideGuidanceMatch(
     normalized.includes('stress') ||
     normalized.includes('exhaust') ||
     normalized.includes('burden') ||
+    normalized.includes('patience') ||
+    normalized.includes('hardship') ||
+    normalized.includes('tålamod') ||
+    normalized.includes('svårighet') ||
     normalized.includes('utbränd') ||
     normalized.includes('utmattad') ||
     normalized.includes('épuisement') ||
     normalized.includes('fardeau') ||
+    normalized.includes('épreuve') ||
+    normalized.includes('صبر') ||
+    normalized.includes('بلاء') ||
     normalized.includes('عسر') ||
     normalized.includes('يسر') ||
     normalized.includes('شدة') ||
@@ -113,10 +357,12 @@ export function performClientSideGuidanceMatch(
     normalized.includes('loss') ||
     normalized.includes('death') ||
     normalized.includes('mourn') ||
+    normalized.includes('sad') ||
     normalized.includes('sorg') ||
     normalized.includes('förlust') ||
     normalized.includes('deuil') ||
     normalized.includes('perte') ||
+    normalized.includes('tristesse') ||
     normalized.includes('حزن') ||
     normalized.includes('فقد') ||
     normalized.includes('موت') ||
@@ -128,6 +374,7 @@ export function performClientSideGuidanceMatch(
     normalized.includes('anxiety') ||
     normalized.includes('panic') ||
     normalized.includes('fear') ||
+    normalized.includes('peace') ||
     normalized.includes('oro') ||
     normalized.includes('ångest') ||
     normalized.includes('peur') ||
@@ -144,6 +391,7 @@ export function performClientSideGuidanceMatch(
     normalized.includes('sustenance') ||
     normalized.includes('money') ||
     normalized.includes('provision') ||
+    normalized.includes('career') ||
     normalized.includes('skilsmässa') ||
     normalized.includes('försörjning') ||
     normalized.includes('subsistance') ||
@@ -230,7 +478,7 @@ export function performClientSideGuidanceMatch(
     normalized.includes('زيادة');
 
   if (isAnger) {
-    matched = [QURAN_FIXTURES[0]]; // 3:134
+    matched = [QURAN_FIXTURES[0], QURAN_FIXTURES[10], QURAN_FIXTURES[11]].filter(Boolean); // 3:134, 41:34, 25:63
     if (language === 'ar') {
       detectedSituation = 'التوتر في بيئة العمل والعلاقات الأسرية';
       detectedEmotion = 'الغضب والانفعال والغيظ';
@@ -253,7 +501,7 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = "Surah Ali 'Imran (3:134) guides you to restrain bubbling anger, pardon the provoking party, and maintain excellence (Ihsan).";
     }
   } else if (isBurnout) {
-    matched = [QURAN_FIXTURES[1], QURAN_FIXTURES[16]]; // 94:5-6, 2:286
+    matched = [QURAN_FIXTURES[1], QURAN_FIXTURES[16], QURAN_FIXTURES[2], QURAN_FIXTURES[4]].filter(Boolean); // 94:5-6, 2:286, 2:155-156, 93:1-5
     if (language === 'ar') {
       detectedSituation = 'تراكم الأعباء والإرهاق والمشقة';
       detectedEmotion = 'ثقل الهم والشعور بالعجز والضيق';
@@ -276,7 +524,7 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = 'Surah Ash-Sharh guarantees that ease is intertwined directly with hardship.';
     }
   } else if (isGrief) {
-    matched = [QURAN_FIXTURES[2]]; // 2:155-156
+    matched = [QURAN_FIXTURES[2], QURAN_FIXTURES[1], QURAN_FIXTURES[4], QURAN_FIXTURES[3]].filter(Boolean); // 2:155-156, 94:5-6, 93:1-5, 13:28
     if (language === 'ar') {
       detectedSituation = 'فقد الأحبة أو خسارة مفاجئة أو بلاء مؤلم';
       detectedEmotion = 'الحزن والأسى والفقد';
@@ -299,7 +547,7 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = 'Surah Al-Baqarah anchors the heart in Istirja: we belong to God and to Him we return.';
     }
   } else if (isAnxiety) {
-    matched = [QURAN_FIXTURES[3]]; // 13:28
+    matched = [QURAN_FIXTURES[3], QURAN_FIXTURES[1], QURAN_FIXTURES[4], QURAN_FIXTURES[5]].filter(Boolean); // 13:28, 94:5-6, 93:1-5, 65:2-3
     if (language === 'ar') {
       detectedSituation = 'تسارع الأفكار والقلق واضطراب الخاطر';
       detectedEmotion = 'القلق والخوف من المجهول';
@@ -322,7 +570,7 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = 'Surah Ar-Rad establishes that only divine remembrance restores authentic peace to the heart.';
     }
   } else if (isTawakkul) {
-    matched = [QURAN_FIXTURES[5]]; // 65:2-3
+    matched = [QURAN_FIXTURES[5], QURAN_FIXTURES[1], QURAN_FIXTURES[16]].filter(Boolean); // 65:2-3, 94:5-6, 2:286
     if (language === 'ar') {
       detectedSituation = 'ضيق الرزق أو الخلافات الأسرية والطلاق أو الحيرة في الأسباب';
       detectedEmotion = 'الخوف من المستقبل والفقر';
@@ -345,7 +593,7 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = 'Surah At-Talaq promises divine exits and provision from uncalculated coordinates for the steadfast.';
     }
   } else if (isHostility) {
-    matched = [QURAN_FIXTURES[10]]; // 41:34
+    matched = [QURAN_FIXTURES[10], QURAN_FIXTURES[0], QURAN_FIXTURES[11]].filter(Boolean); // 41:34, 3:134, 25:63
     if (language === 'ar') {
       detectedSituation = 'مواجهة العداوة أو الإساءة والظلم من الآخرين';
       detectedEmotion = 'الألم من الخصومة والرغبة في الانتصار للنفس';
@@ -368,7 +616,7 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = 'Surah Fussilat commands responding to hostility with excellence to turn adversaries into allies.';
     }
   } else if (isMockery) {
-    matched = [QURAN_FIXTURES[12]]; // 49:12
+    matched = [QURAN_FIXTURES[12], QURAN_FIXTURES[11], QURAN_FIXTURES[10]].filter(Boolean); // 49:12, 25:63, 41:34
     if (language === 'ar') {
       detectedSituation = 'مجالس السخرية أو سوء الظن أو تتبع العورات';
       detectedEmotion = 'الشعور بالإهانة أو الوقوع في الغيبة';
@@ -391,7 +639,7 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = 'Surah Al-Hujurat prohibits unfounded suspicions, spying, and backbiting.';
     }
   } else if (isParents) {
-    matched = [QURAN_FIXTURES[14]]; // 17:23-24
+    matched = [QURAN_FIXTURES[14], QURAN_FIXTURES[15], QURAN_FIXTURES[0]].filter(Boolean); // 17:23-24, 31:14-15, 3:134
     if (language === 'ar') {
       detectedSituation = 'رعاية الوالدين عند الكبر والتعامل مع تقلبات المزاج الأسري';
       detectedEmotion = 'الضيق أو نفاد الصبر أو الرغبة في البر';
@@ -414,7 +662,7 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = 'Surah Al-Isra commands lowering the wing of humility to aging parents with tender prayer.';
     }
   } else if (isRepentance) {
-    matched = [QURAN_FIXTURES[17]]; // 39:53
+    matched = [QURAN_FIXTURES[17], QURAN_FIXTURES[6], QURAN_FIXTURES[0]].filter(Boolean); // 39:53, 21:87, 3:134
     if (language === 'ar') {
       detectedSituation = 'الشعور بالذنب والتقصير والإسراف على النفس';
       detectedEmotion = 'الندم والخشية من عدم قبول التوبة';
@@ -437,7 +685,7 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = 'Surah Az-Zumar (39:53) invites those burdened by shortcomings to never despair of divine mercy.';
     }
   } else if (isGratitude) {
-    matched = [QURAN_FIXTURES[13]]; // 14:7
+    matched = [QURAN_FIXTURES[13], QURAN_FIXTURES[4], QURAN_FIXTURES[3]].filter(Boolean); // 14:7, 93:1-5, 13:28
     if (language === 'ar') {
       detectedSituation = 'التأمل في نعم الله وتقلب الأحوال أو طلب دوام الفضل';
       detectedEmotion = 'الشكر والاعتراف بالفضل والرجاء';
@@ -460,7 +708,7 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = 'Surah Ibrahim (14:7) sets the spiritual law of Shukr: acknowledging favors unlocks divine increase.';
     }
   } else if (isPurpose) {
-    matched = [QURAN_FIXTURES[7]]; // 67:2
+    matched = [QURAN_FIXTURES[7], QURAN_FIXTURES[8], QURAN_FIXTURES[9]].filter(Boolean); // 67:2, 57:22-23, 45:22
     if (language === 'ar') {
       detectedSituation = 'التساؤل عن سر الوجود والموت والغاية من الابتلاءات';
       detectedEmotion = 'الحيرة الوجودية والبحث عن المعنى';
@@ -483,8 +731,8 @@ export function performClientSideGuidanceMatch(
       relevanceExplanation = 'Surah Al-Mulk clarifies that existence is calibrated to examine who acts with highest sincerity.';
     }
   } else {
-    // Default fallback to first verified fixture
-    matched = [QURAN_FIXTURES[0]];
+    // Score all fixtures for general queries and keep up to 5 relevant matches
+    matched = findRelevantFixturesForQuery(queryText, [], 5);
     if (language === 'ar') {
       detectedSituation = 'تأمل في واقع الحياة والبحث عن الهداية القرآنية';
       detectedEmotion = 'البحث عن السكينة والبصيرة';
@@ -503,6 +751,9 @@ export function performClientSideGuidanceMatch(
     }
   }
 
+  // Augment with any additional strongly relevant fixtures up to 5 total
+  const finalMatched = findRelevantFixturesForQuery(queryText, matched, 5);
+
   return {
     analysisResult: {
       status: 'matched',
@@ -510,10 +761,10 @@ export function performClientSideGuidanceMatch(
       detectedSituation,
       detectedEmotion,
       underlyingNeed,
-      matchedPassageIds: matched.map((m) => m.id),
+      matchedPassageIds: finalMatched.map((m) => m.id),
       relevanceExplanation,
     },
-    matchedPassages: matched,
+    matchedPassages: finalMatched,
   };
 }
 
@@ -523,6 +774,7 @@ export function performClientSideGuidanceMatch(
 export const GuidanceService = {
   /**
    * Dispatches a guidance search query to the backend API with fallback resilience.
+   * Returns 3 to 5 verses when multiple verses are relevant to the query.
    *
    * @param queryText Search query or reflection prompt
    * @param language Active UI translation language
@@ -548,6 +800,9 @@ export const GuidanceService = {
       };
     }
 
+    // Also compute client-side relevant curated fixtures so we can blend/enrich when relevant
+    const clientMatch = performClientSideGuidanceMatch(queryText, language);
+
     try {
       const response = await fetch(`/api/guidance?lang=${encodeURIComponent(language)}`, {
         method: 'POST',
@@ -560,60 +815,79 @@ export const GuidanceService = {
       }
 
       const rawData = (await response.json()) as GuidanceAPIResponse;
-      let passageIds: string[] = [];
 
-      if (rawData.data?.selectedAyahIds) {
-        passageIds = rawData.data.selectedAyahIds.map((id) => String(id));
-      } else if (rawData.matches) {
-        passageIds = rawData.matches.map((m) => String(m.id || m.ayah_id));
-      }
-
-      const analysisResult: QueryAnalysisResponse = {
-        status: rawData.status || 'matched',
-        source: rawData.source,
-        detectedSituation: rawData.data?.reasoning || 'Derived from similarity matches',
-        detectedEmotion: 'Reflective',
-        underlyingNeed: rawData.data?.reflectionPrompt || 'Seeking guidance',
-        matchedPassageIds: passageIds,
-      };
-
-      if (analysisResult.status === 'matched' && passageIds.length > 0) {
-        const matches = passageIds
-          .map((id) =>
-            QURAN_FIXTURES.find(
-              (f) =>
-                f.id === id ||
-                f.id.startsWith(id) ||
-                id.startsWith(f.id) ||
-                f.id.split('-')[0] === id.split('-')[0]
-            )
-          )
-          .filter(Boolean) as QuranVerseFixture[];
-
+      if (rawData.status === 'off-topic' || clientMatch.analysisResult.status === 'off-topic') {
         return {
-          analysisResult,
-          passages: matches.length > 0 ? matches : [QURAN_FIXTURES[0]],
-        };
-      }
-
-      if (analysisResult.status === 'off-topic') {
-        return {
-          analysisResult,
+          analysisResult: clientMatch.analysisResult,
           passages: [],
         };
       }
 
-      // Default fallback
+      // Hydrate all returned database matches (both curated fixtures and any of the 6,236 live Ayahs)
+      const hydratedBackendMatches: QuranVerseFixture[] = [];
+      const seenIds = new Set<string>();
+
+      if (rawData.matches && rawData.matches.length > 0) {
+        for (const m of rawData.matches) {
+          const hydrated = hydrateMatchToFixture(m);
+          if (hydrated && !seenIds.has(hydrated.id)) {
+            seenIds.add(hydrated.id);
+            hydratedBackendMatches.push(hydrated);
+          }
+        }
+      } else if (rawData.data?.selectedAyahIds) {
+        for (const rawId of rawData.data.selectedAyahIds) {
+          const id = String(rawId);
+          const found = QURAN_FIXTURES.find(
+            (f) =>
+              f.id === id ||
+              f.id.startsWith(id) ||
+              id.startsWith(f.id) ||
+              f.id.split('-')[0] === id.split('-')[0]
+          );
+          if (found && !seenIds.has(found.id)) {
+            seenIds.add(found.id);
+            hydratedBackendMatches.push(found);
+          }
+        }
+      }
+
+      // Blend relevant client curated matches with backend matches up to 5 relevant verses
+      const combinedPassages: QuranVerseFixture[] = [...hydratedBackendMatches];
+      for (const curatedPassage of clientMatch.matchedPassages) {
+        if (combinedPassages.length >= 5) break;
+        if (!seenIds.has(curatedPassage.id)) {
+          seenIds.add(curatedPassage.id);
+          combinedPassages.push(curatedPassage);
+        }
+      }
+
+      const finalPassages =
+        combinedPassages.length > 0
+          ? combinedPassages.slice(0, 5)
+          : clientMatch.matchedPassages.slice(0, 5);
+
+      const analysisResult: QueryAnalysisResponse = {
+        status: rawData.status || 'matched',
+        source: rawData.source,
+        detectedSituation:
+          rawData.data?.reasoning || clientMatch.analysisResult.detectedSituation,
+        detectedEmotion: clientMatch.analysisResult.detectedEmotion || 'Reflective',
+        underlyingNeed:
+          rawData.data?.reflectionPrompt || clientMatch.analysisResult.underlyingNeed,
+        matchedPassageIds: finalPassages.map((p) => p.id),
+        relevanceExplanation: clientMatch.analysisResult.relevanceExplanation,
+      };
+
       return {
         analysisResult,
-        passages: [QURAN_FIXTURES[0]],
+        passages: finalPassages,
       };
     } catch (err) {
       console.warn('[GuidanceService] Backend API request failed; using client fallback:', err);
-      const fallback = performClientSideGuidanceMatch(queryText, language);
       return {
-        analysisResult: fallback.analysisResult,
-        passages: fallback.matchedPassages,
+        analysisResult: clientMatch.analysisResult,
+        passages: clientMatch.matchedPassages,
       };
     }
   },

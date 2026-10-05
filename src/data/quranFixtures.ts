@@ -1396,6 +1396,15 @@ export const QUICK_CHOICE_PILLS: QuickPill[] = [
     description: "Tawakkul: divine exits and provision from uncalculated coordinates."
   },
   {
+    id: "exams-future",
+    label: "Exams & Future Stress",
+    labelArabic: "الاختبارات والمستقبل",
+    category: "moment",
+    query: "School exams stress, university choices, fear of failure, need calm heart and tawakkul",
+    iconName: "GraduationCap",
+    description: "Steadying the heart during exams, study pressure, and life transitions."
+  },
+  {
     id: "guilt-regret",
     label: "Crushing Guilt & Sin",
     labelArabic: "التوبة والندم",
@@ -1479,5 +1488,14 @@ export const QUICK_CHOICE_PILLS: QuickPill[] = [
     query: "Dealing with elderly parents, family frustration, honoring mother and father",
     iconName: "Users",
     description: "Lowering the wing of humility and eliminating even the sigh of 'uff'."
+  },
+  {
+    id: "peer-pressure",
+    label: "Peer Pressure & Courage",
+    labelArabic: "الثبات أمام الأقران",
+    category: "growth",
+    query: "Standing up to peer pressure, mockery at school, staying true to good values with kindness",
+    iconName: "ShieldCheck",
+    description: "Walking with dignity and calm courage when others mock or pressure you."
   }
 ];

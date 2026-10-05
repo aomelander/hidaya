@@ -288,6 +288,27 @@ export function getLocalizedVerseDetails(
       };
     }
 
+    // If this is a live database verse with real scholar tafsir text already populated, preserve it when appropriate
+    const hasDatabaseCommentary =
+      !override &&
+      cit.text &&
+      !cit.text.startsWith('Classical commentary on Surah') &&
+      cit.text.length > 20;
+
+    if (language === 'ar') {
+      if (hasDatabaseCommentary && /[\u0600-\u06FF]/.test(cit.text)) {
+        return cit;
+      }
+      return {
+        ...cit,
+        text: `يبيّن ${cit.scholar} في (${cit.sourceBook}) هدايات قوله تعالى: ﴿${verse.arabicText}﴾ وما فيها من تثبيت للقلب وإرشاد إلى العمل الصالح والتقوى.`,
+      };
+    }
+
+    if (language === 'en' && hasDatabaseCommentary) {
+      return cit;
+    }
+
     if (language === 'sv') {
       return {
         ...cit,
@@ -298,12 +319,6 @@ export function getLocalizedVerseDetails(
       return {
         ...cit,
         text: `${cit.scholar} (${cit.sourceBook}) : Explique le sens profond de « ${localizedTranslationText} » selon la tradition exégétique classique, invitant à la patience et à la droiture.`,
-      };
-    }
-    if (language === 'ar') {
-      return {
-        ...cit,
-        text: `يبيّن ${cit.scholar} في (${cit.sourceBook}) هدايات قوله تعالى: ﴿${verse.arabicText}﴾ وما فيها من تثبيت للقلب وإرشاد إلى العمل الصالح والتقوى.`,
       };
     }
     return cit;

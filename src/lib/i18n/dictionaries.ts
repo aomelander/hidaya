@@ -72,6 +72,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
       "restless-heart": "Restless & Anxious Heart",
       "lonely-abandoned": "Feeling Abandoned or Low",
       "career-decisions": "Life & Career Decisions",
+      "exams-future": "Exams & Future Stress",
       "guilt-regret": "Guilt & Repentance",
       "gratitude-joy": "Gratitude & Abundance",
       "purpose-existence": "What is my purpose?",
@@ -81,6 +82,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
       "humility-daily-life": "Humility in everyday life",
       "purifying-speech": "Stopping gossip & suspicion",
       "family-patience": "Patience with parents & family",
+      "peer-pressure": "Peer Pressure & Courage",
     },
   },
   sv: {
@@ -116,6 +118,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
       "restless-heart": "Rastlöst & Oroligt hjärta",
       "lonely-abandoned": "Ensamhet & Nedstämdhet",
       "career-decisions": "Livs- & Karriärbeslut",
+      "exams-future": "Provstress & Framtid",
       "guilt-regret": "Skuld & Ånger",
       "gratitude-joy": "Tacksamhet & Glädje",
       "purpose-existence": "Vad är mitt syfte?",
@@ -125,6 +128,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
       "humility-daily-life": "Ödmjukhet i vardagen",
       "purifying-speech": "Undvika skvaller & misstankar",
       "family-patience": "Tålamod med familj & föräldrar",
+      "peer-pressure": "Grupptryck & Mod",
     },
   },
   fr: {
@@ -160,6 +164,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
       "restless-heart": "Cœur agité & Anxiété",
       "lonely-abandoned": "Solitude & Abandon",
       "career-decisions": "Décisions de vie & Carrière",
+      "exams-future": "Stress des examens & Avenir",
       "guilt-regret": "Culpabilité & Repentir",
       "gratitude-joy": "Gratitude & Abondance",
       "purpose-existence": "Quel est le sens de ma vie ?",
@@ -169,6 +174,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
       "humility-daily-life": "L'humilité au quotidien",
       "purifying-speech": "Préserver sa langue & éviter la médisance",
       "family-patience": "Patience envers les parents & la famille",
+      "peer-pressure": "Pression sociale & Courage",
     },
   },
   ar: {
@@ -204,6 +210,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
       "restless-heart": "طمأنينة القلب والسكينة",
       "lonely-abandoned": "الوحشة والشعور بالوحدة",
       "career-decisions": "التوكل والقرارات المصيرية",
+      "exams-future": "قلق الدراسة والاختبارات",
       "guilt-regret": "التوبة ومغفرة الذنوب",
       "gratitude-joy": "شكر النعمة والامتنان",
       "purpose-existence": "ما هي غاية وجودي؟",
@@ -213,6 +220,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
       "humility-daily-life": "التواضع وخفض الجناح",
       "purifying-speech": "حفظ اللسان واجتناب الظن",
       "family-patience": "بر الوالدين والصبر على الأهل",
+      "peer-pressure": "الثبات أمام ضغط الأقران",
     },
   },
 };

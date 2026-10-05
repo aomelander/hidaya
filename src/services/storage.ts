@@ -4,10 +4,25 @@
  * Guarantees privacy: sensitive reflections are never uploaded to remote servers without user consent.
  */
 
-import { UserReflection, Language, SessionDepth, ReciterId } from '../types';
+import {
+  UserReflection,
+  Language,
+  SessionDepth,
+  ReciterId,
+  ReaderProfile,
+  PreferredScholar,
+  EntryMode,
+} from '../types';
 import { APP_CONFIG } from '../config/appConfig';
 
 const { STORAGE_KEYS, DEFAULTS, LIMITS } = APP_CONFIG;
+
+export interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  lastActiveDate: string; // YYYY-MM-DD
+  totalDaysActive: number;
+}
 
 export const StorageService = {
   /**
@@ -297,5 +312,129 @@ export const StorageService = {
     try {
       localStorage.setItem(STORAGE_KEYS.INQUIRER_MODE, String(enabled));
     } catch {}
+  },
+
+  /**
+   * Gets the active reader profile ('adult' | 'teen' | 'kids').
+   */
+  getReaderProfile(): ReaderProfile {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.READER_PROFILE) as ReaderProfile | null;
+      if (val === 'adult' || val === 'teen' || val === 'kids') return val;
+      return DEFAULTS.READER_PROFILE;
+    } catch {
+      return DEFAULTS.READER_PROFILE;
+    }
+  },
+
+  /**
+   * Sets the active reader profile ('adult' | 'teen' | 'kids').
+   */
+  setReaderProfile(profile: ReaderProfile): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.READER_PROFILE, profile);
+    } catch {}
+  },
+
+  /**
+   * Gets the preferred Classical Tafsir scholar ('Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar').
+   */
+  getPreferredScholar(): PreferredScholar {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.SCHOLAR) as PreferredScholar | null;
+      if (val === 'Ibn Kathir' || val === "Al-Sa'di" || val === 'Al-Muyassar') return val;
+      return DEFAULTS.PREFERRED_SCHOLAR;
+    } catch {
+      return DEFAULTS.PREFERRED_SCHOLAR;
+    }
+  },
+
+  /**
+   * Sets the preferred Classical Tafsir scholar.
+   */
+  setPreferredScholar(scholar: PreferredScholar): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SCHOLAR, scholar);
+    } catch {}
+  },
+
+  /**
+   * Gets the preferred entry mode ('moment' | 'questions' | 'growth').
+   */
+  getEntryMode(): EntryMode {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.ENTRY_MODE) as EntryMode | null;
+      if (val === 'moment' || val === 'questions' || val === 'growth') return val;
+      return DEFAULTS.DEFAULT_ENTRY_MODE;
+    } catch {
+      return DEFAULTS.DEFAULT_ENTRY_MODE;
+    }
+  },
+
+  /**
+   * Sets the preferred entry mode.
+   */
+  setEntryMode(mode: EntryMode): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ENTRY_MODE, mode);
+    } catch {}
+  },
+
+  /**
+   * Gets current daily contemplation streak data.
+   */
+  getStreakData(): StreakData {
+    const today = new Date().toISOString().slice(0, 10);
+    const defaultStreak: StreakData = {
+      currentStreak: 1,
+      longestStreak: 1,
+      lastActiveDate: today,
+      totalDaysActive: 1,
+    };
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.STREAK_DATA);
+      if (!raw) return defaultStreak;
+      const parsed = JSON.parse(raw) as StreakData;
+      return {
+        currentStreak: parsed.currentStreak || 1,
+        longestStreak: parsed.longestStreak || 1,
+        lastActiveDate: parsed.lastActiveDate || today,
+        totalDaysActive: parsed.totalDaysActive || 1,
+      };
+    } catch {
+      return defaultStreak;
+    }
+  },
+
+  /**
+   * Records a daily contemplation visit/reflection and updates the streak counter.
+   */
+  recordDailyVisit(): StreakData {
+    const today = new Date().toISOString().slice(0, 10);
+    const current = this.getStreakData();
+
+    if (current.lastActiveDate === today) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.STREAK_DATA, JSON.stringify(current));
+      } catch {}
+      return current;
+    }
+
+    const lastDate = new Date(`${current.lastActiveDate}T00:00:00Z`);
+    const todayDate = new Date(`${today}T00:00:00Z`);
+    const diffDays = Math.round((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    const nextStreak = diffDays === 1 ? current.currentStreak + 1 : 1;
+    const updated: StreakData = {
+      currentStreak: nextStreak,
+      longestStreak: Math.max(current.longestStreak, nextStreak),
+      lastActiveDate: today,
+      totalDaysActive: (current.totalDaysActive || 1) + 1,
+    };
+
+    try {
+      localStorage.setItem(STORAGE_KEYS.STREAK_DATA, JSON.stringify(updated));
+    } catch {}
+    return updated;
   },
 };

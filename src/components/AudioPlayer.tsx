@@ -21,7 +21,7 @@ import {
   Check,
 } from 'lucide-react';
 import { ReciterId, Language } from '../types';
-import { AVAILABLE_RECITERS, getAudioUrlForVerse } from '../services/audioReciters';
+import { AVAILABLE_RECITERS, getAudioUrlsForVerseRange } from '../services/audioReciters';
 import { StorageService } from '../services/storage';
 import { SpeechService } from '../services/speechSynthesisService';
 import { OfflineCacheService } from '../services/offlineCacheService';
@@ -34,6 +34,11 @@ interface AudioPlayerProps {
   initialAudioUrl?: string;
   translationText?: string;
   language?: Language;
+  onPlaybackProgress?: (
+    progressRatio: number,
+    isPlaying: boolean,
+    phase?: 'recitation' | 'translation' | 'idle'
+  ) => void;
 }
 
 const PLAYER_STRINGS: Record<
@@ -114,9 +119,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   initialAudioUrl,
   translationText,
   language = 'en',
+  onPlaybackProgress,
 }) => {
   const [reciterId, setReciterId] = useState<ReciterId>(() => StorageService.getPreferredReciter());
   const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -143,90 +150,144 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return { resolvedSurah: surahNumber || 3, resolvedVerse: verseNumber || '134' };
   }, [surahNumber, verseNumber, surahVerseId]);
 
-  const activeAudioUrl = React.useMemo(() => {
+  const rangeAudioUrls = React.useMemo(() => {
     if (resolvedSurah && resolvedVerse) {
-      return getAudioUrlForVerse(resolvedSurah, resolvedVerse, reciterId);
+      return getAudioUrlsForVerseRange(resolvedSurah, resolvedVerse, reciterId);
     }
-    return audioUrl || initialAudioUrl || '';
+    const single = audioUrl || initialAudioUrl || '';
+    return single ? [single] : [];
   }, [resolvedSurah, resolvedVerse, reciterId, audioUrl, initialAudioUrl]);
 
+  const activeAudioUrl = rangeAudioUrls[currentTrackIndex] || rangeAudioUrls[0] || '';
+  const totalTracks = Math.max(1, rangeAudioUrls.length);
+
+  // Reset only when verse or reciter changes
   useEffect(() => {
     setIsPlaying(false);
+    setCurrentTrackIndex(0);
     setIsSpeakingTranslation(false);
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
+    onPlaybackProgress?.(0, false, 'idle');
+    SpeechService.cancel();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
 
-    if (activeAudioUrl) {
-      OfflineCacheService.isAudioCached(activeAudioUrl).then(setIsAudioCached);
+    if (rangeAudioUrls[0]) {
+      OfflineCacheService.isAudioCached(rangeAudioUrls[0]).then(setIsAudioCached);
     }
-  }, [activeAudioUrl]);
+  }, [surahVerseId, resolvedSurah, resolvedVerse, reciterId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-play next track in consecutive verse range (e.g. Ayah 5 -> Ayah 6)
+  useEffect(() => {
+    if (isPlaying && currentTrackIndex > 0 && audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+      audioRef.current
+        .play()
+        .then(() => {
+          onPlaybackProgress?.(currentTrackIndex / totalTracks, true, 'recitation');
+        })
+        .catch(() => {
+          setIsPlaying(false);
+          onPlaybackProgress?.(0, false, 'idle');
+        });
+    }
+  }, [currentTrackIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const syncCacheStatus = () => {
-      if (activeAudioUrl) {
-        OfflineCacheService.isAudioCached(activeAudioUrl).then(setIsAudioCached);
+      if (rangeAudioUrls[0]) {
+        OfflineCacheService.isAudioCached(rangeAudioUrls[0]).then(setIsAudioCached);
       }
     };
     window.addEventListener('hidaya-offline-cache-updated', syncCacheStatus);
     return () => window.removeEventListener('hidaya-offline-cache-updated', syncCacheStatus);
-  }, [activeAudioUrl]);
+  }, [rangeAudioUrls]);
 
   const handleToggleOfflineAudio = async () => {
-    if (!activeAudioUrl || isCachingAudio) return;
+    if (!rangeAudioUrls[0] || isCachingAudio) return;
     setIsCachingAudio(true);
     try {
-      const nowCached = await OfflineCacheService.toggleVerseAudioCache(activeAudioUrl);
-      setIsAudioCached(nowCached);
+      let cached = false;
+      for (const u of rangeAudioUrls) {
+        cached = await OfflineCacheService.toggleVerseAudioCache(u);
+      }
+      setIsAudioCached(cached);
     } finally {
       setIsCachingAudio(false);
     }
   };
 
+  const computeCombinedRatio = (trackIdx: number, cur: number, dur: number) => {
+    const trackRatio = dur > 0 ? Math.min(1, Math.max(0, cur / dur)) : 0;
+    return Math.min(1, Math.max(0, (trackIdx + trackRatio) / totalTracks));
+  };
+
   const togglePlay = () => {
     if (!audioRef.current) return;
-    if (isPlaying) {
+    if (isPlaying || isSpeakingTranslation) {
       audioRef.current.pause();
       setIsPlaying(false);
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        setIsSpeakingTranslation(false);
-      }
+      setIsSpeakingTranslation(false);
+      SpeechService.cancel();
+      onPlaybackProgress?.(
+        computeCombinedRatio(currentTrackIndex, currentTime, duration),
+        false,
+        'idle'
+      );
     } else {
+      audioRef.current.playbackRate = playbackRate;
       audioRef.current
         .play()
-        .then(() => setIsPlaying(true))
+        .then(() => {
+          setIsPlaying(true);
+          onPlaybackProgress?.(
+            computeCombinedRatio(currentTrackIndex, currentTime, duration),
+            true,
+            'recitation'
+          );
+        })
         .catch((err) => {
           console.warn('Audio playback error', err);
           setIsPlaying(false);
+          onPlaybackProgress?.(0, false, 'idle');
         });
     }
   };
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
+      const cur = audioRef.current.currentTime;
+      const dur = audioRef.current.duration || duration;
+      setCurrentTime(cur);
+      if (dur > 0) {
+        onPlaybackProgress?.(
+          computeCombinedRatio(currentTrackIndex, cur, dur),
+          true,
+          'recitation'
+        );
+      }
     }
   };
 
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration);
+      audioRef.current.playbackRate = playbackRate;
     }
   };
 
   const speakTranslation = () => {
     if (language === 'ar' || !translationText) {
       if (isLooping && audioRef.current) {
+        setCurrentTrackIndex(0);
         audioRef.current.currentTime = 0;
         audioRef.current.play().then(() => setIsPlaying(true));
       } else {
         setIsPlaying(false);
+        setCurrentTrackIndex(0);
         setCurrentTime(0);
+        onPlaybackProgress?.(0, false, 'idle');
       }
       return;
     }
@@ -234,42 +295,63 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     try {
       SpeechService.cancel();
       setIsSpeakingTranslation(true);
+      onPlaybackProgress?.(0, true, 'translation');
 
       SpeechService.speak(translationText, language, {
-        rate: 0.92,
-        onStart: () => setIsSpeakingTranslation(true),
+        rate: playbackRate * 0.92,
+        onStart: () => {
+          setIsSpeakingTranslation(true);
+          onPlaybackProgress?.(0, true, 'translation');
+        },
+        onProgress: (ratio) => {
+          onPlaybackProgress?.(ratio, true, 'translation');
+        },
         onEnd: () => {
           setIsSpeakingTranslation(false);
+          onPlaybackProgress?.(0, false, 'idle');
           if (isLooping && audioRef.current) {
+            setCurrentTrackIndex(0);
             audioRef.current.currentTime = 0;
             audioRef.current.play().then(() => setIsPlaying(true));
           } else {
             setIsPlaying(false);
+            setCurrentTrackIndex(0);
             setCurrentTime(0);
           }
         },
         onError: () => {
           setIsSpeakingTranslation(false);
           setIsPlaying(false);
+          onPlaybackProgress?.(0, false, 'idle');
         },
       });
     } catch {
       setIsSpeakingTranslation(false);
       setIsPlaying(false);
+      onPlaybackProgress?.(0, false, 'idle');
     }
   };
 
   const handleEnded = () => {
+    // If there are more consecutive verses in this range (up to 3), advance to the next ayah MP3
+    if (currentTrackIndex < totalTracks - 1) {
+      setCurrentTrackIndex((prev) => prev + 1);
+      return;
+    }
+
+    onPlaybackProgress?.(0, false, 'idle');
     if (playTranslationVoiceover && translationText) {
       setIsPlaying(false);
       speakTranslation();
     } else if (isLooping) {
+      setCurrentTrackIndex(0);
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play().then(() => setIsPlaying(true));
       }
     } else {
       setIsPlaying(false);
+      setCurrentTrackIndex(0);
       setCurrentTime(0);
     }
   };
@@ -279,6 +361,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setCurrentTime(time);
     if (audioRef.current) {
       audioRef.current.currentTime = time;
+      if (duration > 0) {
+        onPlaybackProgress?.(
+          computeCombinedRatio(currentTrackIndex, time, duration),
+          isPlaying,
+          'recitation'
+        );
+      }
     }
   };
 
@@ -298,10 +387,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const restart = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      setIsSpeakingTranslation(false);
-    }
+    SpeechService.cancel();
+    setIsSpeakingTranslation(false);
+    setCurrentTrackIndex(0);
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
       setCurrentTime(0);
