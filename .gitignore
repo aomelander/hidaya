@@ -61,3 +61,13 @@ ehthumbs.db
 *.bak
 *.swp
 *~
+*.log
+generate-embeddings.log
+
+# AI Studio & IDE local artifacts
+.aistudio/
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class

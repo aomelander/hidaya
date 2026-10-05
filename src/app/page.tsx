@@ -29,7 +29,6 @@ import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 // Core Tab Views & Components (Zero Popup Modals)
 import { Header } from '../components/Header';
 import { DailyNorthStar } from '../components/DailyNorthStar';
-import { EntryModeTabs } from '../components/EntryModeTabs';
 import { GuidanceSearchBar } from '../components/GuidanceSearchBar';
 import { QuickChoicePills } from '../components/QuickChoicePills';
 import { OffTopicBanner } from '../components/OffTopicBanner';
@@ -38,16 +37,7 @@ import { VerseCard } from '../components/VerseCard';
 import { CustomizationSheet } from '../components/CustomizationSheet';
 import { JournalDrawer } from '../components/JournalDrawer';
 import { BottomNav, BottomNavTab } from '../components/BottomNav';
-
-const PROFILE_SWITCH_LABELS: Record<
-  Language,
-  Record<ReaderProfile, string>
-> = {
-  en: { adult: 'Standard', teen: 'Teen (13–17)', kids: 'Kids & Family (8+)' },
-  sv: { adult: 'Standard', teen: 'Ungdom (13–17)', kids: 'Barn & Familj (8+)' },
-  fr: { adult: 'Standard', teen: 'Ados (13–17)', kids: 'Enfants & Famille (8+)' },
-  ar: { adult: 'كامل', teen: 'الشباب (١٣–١٧)', kids: 'الناشئة والأسرة (٨+)' },
-};
+import { Footer } from '../components/Footer';
 
 export default function App() {
   const [mounted, setMounted] = useState(false);
@@ -75,7 +65,6 @@ export default function App() {
 
   const lang: Locale = language;
   const dict = getDictionary(lang);
-  const profLabels = PROFILE_SWITCH_LABELS[language] || PROFILE_SWITCH_LABELS.en;
 
   // Guidance Search & Filtering Hook
   const {
@@ -387,6 +376,9 @@ export default function App() {
             }
           />
         )}
+
+        {/* Ethical Boundaries & Al-Isra 17:105 Footer */}
+        <Footer language={language} />
       </main>
 
       {/* Unified 5-Tab Bottom Navigation Bar */}

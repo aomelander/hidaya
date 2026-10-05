@@ -5,6 +5,7 @@
  */
 
 import { StorageService } from '../../services/storage';
+import { APP_CONFIG } from '../../config/appConfig';
 
 export interface JournalBackupPayload {
   version: string;
@@ -65,12 +66,12 @@ export const JournalStorage = {
       // Merge bookmarks (avoid duplicates)
       const currentBookmarks = StorageService.getBookmarks();
       const newBookmarks = new Set([...currentBookmarks, ...backupData.bookmarks]);
-      localStorage.setItem('hidaya_bookmarks', JSON.stringify(Array.from(newBookmarks)));
+      localStorage.setItem(APP_CONFIG.STORAGE_KEYS.BOOKMARKS, JSON.stringify(Array.from(newBookmarks)));
 
       // Merge reflections (union and overwrite with imported entries)
       const currentReflections = StorageService.getReflections();
       const mergedReflections = { ...currentReflections, ...backupData.reflections };
-      localStorage.setItem('hidaya_reflections', JSON.stringify(mergedReflections));
+      localStorage.setItem(APP_CONFIG.STORAGE_KEYS.REFLECTIONS, JSON.stringify(mergedReflections));
 
       return true;
     } catch (err) {

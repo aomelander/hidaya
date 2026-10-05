@@ -257,17 +257,4 @@ export interface LicenseRegistryEntry {
 
 export type PerspectiveMode = 'devotional' | 'inquirer';
 
-export type ScholarReviewStatus = 'verified' | 'reviewed' | 'pending' | 'flagged';
-
-export interface EditorialReviewEntry {
-  verseId: string;
-  reviewerName: string;
-  institution: string;
-  status: ScholarReviewStatus;
-  mappingConfidence: number; // 0 - 100%
-  theologicalNotes: string;
-  boundaryConfirmed: boolean;
-  lastAudited: string;
-}
-
 

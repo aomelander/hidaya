@@ -32,6 +32,8 @@ import {
   ShieldCheck,
   FileText,
   Video,
+  Presentation,
+  Printer,
 } from 'lucide-react';
 import {
   QuranVerseFixture,
@@ -41,9 +43,11 @@ import {
   ReaderProfile,
   ReflectionMood,
   PreferredScholar,
+  UserReflection,
 } from '../types';
 import { AudioPlayer } from './AudioPlayer';
 import { StorageService } from '../services/storage';
+import { ExportService } from '../services/exportService';
 import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
 import { getLocalizedReflection } from '../data/localizedReflections';
 import { getAgeAdaptiveContent } from '../data/ageAdaptiveContent';
@@ -134,6 +138,8 @@ const UI_TEXT: Record<
     badgeAiTranslated: string;
     badgeAiSynthesis: string;
     originalArabicSnippetTitle: string;
+    exportPPTX: string;
+    exportPDF: string;
   }
 > = {
   en: {
@@ -167,6 +173,8 @@ const UI_TEXT: Record<
     badgeAiTranslated: 'AI Translation of Scholar Lecture',
     badgeAiSynthesis: 'AI Reflection Synthesis',
     originalArabicSnippetTitle: 'Verbatim Arabic Source Snippet',
+    exportPPTX: 'Export PPTX',
+    exportPDF: 'Print / PDF',
   },
   sv: {
     copyTooltip: 'Kopiera vers',
@@ -199,6 +207,8 @@ const UI_TEXT: Record<
     badgeAiTranslated: 'AI-översättning av föreläsning',
     badgeAiSynthesis: 'AI-reflektionssyntes',
     originalArabicSnippetTitle: 'Ordagrant arabiskt källutdrag',
+    exportPPTX: 'Exportera PPTX',
+    exportPDF: 'Skriv ut / PDF',
   },
   fr: {
     copyTooltip: 'Copier le verset',
@@ -231,6 +241,8 @@ const UI_TEXT: Record<
     badgeAiTranslated: 'Traduction IA de conférence',
     badgeAiSynthesis: 'Synthèse de méditation IA',
     originalArabicSnippetTitle: 'Extrait arabe original textuel',
+    exportPPTX: 'Exporter PPTX',
+    exportPDF: 'Imprimer / PDF',
   },
   ar: {
     copyTooltip: 'نسخ الآية',
@@ -263,6 +275,8 @@ const UI_TEXT: Record<
     badgeAiTranslated: 'ترجمة آلية لمحاضرة عالم',
     badgeAiSynthesis: 'صياغة تدبرية بالذكاء الاصطناعي',
     originalArabicSnippetTitle: 'النص العربي المنقول بلفظه',
+    exportPPTX: 'تصدير عارض (PPTX)',
+    exportPDF: 'طباعة / PDF',
   },
 };
 
@@ -306,6 +320,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const [applyNotes, setApplyNotes] = useState('');
   const [liveNotes, setLiveNotes] = useState('');
   const [selectedMood, setSelectedMood] = useState<ReflectionMood | undefined>(undefined);
+  const [isExportingPPTX, setIsExportingPPTX] = useState(false);
 
   const t = UI_TEXT[language] || UI_TEXT.en;
   const moodDict = MOOD_LABELS[language] || MOOD_LABELS.en;
@@ -576,6 +591,26 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     setIsSaved(true);
     onReflectionSaved?.();
     setTimeout(() => setIsSaved(false), 2500);
+  };
+
+  const handleExportPPTX = async () => {
+    setIsExportingPPTX(true);
+    try {
+      const reflectionPayload: UserReflection = {
+        verseId: verse.id,
+        date: new Date().toISOString(),
+        understandNotes: '',
+        reflectNotes,
+        applyNotes,
+        liveNotes,
+        mood: selectedMood,
+      };
+      await ExportService.exportToPPTX(verse, language, reflectionPayload);
+    } catch (err) {
+      console.error('Failed to export PPTX:', err);
+    } finally {
+      setIsExportingPPTX(false);
+    }
   };
 
   const toggleSection = (section: InlineSection) => {
@@ -1166,7 +1201,31 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               />
             </div>
 
-            <div className="flex justify-end pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-emerald-800/40">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportPPTX}
+                  disabled={isExportingPPTX}
+                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-emerald-200 bg-emerald-900/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40 hover:bg-emerald-900/10 transition-colors cursor-pointer disabled:opacity-50"
+                  title={t.exportPPTX}
+                  aria-label={t.exportPPTX}
+                >
+                  <Presentation className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>{isExportingPPTX ? '...' : t.exportPPTX}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => ExportService.exportToPDF()}
+                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 bg-emerald-900/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40 hover:bg-emerald-900/10 transition-colors cursor-pointer"
+                  title={t.exportPDF}
+                  aria-label={t.exportPDF}
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>{t.exportPDF}</span>
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={handleSaveReflection}
