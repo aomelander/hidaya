@@ -173,10 +173,15 @@ export const SEED_FIXTURES = [
     ayah: { ayah_number: 199, text_uthmani: "خُذِ الْعَفْوَ وَأْمُرْ بِالْعُرْفِ وَأَعْرِضْ عَنِ الْجَاهِلِينَ", text_clean: "خذ العفو وأمر بالعرف وأعرض عن الجاهلين" },
     translations: [
       { language_code: "en", text: "Take what is given freely, enjoin what is good, and turn away from the ignorant.", source: "Saheeh International" },
-      { language_code: "sv", text: "Gör det till en regel att ha överseende och förlåta, uppmana till allt vad som är rätt och riktigt, och vänd dig ifrån de oförståndiga.", source: "Knut Bernström" }
+      { language_code: "sv", text: "ÖVERSE med människornas natur [och deras brister], och uppmana [alla att visa] hövlighet och vänlighet och undvik [alla ordväxlingar med] dem som [står kvar i hednisk] okunnighet.", source: "Mohammed Knut Bernström" },
+      { language_code: "fr", text: "Accepte ce qu'on t'offre de raisonnable, commande ce qui est convenable et éloigne-toi des ignorants.", source: "Muhammad Hamidullah" },
+      { language_code: "ar", text: "اقبل الفضل والعفو من أخلاق الناس وتجاوز عن تقصيرهم، وأمر بكل قول حسن وعمل معروف، وأعرض عن منازعة السفهاء.", source: "التفسير الميسر" }
     ],
     tafsirs: [
-      { scholar_name: "Al-Sa'di", work_title: "Tafsir Al-Sa'di", text: "Accept people's nature, do not demand perfection, command what is reasonably good, and ignore foolish provocations.", language_code: "en" }
+      { scholar_name: "Al-Sa'di", work_title: "Tafsir Al-Sa'di", text: "Al-Sa'di explique : Adoptez l'indulgence avec les gens en acceptant ce qui vient d'eux avec facilité sans exiger la perfection, ordonnez le bien et la bienveillance, et détournez-vous avec patience des provocations des ignorants.", language_code: "fr" },
+      { scholar_name: "Al-Sa'di", work_title: "Tafsir Al-Sa'di", text: "Accept people's nature, do not demand perfection, command what is reasonably good, and ignore foolish provocations.", language_code: "en" },
+      { scholar_name: "Al-Sa'di", work_title: "Tafsir Al-Sa'di", text: "Al-Sa'di förklarar: Ha överseende med människors natur och deras brister utan att kräva fullkomlighet, uppmana till det goda och vänd dig bort från provokationer från oförståndiga.", language_code: "sv" },
+      { scholar_name: "Al-Sa'di", work_title: "Tafsir Al-Sa'di", text: "السعدي: خذ ما سهل من أخلاق الناس وسَمحت به نفوسهم ولا تكلفهم ما يشق عليهم، وأمر بكل قول وفعل جميل، وتغافل عن جهل السفهاء.", language_code: "ar" }
     ],
     topic: { slug: "forgiveness-character", title: "Dealing with Ignorance", life_domain: "growth" }
   }

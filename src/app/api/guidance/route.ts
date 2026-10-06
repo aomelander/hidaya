@@ -96,6 +96,65 @@ async function queryArabicTafsirForMatches(matches: any[], lang: LanguageCode) {
   });
 }
 
+/**
+ * Enriches all matches so that the active user language (e.g. 'fr' or 'sv') is guaranteed
+ * to have its authentic translation and tafsir populated directly from Supabase.
+ */
+async function enrichMatchesForLanguage(matches: any[], lang: LanguageCode) {
+  if (!matches || matches.length === 0) return matches;
+
+  if (lang !== 'en' && !useMock) {
+    try {
+      for (const match of matches) {
+        const hasLangTrans = match.translations?.some(
+          (t: any) => t.language_code === lang && t.text && t.text.trim().length > 0
+        );
+
+        if (!hasLangTrans) {
+          const parts = String(match.id || match.ayah_id || '').split(':');
+          const surahNum = Number(parts[0]);
+          const ayahNum = Number(parts[1]);
+
+          if (surahNum && ayahNum) {
+            const { data: surah } = await supabase.from('surah').select('id').eq('number', surahNum).single();
+            if (surah) {
+              const { data: ayah } = await supabase.from('ayah').select('id').eq('surah_id', surah.id).eq('ayah_number', ayahNum).single();
+              if (ayah) {
+                const { data: dbTranslations } = await supabase
+                  .from('translation')
+                  .select('id, language_code, text, source')
+                  .eq('ayah_id', ayah.id)
+                  .eq('language_code', lang);
+
+                if (dbTranslations && dbTranslations.length > 0) {
+                  const found = dbTranslations[0];
+                  match.translations = [found, ...(match.translations || [])];
+                  match.selectedTranslation = found;
+                }
+
+                // Also fetch localized tafsir
+                const { data: dbTafsirs } = await supabase
+                  .from('tafsir')
+                  .select('id, scholar_name, work_title, text, language_code, source_type, source_reference, original_arabic_raw, verification_status')
+                  .eq('ayah_id', ayah.id)
+                  .eq('language_code', lang);
+
+                if (dbTafsirs && dbTafsirs.length > 0) {
+                  match.tafsirs = [...dbTafsirs, ...(match.tafsirs || [])];
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Guidance API] Error enriching matches for language:', err);
+    }
+  }
+
+  return queryArabicTafsirForMatches(matches, lang);
+}
+
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const langParam = (searchParams.get('lang') || searchParams.get('language') || 'en') as LanguageCode;
@@ -115,7 +174,7 @@ export async function GET(req: NextRequest) {
   }
 
   const vectorMatches = await RetrievalService.findVectorMatches(query, language);
-  const enrichedMatches = await queryArabicTafsirForMatches(vectorMatches, language);
+  const enrichedMatches = await enrichMatchesForLanguage(vectorMatches, language);
 
   return NextResponse.json({
     status: 'matched',
@@ -153,7 +212,7 @@ export async function POST(req: NextRequest) {
         language
       );
       if (directMatches && directMatches.length > 0) {
-        const enrichedMatches = await queryArabicTafsirForMatches(directMatches, language);
+        const enrichedMatches = await enrichMatchesForLanguage(directMatches, language);
         return NextResponse.json({
           status: 'matched',
           source: 'direct_lookup',
@@ -183,7 +242,7 @@ export async function POST(req: NextRequest) {
       const isLowConfidence = !vectorMatches || vectorMatches.length === 0;
 
       if (!isLowConfidence) {
-        const enrichedMatches = await queryArabicTafsirForMatches(vectorMatches, language);
+        const enrichedMatches = await enrichMatchesForLanguage(vectorMatches, language);
         return NextResponse.json({
           status: 'matched',
           source: 'semantic_search',
@@ -224,7 +283,7 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error('Gemini API Error:', err);
       const fallbackMatches = await RetrievalService.findVectorMatches(query || '', language);
-      const enrichedFallback = await queryArabicTafsirForMatches(fallbackMatches, language);
+      const enrichedFallback = await enrichMatchesForLanguage(fallbackMatches, language);
       return NextResponse.json({
         status: 'matched',
         source: 'offline_fallback',

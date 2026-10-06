@@ -34,6 +34,9 @@ import {
   Video,
   Presentation,
   Printer,
+  Plus,
+  ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
 import {
   QuranVerseFixture,
@@ -52,6 +55,7 @@ import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
 import { getLocalizedReflection } from '../data/localizedReflections';
 import { getAgeAdaptiveContent } from '../data/ageAdaptiveContent';
 import { ScholarProvenanceModal } from './ScholarProvenanceModal';
+import { AyahCartouche } from './AyahCartouche';
 
 interface VerseCardProps {
   verse: QuranVerseFixture;
@@ -800,35 +804,90 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
       {/* Main Content Body */}
       <div className="p-5 sm:p-7 space-y-5">
-        {/* Optional Adjacent Context Verses Toggle (Strictly capped at max 3 consecutive verses) */}
+        {/* Adjacent Verses Flow Controller (Ornate Quranic Ayah Cartouches with directional indicators) */}
         {(canAddBefore || canAddAfter || includeBefore || includeAfter) && (
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2 pt-0.5 pb-0.5">
             {canAddBefore && (
               <button
                 type="button"
                 onClick={() => setIncludeBefore((prev) => !prev)}
-                className={`px-2.5 py-1 rounded-lg border font-medium transition-colors cursor-pointer ${
+                title={
                   includeBefore
-                    ? 'bg-emerald-800 text-white border-emerald-700'
-                    : 'bg-[#FAF8F5] dark:bg-emerald-950/40 border-emerald-900/15 dark:border-emerald-800/40 text-emerald-900 dark:text-emerald-200 hover:border-emerald-600'
+                    ? `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — Click to remove`
+                    : `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — Click to add to reading`
+                }
+                aria-label={`${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber})`}
+                aria-pressed={includeBefore}
+                className={`group relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs ${
+                  includeBefore
+                    ? 'bg-emerald-800 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-600 shadow-xs ring-1 ring-emerald-500/40'
+                    : 'bg-[#FAF8F5] dark:bg-emerald-950/40 border-emerald-900/15 dark:border-emerald-800/40 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/40 hover:border-emerald-600/50 hover:scale-[1.03]'
                 }`}
               >
-                {includeBefore ? '✓ ' : '+ '}
-                {t.beforeVerse} ({verse.surroundingVerses?.before?.verseNumber})
+                {/* Arrow and Sign indicator badge */}
+                <span
+                  className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
+                    includeBefore
+                      ? 'text-amber-300 dark:text-amber-200'
+                      : 'text-emerald-800 dark:text-emerald-300'
+                  }`}
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180 transition-transform group-hover:-translate-x-0.5 rtl:group-hover:translate-x-0.5" />
+                  {includeBefore ? (
+                    <Check className="w-3 h-3 stroke-[3]" />
+                  ) : (
+                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                  )}
+                </span>
+
+                {/* Ornate Quranic Ayah Cartouche with the Verse Number Inside */}
+                <AyahCartouche
+                  number={verse.surroundingVerses?.before?.verseNumber || ''}
+                  active={includeBefore}
+                  size="md"
+                />
               </button>
             )}
+
             {(canAddAfter || includeAfter) && (
               <button
                 type="button"
                 onClick={() => setIncludeAfter((prev) => !prev)}
-                className={`px-2.5 py-1 rounded-lg border font-medium transition-colors cursor-pointer ${
+                title={
                   includeAfter
-                    ? 'bg-emerald-800 text-white border-emerald-700'
-                    : 'bg-[#FAF8F5] dark:bg-emerald-950/40 border-emerald-900/15 dark:border-emerald-800/40 text-emerald-900 dark:text-emerald-200 hover:border-emerald-600'
+                    ? `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — Click to remove`
+                    : `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — Click to add to reading`
+                }
+                aria-label={`${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber})`}
+                aria-pressed={includeAfter}
+                className={`group relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs ${
+                  includeAfter
+                    ? 'bg-emerald-800 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-600 shadow-xs ring-1 ring-emerald-500/40'
+                    : 'bg-[#FAF8F5] dark:bg-emerald-950/40 border-emerald-900/15 dark:border-emerald-800/40 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/40 hover:border-emerald-600/50 hover:scale-[1.03]'
                 }`}
               >
-                {includeAfter ? '✓ ' : '+ '}
-                {t.afterVerse} ({verse.surroundingVerses?.after?.verseNumber})
+                {/* Ornate Quranic Ayah Cartouche with the Verse Number Inside */}
+                <AyahCartouche
+                  number={verse.surroundingVerses?.after?.verseNumber || ''}
+                  active={includeAfter}
+                  size="md"
+                />
+
+                {/* Sign and Arrow indicator badge */}
+                <span
+                  className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
+                    includeAfter
+                      ? 'text-amber-300 dark:text-amber-200'
+                      : 'text-emerald-800 dark:text-emerald-300'
+                  }`}
+                >
+                  {includeAfter ? (
+                    <Check className="w-3 h-3 stroke-[3]" />
+                  ) : (
+                    <Plus className="w-3 h-3 stroke-[2.5]" />
+                  )}
+                  <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180 transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
+                </span>
               </button>
             )}
           </div>
