@@ -145,8 +145,9 @@ function resolveTafsirs(
   preferredLanguage: LanguageCode = 'en'
 ): RetrievedTafsir[] {
   if (!tafsirs || tafsirs.length === 0) return [];
-  const exactMatches = tafsirs.filter((t) => t.language_code === preferredLanguage);
-  const otherMatches = tafsirs.filter((t) => t.language_code !== preferredLanguage);
+  const valid = tafsirs.filter((t) => t && t.text && t.text.trim().length > 0);
+  const exactMatches = valid.filter((t) => t.language_code === preferredLanguage);
+  const otherMatches = valid.filter((t) => t.language_code !== preferredLanguage);
   return [...exactMatches, ...otherMatches];
 }
 

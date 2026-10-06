@@ -325,15 +325,9 @@ export async function seedTranslations(
         });
       }
 
-      // 4. Arabic (Al-Tafsir Al-Muyassar / Verified Arabic Meaning)
-      if (arAyahs[aIdx]) {
-        translationRecords.push({
-          ayah_id: ayahId,
-          language_code: 'ar',
-          text: arAyahs[aIdx].text.trim(),
-          source: 'التفسير الميسر - مجمع الملك فهد',
-        });
-      }
+      // Note: In Arabic, the Quran is in its original language.
+      // Tafsir (such as Al-Muyassar) belongs strictly in the `tafsir` table,
+      // NOT in the `translation` table, avoiding duplication.
     }
   }
 
@@ -430,46 +424,48 @@ export async function seedTafsir(
       const curated = curatedMap.get(key);
 
       // 1. Arabic (`ar`): Al-Muyassar (King Fahd Glorious Quran Printing Complex)
-      tafsirRecords.push({
-        ayah_id: ayahId,
-        scholar_name: 'Al-Muyassar',
-        work_title: 'التفسير الميسر - مجمع الملك فهد',
-        text: curated?.ar || arTafsirAyahs[aIdx].text.trim(),
-        language_code: 'ar',
-      });
+      if (arTafsirAyahs[aIdx]?.text?.trim()) {
+        tafsirRecords.push({
+          ayah_id: ayahId,
+          scholar_name: 'Al-Muyassar',
+          work_title: 'التفسير الميسر - مجمع الملك فهد',
+          text: curated?.ar || arTafsirAyahs[aIdx].text.trim(),
+          language_code: 'ar',
+        });
+      }
 
-      // 2. English (`en`): Ibn Kathir / Al-Mukhtasar
-      tafsirRecords.push({
-        ayah_id: ayahId,
-        scholar_name: curated?.scholarEn || 'Ibn Kathir / Al-Mukhtasar',
-        work_title: curated?.workEn || 'Al-Mukhtasar fi Tafsir al-Quran / Ibn Kathir',
-        text:
-          curated?.en ||
-          `[Surah ${sNameEn} ${key}] Classical exegesis (Al-Mukhtasar / Ibn Kathir) on: "${enAyahs[aIdx]?.text.trim()}" — affirming divine wisdom, moral accountability, and spiritual steadfastness.`,
-        language_code: 'en',
-      });
+      // 2. English (`en`): Verified classical exegesis only (never synthetic translation copy)
+      if (curated?.en) {
+        tafsirRecords.push({
+          ayah_id: ayahId,
+          scholar_name: curated.scholarEn,
+          work_title: curated.workEn,
+          text: curated.en,
+          language_code: 'en',
+        });
+      }
 
-      // 3. French (`fr`): Al-Mukhtasar
-      tafsirRecords.push({
-        ayah_id: ayahId,
-        scholar_name: 'Al-Mukhtasar',
-        work_title: "Le Compendium de l'Exégèse du Noble Coran (Al-Mukhtasar)",
-        text:
-          curated?.fr ||
-          `[Sourate ${sNameEn} ${key}] Exégèse Al-Mukhtasar : « ${frAyahs[aIdx]?.text.trim()} » — enseignement spirituel appelant à la piété, à la patience et à la droiture.`,
-        language_code: 'fr',
-      });
+      // 3. French (`fr`): Verified classical exegesis only
+      if (curated?.fr) {
+        tafsirRecords.push({
+          ayah_id: ayahId,
+          scholar_name: 'Al-Mukhtasar',
+          work_title: "Le Compendium de l'Exégèse du Noble Coran (Al-Mukhtasar)",
+          text: curated.fr,
+          language_code: 'fr',
+        });
+      }
 
-      // 4. Swedish (`sv`): Al-Mukhtasar
-      tafsirRecords.push({
-        ayah_id: ayahId,
-        scholar_name: 'Al-Mukhtasar',
-        work_title: 'Al-Mukhtasar (Klassisk Koranexeges)',
-        text:
-          curated?.sv ||
-          `[Sura ${sNameEn} ${key}] Klassisk exeges (Al-Mukhtasar): "${svAyahs[aIdx]?.text.trim()}" — vägledning för gudfruktighet, eftertanke och moralisk uthållighet.`,
-        language_code: 'sv',
-      });
+      // 4. Swedish (`sv`): Verified classical exegesis only
+      if (curated?.sv) {
+        tafsirRecords.push({
+          ayah_id: ayahId,
+          scholar_name: 'Al-Mukhtasar',
+          work_title: 'Al-Mukhtasar (Klassisk Koranexeges)',
+          text: curated.sv,
+          language_code: 'sv',
+        });
+      }
     }
   }
 

@@ -432,6 +432,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The word 'Musibah' comes from the root that means an arrow that hits its target precisely. Your test did not miss you by mistake; it was measured with divine precision for your spiritual elevation.",
       reflectPrompt: "Where are you currently holding on to ownership of an outcome or relationship, rather than seeing yourself as a temporary trustee caring for it with grace?",
       applyAction: "Speak the Istirja' aloud: 'Inna lillahi wa inna ilayhi raji'un. Allahumma ajirni fi museebati wakhluf li khayran minha' (O Allah, reward me in my affliction and grant me better in exchange)."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "154",
+                "arabicText": "وَلَا تَقُولُوا لِمَن يُقْتَلُ فِي سَبِيلِ اللَّهِ أَمْوَاتٌ ۚ بَلْ أَحْيَاءٌ وَلَٰكِن لَّا تَشْعُرُونَ",
+                "translations": {
+                      "en": "And do not say about those who are killed in the way of Allah, 'They are dead.' Rather, they are alive, but you perceive [it] not.",
+                      "sv": "Och säg inte om dem som stupar för Guds sak att de är döda. Nej, de lever, fastän ni inte märker det.",
+                      "fr": "Et ne dites pas de ceux qui sont tués dans le sentier d'Allah qu'ils sont morts. Au contraire ils sont vivants, mais vous en êtes inconscients."
+                }
+          },
+          "after": {
+                "verseNumber": "157",
+                "arabicText": "أُولَٰئِكَ عَلَيْهِمْ صَلَوَاتٌ مِّن رَّبِّهِمْ وَرَحْمَةٌ ۖ وَأُولَٰئِكَ هُمُ الْمُهْتَدُونَ",
+                "translations": {
+                      "en": "Those are the ones upon whom are blessings from their Lord and mercy. And it is those who are the [rightly] guided.",
+                      "sv": "De ska få ta emot välsignelse och barmhärtighet från sin Herre; det är de som är rätt vägledda.",
+                      "fr": "Ceux-là reçoivent des bénédictions de leur Seigneur, ainsi que la miséricorde ; et ceux-là sont les biens guidés."
+                }
+          }
     }
   },
   {
@@ -497,6 +517,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The word 'Itmi'nan' signifies deep, rooted tranquility—like an anchor resting on the solid sea floor while winds howl on the surface.",
       reflectPrompt: "What worldly distractions or digital consumption are you currently using to numb your anxious heart instead of sitting quietly with your Creator?",
       applyAction: "Engage in 3 minutes of mindful breathing accompanied by silent tasbih: 'SubhanAllah', 'Alhamdulillah', 'Allahu Akbar', feeling your heart rhythm synchronize with each utterance."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "27",
+                "arabicText": "وَيَقُولُ الَّذِينَ كَفَرُوا لَوْلَا أُنزِلَ عَلَيْهِ آيَةٌ مِّن رَّبِّهِ ۗ قُلْ إِنَّ اللَّهَ يُضِلُّ مَن يَشَاءُ وَيَهْدِي إِلَيْهِ مَنْ أَنَابَ",
+                "translations": {
+                      "en": "And those who disbelieved say, 'Why has a sign not been sent down to him from his Lord?' Say, 'Indeed, Allah leaves astray whom He wills and guides to Himself whoever turns back [to Him] -'",
+                      "sv": "De som förnekar sanningen säger: 'Varför har inget tecken sänts ner till honom från hans Herre?' Säg: 'Gud låter den gå vilse som Han vill, och Han vägleder till Sig den som vänder om i ånger -'",
+                      "fr": "Ceux qui ont mécru disent : 'Pourquoi n'a-t-on pas fait descendre sur lui un miracle de son Seigneur ?' Dis : 'En vérité, Allah égare qui Il veut et guide vers Lui celui qui se repent -'"
+                }
+          },
+          "after": {
+                "verseNumber": "29",
+                "arabicText": "الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ طُوبَىٰ لَهُمْ وَحُسْنُ مَآبٍ",
+                "translations": {
+                      "en": "Those who have believed and done righteous deeds - a good state is theirs and a good return.",
+                      "sv": "De som tror och lever ett rättskaffens liv - dem väntar lycksalighet och en skön återkomst.",
+                      "fr": "Ceux qui croient et font de bonnes œuvres, le bonheur est pour eux et un bon lieu de retour."
+                }
+          }
     }
   },
   {
@@ -562,6 +602,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "Notice the personal pronoun 'Rabbuka' (Your Sustainer, the One who nurtures you step by step). He did not use an impersonal name; He spoke as the Loving Guardian.",
       reflectPrompt: "When you feel like a failure, whose voice are you listening to? Compare what people say with Allah's promise: 'Your Lord will give you until you are content.'",
       applyAction: "Write down 3 times in your life when you felt completely hopeless, yet doors opened unexpectedly. Say 'Alhamdulillah' for surviving those chapters."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "2",
+                "arabicText": "وَاللَّيْلِ إِذَا سَجَىٰ",
+                "translations": {
+                      "en": "And [by] the night when it covers with darkness,",
+                      "sv": "Och vid natten när den sänker sig,",
+                      "fr": "Et par la nuit quand elle couvre tout,"
+                }
+          },
+          "after": {
+                "verseNumber": "6",
+                "arabicText": "أَلَمْ يَجِدْكَ يَتِيمًا فَآوَىٰ",
+                "translations": {
+                      "en": "Did He not find you an orphan and give [you] refuge?",
+                      "sv": "Fann Han dig inte faderlös och gav dig ett hem?",
+                      "fr": "Ne t'a-t-Il pas trouvé orphelin, puis t'a accueilli ?"
+                }
+          }
     }
   },
   {
@@ -627,6 +687,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The word 'Qadra' indicates that your trial has a designated expiration date and weight. It will not last one second longer than decreed by Divine Wisdom.",
       reflectPrompt: "What compromise or dishonest shortcut are you tempted to make right now because you fear missing out on income, career advancement, or social status?",
       applyAction: "Perform Salat al-Istikhara regarding your pending decision, commit to the path of highest ethical integrity, and let go of obsessive outcome checking."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "1",
+                "arabicText": "يَا أَيُّهَا النَّبِيُّ إِذَا طَلَّقْتُمُ النِّسَاءَ فَطَلِّقُوهُنَّ لِعِدَّتِهِنَّ وَأَحْصُوا الْعِدَّةَ ۖ وَاتَّقُوا اللَّهَ رَبَّكُمْ",
+                "translations": {
+                      "en": "O Prophet, when you [Muslims] divorce women, divorce them for [the commencement of] their waiting period and keep count of the waiting period, and fear Allah, your Lord.",
+                      "sv": "O Profet! När ni skiljer er från kvinnor, skilj er då från dem vid början av deras väntetid och räkna väntetiden noga, och frukta Gud, er Herre.",
+                      "fr": "Ô Prophète ! Quand vous répudiez les femmes, répudiez-les conformément à leur période d'attente prescrite et comptez-la avec soin, et craignez Allah votre Seigneur."
+                }
+          },
+          "after": {
+                "verseNumber": "4",
+                "arabicText": "وَاللَّائِي يَئِسْنَ مِنَ الْمَحِيضِ مِن نِّسَائِكُمْ إِنِ ارْتَبْتُمْ فَعِدَّتُهُنَّ ثَلَاثَةُ أَشْهُرٍ وَاللَّائِي لَمْ يَحِضْنَ ۚ وَأُولَاتُ الْأَحْمَالِ أَجَلُهُنَّ أَن يَضَعْنَ حَمْلَهُنَّ ۚ وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مِنْ أَمْرِهِ يُسْرًا",
+                "translations": {
+                      "en": "And those who no longer expect menstruation among your women - if you doubt, then their period is three months, and [also for] those who have not menstruated. And for those who are pregnant, their term is until they give birth. And whoever fears Allah - He will make for him of his matter ease.",
+                      "sv": "Och för de av era kvinnor som inte längre väntar menstruation, om ni är osäkra, är väntetiden tre månader, liksom för dem som ännu inte har haft menstruation. Och för de havande kvinnorna är fristen tills de har fött sitt barn. Och den som fruktar Gud ska Han göra det lätt för.",
+                      "fr": "Et pour celles de vos femmes qui n'espèrent plus avoir de règles, leur délai de viduité est de trois mois, de même pour celles qui n'ont pas encore de règles. Et quant à celles qui sont enceintes, leur période s'achèvera par leur accouchement. Quiconque craint Allah, Il lui facilite les choses."
+                }
+          }
     }
   },
   {
@@ -692,6 +772,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The 'dhulumaat' (plural darknesses) symbolize whatever layers of isolation surround you: shame, secrecy, fear of consequences, and isolation.",
       reflectPrompt: "What error are you defensively justifying to yourself or others? What peace might come if you simply told God: 'Subhanaka inni kuntu min adh-dhalimeen'?",
       applyAction: "Make this du'a with your forehead on the ground in sujood, naming your exact mistake before Allah, and ask for His loving pardon."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "86",
+                "arabicText": "وَأَدْخَلْنَاهُمْ فِي رَحْمَتِنَا ۖ إِنَّهُم مِّنَ الصَّالِحِينَ",
+                "translations": {
+                      "en": "And We admitted them into Our mercy. Indeed, they were of the righteous.",
+                      "sv": "Och Vi omslöt dem med Vår barmhärtighet; de hörde sannerligen till de rättfärdiga.",
+                      "fr": "Et Nous les fîmes entrer en Notre miséricorde, car ils étaient vraiment du nombre des gens de bien."
+                }
+          },
+          "after": {
+                "verseNumber": "89",
+                "arabicText": "وَزَكَرِيَّا إِذْ نَادَىٰ رَبَّهُ رَبِّ لَا تَذَرْنِي فَرْدًا وَأَنتَ خَيْرُ الْوَارِثِينَ",
+                "translations": {
+                      "en": "And [mention] Zechariah, when he called to his Lord, 'My Lord, do not leave me alone [with no heir], while You are the best of inheritors.'",
+                      "sv": "Och Zakarias, då han ropade till sin Herre: 'Herre! Lämna mig inte barnlös, Du som är den bäste arvtagaren!'",
+                      "fr": "Et Zacharie, quand il implora son Seigneur : 'Seigneur, ne me laisse pas seul, bien que Tu sois le meilleur des héritiers !'"
+                }
+          }
     }
   },
   {
@@ -757,6 +857,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The verse concludes by pairing 'Al-'Aziz' (The Almighty, whose law governs the cosmos) with 'Al-Ghafoor' (The All-Forgiving, who overlooks your human shortcomings when you stumble during the test).",
       reflectPrompt: "If your life purpose is not to amass the most wealth or followers, but to perform the purest, most honorable deeds, how does that simplify your choices today?",
       applyAction: "Choose one ordinary act today (washing dishes, writing an email, greeting a neighbor) and perform it with 100% excellence and total devotion to God."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "1",
+                "arabicText": "تَبَارَكَ الَّذِي بِيَدِهِ الْمُلْكُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ",
+                "translations": {
+                      "en": "Blessed is He in whose hand is dominion, and He is over all things competent -",
+                      "sv": "Välsignad är Han som har herraväldet i Sin hand och som har makt över allt -",
+                      "fr": "Béni soit celui dans la main de qui est la royauté, et Il est Omnipotent -"
+                }
+          },
+          "after": {
+                "verseNumber": "3",
+                "arabicText": "الَّذِي خَلَقَ سَبْعَ سَمَاوَاتٍ طِبَاقًا ۖ مَّا تَرَىٰ فِي خَلْقِ الرَّحْمَٰنِ مِن تَفَاوُتٍ ۖ فَارْجِعِ الْبَصَرَ هَلْ تَرَىٰ مِن فُطُورٍ",
+                "translations": {
+                      "en": "[He] who created seven heavens in layers. You do not see in the creation of the Most Merciful any inconsistency. So return [your] vision [to the sky]; do you see any breaks?",
+                      "sv": "Han som har skapat sju himlar, den ena över den andra. Du ser ingen brist i den Nåderikes skapelse. Vänd blicken åter mot skyn: ser du någon spricka?",
+                      "fr": "Celui qui a créé sept cieux superposés sans que tu voies de disproportion dans la création du Tout Miséricordieux. Regarde donc de nouveau : y vois-tu une faille ?"
+                }
+          }
     }
   },
   {
@@ -822,6 +942,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The word 'Asa' means overwhelming sorrow that paralyzes action. God reveals destiny specifically to liberate you from the endless loops of 'if only' (law).",
       reflectPrompt: "What past door closed that you are still mourning or resenting? How does knowing that God closed it for a wiser destiny release you from that grief?",
       applyAction: "Speak the prophetic reminder: 'QaddarAllahu wa ma sha'a fa'al' (Allah has decreed and whatever He wills, He does), and intentionally close the chapter on that regret."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "21",
+                "arabicText": "سَابِقُوا إِلَىٰ مَغْفِرَةٍ مِّن رَّبِّكُمْ وَجَنَّةٍ عَرْضُهَا كَعَرْضِ السَّمَاءِ وَالْأَرْضِ أُعِدَّتْ لِلَّذِينَ آمَنُوا بِاللَّهِ وَرُسُلِهِ ۚ ذَٰلِكَ فَضْلُ اللَّهِ يُؤْتِيهِ مَن يَشَاءُ ۚ وَاللَّهُ ذُو الْفَضْلِ الْعَظِيمِ",
+                "translations": {
+                      "en": "Race toward forgiveness from your Lord and a Garden whose width is like the width of the heaven and earth, prepared for those who believed in Allah and His messengers.",
+                      "sv": "Tävla om er Herres förlåtelse och ett paradis vars vidd är som himlens och jordens vidd, berett för dem som tror på Gud och Hans sändebud.",
+                      "fr": "Hâtez-vous vers un pardon de votre Seigneur ainsi qu'un Paradis aussi large que le ciel et la terre, préparé pour ceux qui ont cru en Allah et en Ses messagers."
+                }
+          },
+          "after": {
+                "verseNumber": "24",
+                "arabicText": "الَّذِينَ يَبْخَلُونَ وَيَأْمُرُونَ النَّاسَ بِالْبُخْلِ ۗ وَمَن يَتَوَلَّ فَإِنَّ اللَّهَ هُوَ الْغَنِيُّ الْحَمِيدُ",
+                "translations": {
+                      "en": "[Those] who are stingy and enjoin upon people stinginess. And whoever turns away - then indeed, Allah is the Free of need, the Praiseworthy.",
+                      "sv": "De som är snåla och förmår andra att vara snåla. Och den som vänder sig bort - sannerligen är Gud den Självtillräcklige, den Prisvärde.",
+                      "fr": "Ceux qui sont avares et ordonnent aux gens l'avarice. Et quiconque se détourne... Allah est vraiment le Riche, le Digne de louange."
+                }
+          }
     }
   },
   {
@@ -887,6 +1027,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The phrase 'Bil-Haqq' means truth is the foundation of the cosmos. Tyranny and lies are unnatural aberrations that will inevitably collapse under the weight of divine truth.",
       reflectPrompt: "When you feel disheartened by global injustices or personal slights, do you remember that this worldly life is only Chapter One of the story?",
       applyAction: "Support a victim of injustice or donate toward relief for oppressed communities, standing as an agent of 'Haqq' in your own sphere."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "21",
+                "arabicText": "أَمْ حَسِبَ الَّذِينَ اجْتَرَحُوا السَّيِّئَاتِ أَن نَّجْعَلَهُمْ كَالَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ سَوَاءً مَّحْيَاهُمْ وَمَمَاتُهُمْ ۚ سَاءَ مَا يَحْكُمُونَ",
+                "translations": {
+                      "en": "Or do those who commit evils think We will make them like those who have believed and done righteous deeds - [make them] equal in their life and their death? Evil is that which they judge.",
+                      "sv": "Eller tror de som begår onda gärningar att Vi ska behandla dem på samma sätt som dem som tror och gör goda gärningar, lika i liv och död? Hur illa dömer de inte!",
+                      "fr": "Ceux qui commettent des mauvaises actions comptent-ils que Nous allons les traiter comme ceux qui croient et accomplissent les bonnes œuvres, dans leur vie et dans leur mort ? Comme ils jugent mal !"
+                }
+          },
+          "after": {
+                "verseNumber": "23",
+                "arabicText": "أَفَرَأَيْتَ مَنِ اتَّخَذَ إِلَٰهَهُ هَوَاهُ وَأَضَلَّهُ اللَّهُ عَلَىٰ عِلْمٍ وَخَتَمَ عَلَىٰ سَمْعِهِ وَقَلْبِهِ وَجَعَلَ عَلَىٰ بَصَرِهِ غِشَاوَةً فَمَن يَهْدِيهِ مِن بَعْدِ اللَّهِ ۚ أَفَلَا تَذَكَّرُونَ",
+                "translations": {
+                      "en": "Have you seen he who has taken as his god his [own] desire, and Allah has sent him astray due to knowledge and has set a seal upon his hearing and his heart and put over his vision a veil? So who will guide him after Allah? Then will you not be reminded?",
+                      "sv": "Har du sett den som gör sina egna begär till sin gud? Gud har låtit honom gå vilse trots hans vetskap och förseglat hans hörsel och hans hjärta och lagt ett flor över hans ögon. Vem kan vägleda honom efter Gud? Vill ni inte tänka efter?",
+                      "fr": "Vois-tu celui qui prend sa passion pour sa propre divinité ? Allah l'égare sciemment et scelle son ouïe et son cœur et étend un voile sur sa vue. Qui donc peut le guider après Allah ? Ne vous rappelez-vous donc pas ?"
+                }
+          }
     }
   },
   {
@@ -952,6 +1112,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The phrase 'Waliyyun Hameem' means an intimate protector—someone who would stand by you through fire. Gentleness holds greater persuasive power than confrontation.",
       reflectPrompt: "Who is currently your antagonist? What would happen if you shocked them tomorrow not with cold retaliation, but with an unexpected gesture of kindness or compliment?",
       applyAction: "Send a polite, respectful greeting or pray secretly for the guidance and well-being of the person who provoked you."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "33",
+                "arabicText": "وَمَنْ أَحْسَنُ قَوْلًا مِّمَّن دَعَا إِلَى اللَّهِ وَعَمِلَ صَالِحًا وَقَالَ إِنَّنِي مِنَ الْمُسْلِمِينَ",
+                "translations": {
+                      "en": "And who is better in speech than one who invites to Allah and does righteousness and says, 'Indeed, I am of the Muslims'?",
+                      "sv": "Och vem talar ett bättre ord än den som kallar människorna till Gud och gör det goda och rätta och säger: 'Jag hör sannerligen till dem som underkastar sig Hans vilja'?",
+                      "fr": "Et qui profère plus belles paroles que celui qui appelle à Allah, fait bonne œuvre et dit : 'Je suis du nombre des musulmans' ?"
+                }
+          },
+          "after": {
+                "verseNumber": "35",
+                "arabicText": "وَمَا يُلَقَّاهَا إِلَّا الَّذِينَ صَبَرُوا وَمَا يُلَقَّاهَا إِلَّا ذُو حَظٍّ عَظِيمٍ",
+                "translations": {
+                      "en": "And none will be granted it except those who are patient, and none will be granted it except one having a great portion [of good].",
+                      "sv": "Men ingen förmår detta utom den som har tålamod, och ingen förmår detta utom den som har fått en stor del av det goda.",
+                      "fr": "Mais cette règle n'est donnée qu'à ceux qui endurent, et elle n'est donnée qu'au possesseur d'une grâce infinie."
+                }
+          }
     }
   },
   {
@@ -1017,6 +1197,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The word 'Salama' here does not necessarily mean the formal greeting; it means speaking words that ensure safety from sins, arguments, and toxic entanglement.",
       reflectPrompt: "What trivial argument on WhatsApp, Twitter/X, or around the dinner table are you burning emotional bandwidth on right now that produces no good fruit?",
       applyAction: "Adopt the 'Salama' response: gracefully exit one useless online or verbal debate today with courteous silence."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "62",
+                "arabicText": "وَهُوَ الَّذِي جَعَلَ اللَّيْلَ وَالنَّهَارَ خِلْفَةً لِّمَنْ أَرَادَ أَن يَذَّكَّرَ أَوْ أَرَادَ شُكُورًا",
+                "translations": {
+                      "en": "And it is He who has made the night and the day in succession for whoever desires to remember or desires to be grateful.",
+                      "sv": "Och Han är den som har låtit natt och dag följa på varandra till nytta för den som vill tänka efter eller visa tacksamhet.",
+                      "fr": "Et c'est Lui qui a assigné une alternance à la nuit et au jour pour quiconque veut y réfléchir ou être reconnaissant."
+                }
+          },
+          "after": {
+                "verseNumber": "64",
+                "arabicText": "وَالَّذِينَ يَبِيتُونَ لِرَبِّهِمْ سُجَّدًا وَقِيَامًا",
+                "translations": {
+                      "en": "And those who spend [part of] the night to their Lord prostrating and standing [in prayer].",
+                      "sv": "Och de som tillbringar natten i bön inför sin Herre, fallande ned på sina ansikten och stående.",
+                      "fr": "Et ceux qui passent les nuits prosternés et debout devant leur Seigneur."
+                }
+          }
     }
   },
   {
@@ -1082,6 +1282,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The chain starts with 'Dhann' (unfounded mental assumptions). If you do not arrest the evil thought in your mind, it turns into spying (investigation), which inevitably spills into verbal backbiting.",
       reflectPrompt: "Think of someone you recently spoke critically about when they were not in the room. What would your conversation look like if they had been standing right next to you?",
       applyAction: "For the next 24 hours, implement the 'Absent Advocate' rule: if someone's name is criticized in your presence, mention one good trait about them or change the topic."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "11",
+                "arabicText": "يَا أَيُّهَا الَّذِينَ آمَنُوا لَا يَسْخَرْ قَوْمٌ مِّن قَوْمٍ عَسَىٰ أَن يَكُونُوا خَيْرًا مِّنْهُمْ وَلَا نِسَاءٌ مِّن نِّسَاءٍ عَسَىٰ أَن يَكُنَّ خَيْرًا مِّنْهُنَّ",
+                "translations": {
+                      "en": "O you who have believed, let not a people ridicule [another] people; perhaps they may be better than them; nor let women ridicule [other] women; perhaps they may be better than them.",
+                      "sv": "Troende! Låt inte en grupp förlöjliga en annan grupp; de kan vara bättre än dem; låt inte heller kvinnor förlöjliga andra kvinnor; de kan vara bättre än dem.",
+                      "fr": "Ô vous qui avez cru ! Qu'un groupe ne se raille pas d'un autre groupe : ceux-ci sont peut-être meilleurs qu'eux. Et que des femmes ne se raillent pas d'autres femmes : celles-ci sont peut-être meilleures qu'elles."
+                }
+          },
+          "after": {
+                "verseNumber": "13",
+                "arabicText": "يَا أَيُّهَا النَّاسُ إِنَّا خَلَقْنَاكُم مِّن ذَكَرٍ وَأُنثَىٰ وَجَعَلْنَاكُمْ شُعُوبًا وَقَبَائِلَ لِتَعَارَفُوا ۚ إِنَّ أَكْرَمَكُمْ عِندَ اللَّهِ أَتْقَاكُمْ ۚ إِنَّ اللَّهَ عَلِيمٌ خَبِيرٌ",
+                "translations": {
+                      "en": "O mankind, indeed We have created you from male and female and made you peoples and tribes that you may know one another. Indeed, the most noble of you in the sight of Allah is the most righteous of you. Indeed, Allah is Knowing and Acquainted.",
+                      "sv": "Människor! Vi har skapat er av en man och en kvinna och delat in er i folk och stammar så att ni må lära känna varandra. Den ädlaste av er inför Gud är den mest gudfruktige av er. Gud är Allvetande och Välunderrättad.",
+                      "fr": "Ô hommes ! Nous vous avons créés d'un mâle et d'une femelle, et Nous avons fait de vous des nations et des tribus, pour que vous vous entre-connaissiez. Le plus noble d'entre vous, auprès d'Allah, est le plus pieux. Allah est certes Omniscient et Grand-Connaisseur."
+                }
+          }
     }
   },
   {
@@ -1147,6 +1367,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The opposite of Shukr in the verse is 'Kufr' (ingratitude or ungrateful covering up of favors). Taking a blessing for granted is the quickest way to have it revoked.",
       reflectPrompt: "What is an invisible blessing you enjoy every single day (e.g., breathing without an oxygen tank, clean tap water, safety in your home) that you have never paused to thank God for?",
       applyAction: "Express three specific 'Alhamdulillah's today: one for a health blessing, one for an answered prayer, and one for a person who makes your life easier."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "6",
+                "arabicText": "وَإِذْ قَالَ مُوسَىٰ لِقَوْمِهِ اذْكُرُوا نِعْمَةَ اللَّهِ عَلَيْكُمْ إِذْ أَنجَاكُم مِّنْ آلِ فِرْعَوْنَ يَسُومُونَكُمْ سُوءَ الْعَذَابِ",
+                "translations": {
+                      "en": "And [recall] when Moses said to his people, 'Remember the favor of Allah upon you when He saved you from the people of Pharaoh, who were afflicting you with the worst torment.'",
+                      "sv": "Och minns när Mose sade till sitt folk: 'Minns Guds nåd mot er då Han räddade er från Faraos folk, som plågade er med svåra straff.'",
+                      "fr": "Et lorsque Moïse dit à son peuple : 'Rappelez-vous le bienfait d'Allah sur vous quand Il vous sauva des gens de Pharaon qui vous infligeaient le pire châtiment.'"
+                }
+          },
+          "after": {
+                "verseNumber": "8",
+                "arabicText": "وَقَالَ مُوسَىٰ إِن تَكْفُرُوا أَنتُمْ وَمَن فِي الْأَرْضِ جَمِيعًا فَإِنَّ اللَّهَ لَغَنِيٌّ حَمِيدٌ",
+                "translations": {
+                      "en": "And Moses said, 'If you should disbelieve, you and whoever is on the earth entirely - indeed, Allah is Free of need and Praiseworthy.'",
+                      "sv": "Och Mose sade: 'Om ni och alla som finns på jorden förnekar tron, är Gud sannerligen Självtillräcklig och Prisvärd.'",
+                      "fr": "Et Moïse dit : 'Si vous êtes mécréants, vous ainsi que tous ceux qui sont sur la terre, sachez qu'Allah Se suffit à Lui-même et qu'Il est Digne de louange.'"
+                }
+          }
     }
   },
   {
@@ -1212,6 +1452,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The word 'Uff' represents the smallest phonetic expression of exasperation—exhaling through pursed lips. The Quran forbids even this micro-expression, setting an extraordinary standard for emotional regulation.",
       reflectPrompt: "Have you noticed any subtle sharpness in your tone when speaking to your parents or elders? How might you shift from feeling burdened to feeling honored to serve them?",
       applyAction: "Call or visit your parents (or make heartfelt du'a for them if deceased), kiss their hand or head, and tell them with sincere warmth: 'Jazakum Allahu khayran for everything you gave me.'"
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "22",
+                "arabicText": "لَّا تَجْعَلْ مَعَ اللَّهِ إِلَٰهًا آخَرَ فَتَقْعُدَ مَذْمُومًا مَّخْذُولًا",
+                "translations": {
+                      "en": "Do not set up with Allah another deity and [thereby] sit reproached and abandoned.",
+                      "sv": "Sätt inte en annan gud vid Guds sida, så att du blir klandrad och övergiven.",
+                      "fr": "Ne place pas avec Allah d'autre divinité, sinon tu t'assoiras méprisé et abandonné."
+                }
+          },
+          "after": {
+                "verseNumber": "25",
+                "arabicText": "رَّبُّكُمْ أَعْلَمُ بِمَا فِي نُفُوسِكُمْ ۚ إِن تَكُونُوا صَالِحِينَ فَإِنَّهُ كَانَ لِلْأَوَّابِينَ غَفُورًا",
+                "translations": {
+                      "en": "Your Lord is most knowing of what is within your souls. If you should be righteous [in intention] - then indeed He is ever, to the often returning [to Him], Forgiving.",
+                      "sv": "Er Herre vet bäst vad som rör sig i era hjärtan. Om ni strävar efter att göra det rätta, är Han sannerligen Förlåtande mot dem som vänder åter till Honom i ånger.",
+                      "fr": "Votre Seigneur connaît mieux ce qui est en vous-mêmes. Si vous êtes bons, Il est certes Pardonneur pour ceux qui reviennent à Lui en repentir."
+                }
+          }
     }
   },
   {
@@ -1277,6 +1537,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The word 'Azm al-Umoor' signifies the bedrock matters of resolve—the non-negotiable foundations of a mature, principled human being.",
       reflectPrompt: "When you walk into a room or interact with service workers, do you make direct, warm eye contact, or do you subtly 'turn your cheek' as if you were above them?",
       applyAction: "Make a point today to greet three people who normally go unnoticed (security guards, cleaners, cashiers) with a sincere smile and full attentive eye contact."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "16",
+                "arabicText": "يَا بُنَيَّ إِنَّهَا إِن تَكُ مِثْقَالَ حَبَّةٍ مِّنْ خَرْدَلٍ فَتَكُن فِي صَخْرَةٍ أَوْ فِي السَّمَاوَاتِ أَوْ فِي الْأَرْضِ يَأْتِ بِهَا اللَّهُ ۚ إِنَّ اللَّهَ لَطِيفٌ خَبِيرٌ",
+                "translations": {
+                      "en": "[And Luqman said], 'O my son, indeed if wrong should be the weight of a mustard seed and should be within a rock or [anywhere] in the heavens or in the earth, Allah will bring it forth. Indeed, Allah is Subtle and Acquainted.'",
+                      "sv": "'Käre son! Vore det så bara ett senapskorns vikt i en klippa, i himlarna eller i jorden, ska Gud föra det fram i ljuset. Gud är den Som genomskådar allt och är Underrättad om allt.'",
+                      "fr": "'Ô mon cher fils, fût-ce le poids d'un grain de moutarde, dissimulé dans un rocher, dans les cieux ou dans la terre, Allah le fera surgir. Allah est infiniment Subtil et Parfaitement Connaisseur.'"
+                }
+          },
+          "after": {
+                "verseNumber": "19",
+                "arabicText": "وَاقْصِدْ فِي مَشْيِكَ وَاغْضُضْ مِن صَوْتِكَ ۚ إِنَّ أَنكَرَ الْأَصْوَاتِ لَصَوْتُ الْحَمِيرِ",
+                "translations": {
+                      "en": "And be moderate in your pace and lower your voice; indeed, the most disagreeable of sounds is the voice of donkeys.",
+                      "sv": "Och behärska din gång och sänk din röst; den mest motbjudande av alla röster är åsnans skriande.",
+                      "fr": "Sois modeste dans ta démarche, et baisse ta voix, car la plus détestable des voix, c'est bien la voix des ânes."
+                }
+          }
     }
   },
   {
@@ -1342,6 +1622,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The tri-fold petition 'Wa'fu 'anna' (erase our faults), 'Waghfir lana' (conceal our shortcomings), 'Warhamna' (shower us with forward-looking grace) covers past, present, and future.",
       reflectPrompt: "Where are you placing unreasonable, perfectionist expectations on yourself that God Himself has not placed upon you?",
       applyAction: "Recite the final two verses of Surah Al-Baqarah before sleeping tonight, breathing in the assurance that God will not let you break."
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "285",
+                "arabicText": "آمَنَ الرَّسُولُ بِمَا أُنزِلَ إِلَيْهِ مِن رَّبِّهِ وَالْمُؤْمِنُونَ ۚ كُلٌّ آمَنَ بِاللَّهِ وَمَلَائِكَتِهِ وَكُتُبِهِ وَرُسُلِهِ لَا نُفَرِّقُ بَيْنَ أَحَدٍ مِّن رُّسُلِهِ ۚ وَقَالُوا سَمِعْنَا وَأَطَعْنَا ۖ غُفْرَانَكَ رَبَّنَا وَإِلَيْكَ الْمَصِيرُ",
+                "translations": {
+                      "en": "The Messenger has believed in what was revealed to him from his Lord, and [so have] the believers. All of them have believed in Allah and His angels and His books and His messengers, [saying], 'We make no distinction between any of His messengers.' And they say, 'We hear and we obey. [We seek] Your forgiveness, our Lord, and to You is the [final] destination.'",
+                      "sv": "Sändebudet tror på vad som har uppenbarats för honom från hans Herre, och det gör även de troende. Alla tror de på Gud, Hans änglar, Hans skrifter och Hans sändebud: 'Vi gör ingen skillnad mellan något av Hans sändebud.' Och de säger: 'Vi har hört och vi lyder. Förlåt oss, Herre! Till Dig är återkomsten.'",
+                      "fr": "Le Messager a cru en ce qu'on a fait descendre vers lui venant de son Seigneur, et aussi les croyants : tous ont cru en Allah, en Ses anges, à Ses livres et en Ses messagers ; [en disant] : 'Nous ne faisons aucune distinction entre Ses messagers.' Et ils ont dit : 'Nous avons entendu et obéi. Seigneur, nous implorons Ton pardon. C'est à Toi que sera le retour.'"
+                }
+          },
+          "after": {
+                "verseNumber": "284",
+                "arabicText": "لِّلَّهِ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ وَإِن تُبْدُوا مَا فِي أَنفُسِكُمْ أَوْ تُخْفُوهُ يُحَاسِبْكُم بِهِ اللَّهُ ۖ فَيَغْفِرُ لِمَن يَشَاءُ وَيُعَذِّبُ مَن يَشَاءُ ۗ وَاللَّهُ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ",
+                "translations": {
+                      "en": "To Allah belongs whatever is in the heavens and whatever is in the earth. Whether you show what is within yourselves or conceal it, Allah will bring you to account for it. Then He will forgive whom He wills and punish whom He wills, and Allah is over all things competent.",
+                      "sv": "Allt som himlarna och jorden rymmer tillhör Gud. Vare sig ni öppet visar vad som finns i era hjärtan eller döljer det, ska Gud ställa er till svars för det. Han förlåter den Han vill och straffar den Han vill. Gud har makt över allt.",
+                      "fr": "À Allah appartient tout ce qui est dans les cieux et sur la terre. Que vous manifestiez ce qui est en vous ou que vous le cachiez, Allah vous en demandera compte. Puis Il pardonnera à qui Il veut, et châtiera qui Il veut. Et Allah est Omnipotent."
+                }
+          }
     }
   },
   {
@@ -1407,6 +1707,26 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       understand: "The word 'Asrafoo' literally means to exceed the boundary. Allah recognizes that you crossed the boundary against your own self, yet still extends His hand with love.",
       reflectPrompt: "What old mistake or shame is holding you hostage, telling you that you are fundamentally broken or unlovable?",
       applyAction: "Turn toward the Qiblah, raise your hands, and say: 'Ya Rabb, I am Your servant who has exceeded boundaries, but Your mercy is greater than my sins. Forgive me.'"
+    },
+    surroundingVerses: {
+          "before": {
+                "verseNumber": "52",
+                "arabicText": "أَوَلَمْ يَعْلَمُوا أَنَّ اللَّهَ يَبْسُطُ الرِّزْقَ لِمَن يَشَاءُ وَيَقْدِرُ ۚ إِنَّ فِي ذَٰلِكَ لَآيَاتٍ لِّقَوْمٍ يُؤْمِنُونَ",
+                "translations": {
+                      "en": "Do they not know that Allah extends provision for whom He wills and restricts it? Indeed in that are signs for a people who believe.",
+                      "sv": "Vet de inte att Gud ger riklig försörjning till den Han vill och mäter ut den sparsamt [åt den Han vill]? I detta ligger sannerligen tecken för de troende.",
+                      "fr": "Ne savent-ils pas qu'Allah accorde Ses dons avec largesse à qui Il veut, ou les restreint ? Il y a en cela des preuves pour des gens qui croient."
+                }
+          },
+          "after": {
+                "verseNumber": "54",
+                "arabicText": "وَأَنِيبُوا إِلَىٰ رَبِّكُمْ وَأَسْلِمُوا لَهُ مِن قَبْلِ أَن يَأْتِيَكُمُ الْعَذَابُ ثُمَّ لَا تُنصَرُونَ",
+                "translations": {
+                      "en": "And return [in repentance] to your Lord and submit to Him before the punishment comes upon you; then you will not be helped.",
+                      "sv": "Och vänd om i ånger till er Herre och underkasta er Honom innan straffet drabbar er; därefter får ni ingen hjälp.",
+                      "fr": "Et revenez repentants à votre Seigneur, et soumettez-vous à Lui, avant que ne vous vienne le châtiment et vous ne recevrez alors aucun secours."
+                }
+          }
     }
   }
 ];

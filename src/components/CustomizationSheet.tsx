@@ -79,6 +79,8 @@ export interface CustomizationSheetProps {
   // Accessibility & Reading Preferences
   arabicScale: number;
   onArabicScaleChange: (scale: number) => void;
+  readingScale?: number;
+  onReadingScaleChange?: (scale: number) => void;
   showTransliteration: boolean;
   onToggleTransliteration: () => void;
   isHighContrast: boolean;
@@ -117,6 +119,7 @@ const UI_TEXT: Record<
     done: string;
     reset: string;
     arabicSize: string;
+    readingSize: string;
     translit: string;
     highContrast: string;
     perspective: string;
@@ -125,8 +128,8 @@ const UI_TEXT: Record<
   }
 > = {
   en: {
-    title: 'Preferences & Contemplation Depth',
-    subtitle: 'Customize language, theme, offline storage, and reading comfort.',
+    title: 'Preferences & Reading Comfort',
+    subtitle: 'Customize language, theme, font sizing, and offline storage.',
     languageTab: 'Language & Appearance',
     themeLabel: 'Color Theme',
     darkMode: 'Dark Sanctuary',
@@ -144,6 +147,7 @@ const UI_TEXT: Record<
     done: 'Return to Guidance',
     reset: 'Reset Defaults',
     arabicSize: 'Arabic Text Scale',
+    readingSize: 'Translation & Notes Text Scale',
     translit: 'Phonetic Transliteration',
     highContrast: 'High Contrast Mode',
     perspective: 'Perspective View',
@@ -151,8 +155,8 @@ const UI_TEXT: Record<
     inquirer: 'Inquirer (Historical Context)',
   },
   sv: {
-    title: 'Inställningar & Reflektionsdjup',
-    subtitle: 'Anpassa språk, tema, offlinelagring och läskomfort.',
+    title: 'Inställningar & Läskomfort',
+    subtitle: 'Anpassa språk, tema, textstorlekar och offlinelagring.',
     languageTab: 'Språk & Utseende',
     themeLabel: 'Färgtema',
     darkMode: 'Mörkt läge',
@@ -170,6 +174,7 @@ const UI_TEXT: Record<
     done: 'Tillbaka till vägledning',
     reset: 'Återställ',
     arabicSize: 'Arabisk textstorlek',
+    readingSize: 'Textstorlek för översättning & anteckningar',
     translit: 'Fonetisk translitterering',
     highContrast: 'Hög kontrast',
     perspective: 'Perspektiv',
@@ -177,8 +182,8 @@ const UI_TEXT: Record<
     inquirer: 'Nyfiken (Historiskt sammanhang)',
   },
   fr: {
-    title: 'Préférences & Profondeur de Méditation',
-    subtitle: 'Ajustez la langue, le thème, le mode hors-ligne et le confort visuel.',
+    title: 'Préférences & Confort Visuel',
+    subtitle: 'Ajustez la langue, le thème, la taille des polices et le mode hors-ligne.',
     languageTab: 'Langue & Apparence',
     themeLabel: 'Thème visuel',
     darkMode: 'Mode Sombre',
@@ -196,6 +201,7 @@ const UI_TEXT: Record<
     done: 'Retour à la guidance',
     reset: 'Réinitialiser',
     arabicSize: 'Taille du texte arabe',
+    readingSize: 'Taille du texte des traductions & notes',
     translit: 'Translittération phonétique',
     highContrast: 'Contraste élevé',
     perspective: 'Perspective',
@@ -203,8 +209,8 @@ const UI_TEXT: Record<
     inquirer: 'Curieux (Contexte historique)',
   },
   ar: {
-    title: 'الإعدادات وعمق التدبر',
-    subtitle: 'خصص اللغة، والمظهر، والتخزين دون اتصال، وخصائص القراءة المريحة.',
+    title: 'الإعدادات وراحة القراءة',
+    subtitle: 'خصص اللغة، والمظهر، وأحجام الخطوط، والتخزين دون اتصال.',
     languageTab: 'اللغة والمظهر',
     themeLabel: 'نمط الإضاءة',
     darkMode: 'الوضع الليلي',
@@ -222,6 +228,7 @@ const UI_TEXT: Record<
     done: 'العودة إلى التوجيه',
     reset: 'إعادة ضبط',
     arabicSize: 'حجم الرسم العثماني',
+    readingSize: 'حجم خط الترجمة والخواطر',
     translit: 'اللفظ اللاتيني',
     highContrast: 'تباين عالٍ',
     perspective: 'طبيعة العرض',
@@ -356,6 +363,8 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   onSphereChange,
   arabicScale,
   onArabicScaleChange,
+  readingScale = 1.0,
+  onReadingScaleChange,
   showTransliteration,
   onToggleTransliteration,
   isHighContrast,
@@ -587,56 +596,7 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
           </div>
         )}
 
-        {/* Section 1: Session Duration */}
-        <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-amber-600" />
-              {t.sessionTab}
-            </span>
-            <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-              {sessionDepth}
-            </span>
-          </div>
-          <SessionDepthSelector
-            currentDepth={sessionDepth}
-            onSelectDepth={onSessionDepthChange}
-            language={language}
-          />
-        </div>
-
-        {/* Section 2: Explanation & Exegesis Depth */}
-        <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-              {t.explanationTab}
-            </span>
-            <span className="text-xs capitalize text-slate-500 dark:text-slate-400">
-              {explanationDepth}
-            </span>
-          </div>
-          <ExplanationDepthSelector
-            currentDepth={explanationDepth}
-            onSelectDepth={onExplanationDepthChange}
-            language={language}
-          />
-        </div>
-
-        {/* Section 3: Life Spheres Filter */}
-        <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-          <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-amber-600" />
-            {t.spheresTab}
-          </span>
-          <SphereFilter
-            activeSphere={activeSphere}
-            onSelectSphere={onSphereChange}
-            language={language}
-          />
-        </div>
-
-        {/* Section 4: Typography & Visual Accessibility */}
+        {/* Section: Typography & Visual Accessibility */}
         <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
           <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
             <Type className="w-3.5 h-3.5 text-amber-600" />
@@ -681,6 +641,47 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
               </button>
             </div>
           </div>
+
+          {/* General Reading & Translation Text Scaling */}
+          {onReadingScaleChange && (
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30">
+              <div>
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  {t.readingSize}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                  {Math.round(readingScale * 100)}%
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onReadingScaleChange(Math.max(0.8, readingScale - 0.1))}
+                  className="w-9 h-9 rounded-xl border border-slate-300 dark:border-emerald-800 bg-white dark:bg-emerald-900/30 font-bold text-xs flex items-center justify-center cursor-pointer"
+                  aria-label="Decrease translation scale"
+                >
+                  A-
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onReadingScaleChange(1.0)}
+                  className="px-2.5 h-9 rounded-xl border border-slate-200 dark:border-emerald-800 text-xs text-slate-500 flex items-center justify-center cursor-pointer"
+                  title="Reset translation scale"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onReadingScaleChange(Math.min(1.7, readingScale + 0.1))}
+                  className="w-9 h-9 rounded-xl border border-slate-300 dark:border-emerald-800 bg-white dark:bg-emerald-900/30 font-bold text-xs flex items-center justify-center cursor-pointer"
+                  aria-label="Increase translation scale"
+                >
+                  A+
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Toggles Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

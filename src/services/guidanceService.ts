@@ -101,8 +101,10 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
     return null;
   }
 
-  const surahNum = match.surah.number;
-  const ayahNum = match.ayah.ayah_number;
+  const surah = match.surah;
+  const ayah = match.ayah;
+  const surahNum = surah.number;
+  const ayahNum = ayah.ayah_number;
   const paddedSurah = String(surahNum).padStart(3, '0');
   const paddedAyah = String(ayahNum).padStart(3, '0');
 
@@ -112,30 +114,32 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
       text: '',
       source: 'Saheeh International',
     };
-  const svTrans =
-    match.translations?.find((t) => t.language_code === 'sv') || {
-      text: enTrans.text,
-      source: 'Mohammed Knut Bernström',
-    };
-  const frTrans =
-    match.translations?.find((t) => t.language_code === 'fr') || {
-      text: enTrans.text,
-      source: 'Muhammad Hamidullah',
-    };
+  const svTrans = match.translations?.find((t) => t.language_code === 'sv');
+  const frTrans = match.translations?.find((t) => t.language_code === 'fr');
   const arTrans = match.translations?.find((t) => t.language_code === 'ar');
 
   const rawTafsirs = match.tafsirs || [];
+
+  // Filter out any tafsir that equals the Quranic verse or duplicates any translation
+  const trustedTafsirs = rawTafsirs.filter((t) => {
+    if (!t || !t.text) return false;
+    const txt = t.text.trim();
+    if (txt.length === 0) return false;
+    if (txt === ayah.text_uthmani.trim() || txt === ayah.text_clean.trim()) return false;
+    if (enTrans.text && txt === enTrans.text.trim()) return false;
+    if (svTrans?.text && txt === svTrans.text.trim()) return false;
+    if (frTrans?.text && txt === frTrans.text.trim()) return false;
+    return true;
+  });
+
   const findScholarTafsir = (scholarKey: 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar', defaultBook: string) => {
-    const found = rawTafsirs.find((t) =>
+    const found = trustedTafsirs.find((t) =>
       t.scholar_name.toLowerCase().includes(scholarKey.toLowerCase().split(' ')[1] || scholarKey.toLowerCase())
     );
     return {
       scholar: scholarKey,
       sourceBook: found?.work_title || defaultBook,
-      text:
-        found?.text ||
-        rawTafsirs[0]?.text ||
-        `Classical commentary on Surah ${match.surah?.name_english} (${id}): "${enTrans.text}"`,
+      text: found?.text || '', // Honest: empty if no authentic tafsir in DB, never synthesize with translation
       sourceType: (found?.source_type as any) || 'classical_book',
       sourceReference: found?.source_reference,
       originalArabicRaw: found?.original_arabic_raw,
@@ -144,8 +148,8 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
   };
 
   const dynamicTafsirCitations =
-    rawTafsirs.length > 0
-      ? rawTafsirs.map((t) => ({
+    trustedTafsirs.length > 0
+      ? trustedTafsirs.map((t) => ({
           scholar: t.scholar_name,
           sourceBook: t.work_title,
           text: t.text,
@@ -158,7 +162,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
           findScholarTafsir('Ibn Kathir', "Tafsir al-Qur'an al-'Azim"),
           findScholarTafsir("Al-Sa'di", 'Taysir al-Karim al-Rahman'),
           findScholarTafsir('Al-Muyassar', 'Al-Tafsir Al-Muyassar'),
-        ];
+        ].filter((c) => c.text.length > 0);
 
   const revType =
     match.surah.revelation_place?.toLowerCase() === 'medinan' ? 'Medinan' : 'Meccan';
@@ -177,9 +181,17 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
     transliteration: '',
     translations: {
       en: { text: enTrans.text, translator: enTrans.source || 'Saheeh International' },
-      sv: { text: svTrans.text, translator: svTrans.source || 'Mohammed Knut Bernström' },
-      fr: { text: frTrans.text, translator: frTrans.source || 'Muhammad Hamidullah' },
-      ...(arTrans ? { ar: { text: arTrans.text, translator: arTrans.source } } : {}),
+      sv: {
+        text: svTrans?.text || '',
+        translator: svTrans?.source || (svTrans?.text ? 'Mohammed Knut Bernström' : ''),
+      },
+      fr: {
+        text: frTrans?.text || '',
+        translator: frTrans?.source || (frTrans?.text ? 'Muhammad Hamidullah' : ''),
+      },
+      ...(arTrans?.text && arTrans.text !== ayah.text_uthmani
+        ? { ar: { text: arTrans.text, translator: arTrans.source || 'بيان المعاني' } }
+        : {}),
     },
     audioUrl: `https://everyayah.com/data/Alafasy_128kbps/${paddedSurah}${paddedAyah}.mp3`,
     category: 'moment',

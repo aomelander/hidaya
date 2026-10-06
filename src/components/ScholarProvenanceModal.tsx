@@ -387,7 +387,10 @@ export const ScholarProvenanceModal: React.FC<ScholarProvenanceModalProps> = ({
               className="p-4 rounded-xl bg-white dark:bg-black/30 border border-amber-500/20 dark:border-emerald-800/30 text-right"
             >
               <p className="font-serif text-base sm:text-lg leading-loose text-slate-900 dark:text-amber-50 select-text">
-                {citation.originalArabicRaw || citation.text}
+                {citation.originalArabicRaw ||
+                  (language === 'ar'
+                    ? citation.text
+                    : 'النص العربي المنقول بلفظه الأصلي قيد التوثيق المباشر.')}
               </p>
             </div>
           </div>

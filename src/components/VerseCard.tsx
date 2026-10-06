@@ -57,6 +57,9 @@ interface VerseCardProps {
   verse: QuranVerseFixture;
   language: Language;
   arabicScale: number;
+  readingScale?: number;
+  cardIndex?: number;
+  totalCards?: number;
   showTransliteration: boolean;
   isBookmarked: boolean;
   onToggleBookmark: (verseId: string) => void;
@@ -72,7 +75,7 @@ interface VerseCardProps {
   preferredScholar?: PreferredScholar;
 }
 
-type InlineSection = 'none' | 'tafsir' | 'reflection' | 'context';
+type InlineSection = 'none' | 'tafsir' | 'reflection';
 
 const MOOD_LABELS: Record<Language, Record<ReflectionMood, string>> = {
   en: {
@@ -140,6 +143,10 @@ const UI_TEXT: Record<
     originalArabicSnippetTitle: string;
     exportPPTX: string;
     exportPDF: string;
+    reflectionNotepadTitle: string;
+    reflectionNotepadHint: string;
+    reflectionNotepadPlaceholder: string;
+    tafsirNoDataText: string;
   }
 > = {
   en: {
@@ -175,6 +182,10 @@ const UI_TEXT: Record<
     originalArabicSnippetTitle: 'Verbatim Arabic Source Snippet',
     exportPPTX: 'Export PPTX',
     exportPDF: 'Print / PDF',
+    reflectionNotepadTitle: 'Personal Reflection & Journal Note',
+    reflectionNotepadHint: 'Saved locally to your private Journal',
+    reflectionNotepadPlaceholder: 'Take a quiet moment to reflect. Write your thoughts, reflections, feelings, or a personal action or prayer inspired by this verse...',
+    tafsirNoDataText: 'No verified classical exegesis is currently indexed in this language for this scholar. Tap View Original Arabic Source or switch scholar.',
   },
   sv: {
     copyTooltip: 'Kopiera vers',
@@ -209,6 +220,10 @@ const UI_TEXT: Record<
     originalArabicSnippetTitle: 'Ordagrant arabiskt källutdrag',
     exportPPTX: 'Exportera PPTX',
     exportPDF: 'Skriv ut / PDF',
+    reflectionNotepadTitle: 'Personlig reflektion & anteckning',
+    reflectionNotepadHint: 'Sparas lokalt i din privata dagbok',
+    reflectionNotepadPlaceholder: 'Ta en stilla stund för eftertanke. Skriv dina egna tankar, känslor, en praktisk handling eller bön inspirerad av denna vers...',
+    tafsirNoDataText: 'Ingen verifierad kommentar är tillgänglig för denna lärd på detta språk ännu. Klicka på Visa ursprunglig källtext eller byt lärd.',
   },
   fr: {
     copyTooltip: 'Copier le verset',
@@ -243,6 +258,10 @@ const UI_TEXT: Record<
     originalArabicSnippetTitle: 'Extrait arabe original textuel',
     exportPPTX: 'Exporter PPTX',
     exportPDF: 'Imprimer / PDF',
+    reflectionNotepadTitle: 'Méditation personnelle & journal',
+    reflectionNotepadHint: 'Enregistré localement dans votre journal',
+    reflectionNotepadPlaceholder: 'Prenez un instant de recueillement. Notez vos pensées, ressentis, résolutions personnelles ou invocations inspirées de ce verset...',
+    tafsirNoDataText: 'Aucun commentaire vérifié n’est actuellement indexé dans cette langue pour ce savant. Consultez la source arabe originale ou changez d’exégète.',
   },
   ar: {
     copyTooltip: 'نسخ الآية',
@@ -277,6 +296,10 @@ const UI_TEXT: Record<
     originalArabicSnippetTitle: 'النص العربي المنقول بلفظه',
     exportPPTX: 'تصدير عارض (PPTX)',
     exportPDF: 'طباعة / PDF',
+    reflectionNotepadTitle: 'خواطر التدبر وتدوين اليوميات',
+    reflectionNotepadHint: 'تُحفظ محلياً في يومياتك الخاصة',
+    reflectionNotepadPlaceholder: 'وقفة تدبر ومحاسبة هادئة... سجّل خواطرك ومشاعرك، عهداً تقطعه على نفسك، أو دعاءً يفيض به قلبك مستوحى من هذه الآية الكريمة...',
+    tafsirNoDataText: 'لا يتوفر نص تفسيري موثق لهذا المفسر بهذه اللغة حالياً. انقر على عرض النص العربي الأصلي أو اختر مفسراً آخر.',
   },
 };
 
@@ -284,6 +307,9 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   verse,
   language,
   arabicScale,
+  readingScale = 1.0,
+  cardIndex,
+  totalCards,
   showTransliteration,
   isBookmarked,
   onToggleBookmark,
@@ -296,7 +322,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const [storyExported, setStoryExported] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
-  // Optional inclusion of adjacent preceding/following single verse when needed for context (max 3 consecutive verses)
+  // Optional inclusion of adjacent preceding/following single verse when needed for context
   const [includeBefore, setIncludeBefore] = useState(false);
   const [includeAfter, setIncludeAfter] = useState(false);
 
@@ -315,17 +341,14 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     }
   }, [preferredScholar]);
 
-  // Personal reflection inputs (stored locally in browser)
-  const [reflectNotes, setReflectNotes] = useState('');
-  const [applyNotes, setApplyNotes] = useState('');
-  const [liveNotes, setLiveNotes] = useState('');
+  // Personal reflection note (stored locally in browser)
+  const [reflectionNotes, setReflectionNotes] = useState('');
   const [selectedMood, setSelectedMood] = useState<ReflectionMood | undefined>(undefined);
   const [isExportingPPTX, setIsExportingPPTX] = useState(false);
 
   const t = UI_TEXT[language] || UI_TEXT.en;
   const moodDict = MOOD_LABELS[language] || MOOD_LABELS.en;
   const localizedDetails = getLocalizedVerseDetails(verse, language);
-  const localizedReflection = getLocalizedReflection(verse.id, language);
   const ageBundle = useMemo(() => getAgeAdaptiveContent(verse, language), [verse, language]);
 
   // Count how many consecutive verses are already in the base fixture (e.g. "134" = 1, "5-6" = 2, "3-5" = 3)
@@ -337,32 +360,21 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   }, [verse.verseNumber]);
 
   const canAddBefore = useMemo(() => {
-    const bNum = parseInt(verse.surroundingVerses?.before?.verseNumber || '', 10);
-    return (
-      !isNaN(bNum) &&
-      !verse.surroundingVerses?.before?.verseNumber.includes('-') &&
-      bNum === baseRangeBounds.start - 1 &&
-      baseRangeBounds.count < 3
-    );
-  }, [verse.surroundingVerses, baseRangeBounds]);
+    return Boolean(verse.surroundingVerses?.before);
+  }, [verse.surroundingVerses]);
 
   const canAddAfter = useMemo(() => {
-    const aNum = parseInt(verse.surroundingVerses?.after?.verseNumber || '', 10);
-    const currentCount = baseRangeBounds.count + (includeBefore && canAddBefore ? 1 : 0);
-    return (
-      !isNaN(aNum) &&
-      !verse.surroundingVerses?.after?.verseNumber.includes('-') &&
-      aNum === baseRangeBounds.end + 1 &&
-      currentCount < 3
-    );
-  }, [verse.surroundingVerses, baseRangeBounds, includeBefore, canAddBefore]);
+    return Boolean(verse.surroundingVerses?.after);
+  }, [verse.surroundingVerses]);
 
   const effectiveStartVerse =
-    includeBefore && canAddBefore ? baseRangeBounds.start - 1 : baseRangeBounds.start;
+    includeBefore && canAddBefore && verse.surroundingVerses?.before
+      ? verse.surroundingVerses.before.verseNumber
+      : String(baseRangeBounds.start);
   const effectiveEndVerse =
-    includeAfter && canAddAfter
-      ? Math.min(effectiveStartVerse + 2, baseRangeBounds.end + 1)
-      : Math.min(effectiveStartVerse + 2, baseRangeBounds.end);
+    includeAfter && canAddAfter && verse.surroundingVerses?.after
+      ? verse.surroundingVerses.after.verseNumber
+      : String(baseRangeBounds.end);
 
   const effectiveVerseNumberStr =
     effectiveStartVerse === effectiveEndVerse
@@ -370,17 +382,53 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       : `${effectiveStartVerse}-${effectiveEndVerse}`;
 
   const effectiveVerseId = `${verse.surahNumber}:${effectiveVerseNumberStr}`;
+  const availableCitations = localizedDetails.tafsirCitations;
 
-  const baseTranslationObj =
-    language === 'ar'
-      ? {
-          text:
-            localizedDetails.tafsirCitations[2]?.text ||
-            localizedDetails.tafsirCitations[0]?.text ||
-            verse.arabicText,
-          translator: 'التفسير الميسر - مجمع الملك فهد',
-        }
-      : verse.translations[language] || verse.translations.en;
+  // Level 2 Human Translation object: Strictly distinct from Tafsir to prevent duplicate text
+  const baseTranslationObj = useMemo(() => {
+    if (language === 'ar') {
+      const arTrans = verse.translations.ar?.text?.trim();
+      // In Arabic, if no distinct translation exists or if it duplicates Arabic text/Tafsir, omit Level 2
+      const isDuplicateOfQuranOrTafsir =
+        !arTrans ||
+        arTrans === verse.arabicText.trim() ||
+        availableCitations.some((c) => c.text?.trim() === arTrans);
+
+      if (isDuplicateOfQuranOrTafsir) {
+        return null;
+      }
+      return {
+        text: arTrans,
+        translator: verse.translations.ar?.translator || 'بيان المعاني',
+      };
+    }
+
+    const currentTrans = verse.translations[language];
+    if (currentTrans?.text && currentTrans.text.trim().length > 0) {
+      const transTrim = currentTrans.text.trim();
+      // Verify not equal to Quranic Arabic or Tafsir text
+      if (
+        transTrim !== verse.arabicText.trim() &&
+        !availableCitations.some((c) => c.text?.trim() === transTrim)
+      ) {
+        return currentTrans;
+      }
+    }
+
+    // Only fall back to English if requested language is not available and English is distinct
+    if (language !== 'en' && verse.translations.en?.text) {
+      const enTrim = verse.translations.en.text.trim();
+      if (
+        enTrim.length > 0 &&
+        enTrim !== verse.arabicText.trim() &&
+        !availableCitations.some((c) => c.text?.trim() === enTrim)
+      ) {
+        return verse.translations.en;
+      }
+    }
+
+    return null;
+  }, [language, verse.translations, verse.arabicText, availableCitations]);
 
   const combinedArabicText = useMemo(() => {
     const parts: string[] = [];
@@ -395,6 +443,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   }, [verse, includeBefore, canAddBefore, includeAfter, canAddAfter]);
 
   const combinedTranslationText = useMemo(() => {
+    if (!baseTranslationObj) return '';
     const parts: string[] = [];
     if (includeBefore && canAddBefore && verse.surroundingVerses?.before) {
       const bTrans =
@@ -410,12 +459,14 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       if (aTrans) parts.push(aTrans);
     }
     return parts.join(' ');
-  }, [verse, language, baseTranslationObj.text, includeBefore, canAddBefore, includeAfter, canAddAfter]);
+  }, [verse, language, baseTranslationObj, includeBefore, canAddBefore, includeAfter, canAddAfter]);
 
-  const translationObj = {
-    text: combinedTranslationText,
-    translator: baseTranslationObj.translator,
-  };
+  const translationObj = baseTranslationObj
+    ? {
+        text: combinedTranslationText,
+        translator: baseTranslationObj.translator,
+      }
+    : null;
 
   // Split Uthmani Arabic into words for synchronized word-by-word reading highlight
   const arabicWords = useMemo(
@@ -425,8 +476,8 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
   // Split Translation into words for synchronized word-by-word highlight when translation voiceover plays
   const translationWords = useMemo(
-    () => translationObj.text.trim().split(/\s+/).filter(Boolean),
-    [translationObj.text]
+    () => (translationObj?.text || '').trim().split(/\s+/).filter(Boolean),
+    [translationObj?.text]
   );
 
   const activeWordIndex = useMemo(() => {
@@ -446,20 +497,22 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     setIncludeAfter(false);
     const saved = StorageService.getReflection(verse.id);
     if (saved) {
-      setReflectNotes(saved.reflectNotes || '');
-      setApplyNotes(saved.applyNotes || '');
-      setLiveNotes(saved.liveNotes || '');
+      const combined = [saved.reflectNotes, saved.applyNotes, saved.liveNotes]
+        .filter(Boolean)
+        .join('\n\n');
+      setReflectionNotes(combined);
       setSelectedMood(saved.mood);
     } else {
-      setReflectNotes('');
-      setApplyNotes('');
-      setLiveNotes('');
+      setReflectionNotes('');
       setSelectedMood(undefined);
     }
   }, [verse.id]);
 
   const handleCopy = () => {
-    const textToCopy = `${verse.arabicText}\n\n"${translationObj.text}"\n— ${localizedDetails.surahPrefix} ${localizedDetails.surahNameDisplay} (${verse.id}) [${translationObj.translator}]`;
+    const translationPortion = translationObj?.text
+      ? `\n\n"${translationObj.text}"\n— ${translationObj.translator}`
+      : '';
+    const textToCopy = `${verse.arabicText}${translationPortion}\n— ${localizedDetails.surahPrefix} ${localizedDetails.surahNameDisplay} (${verse.id})`;
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -542,21 +595,23 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       ctx.lineTo(width / 2 + 140, y);
       ctx.stroke();
 
-      // Translation text
-      y += 80;
-      ctx.fillStyle = '#ECFDF5';
-      ctx.font = 'italic 36px sans-serif';
-      const transLines = wrapText(`"${translationObj.text}"`, width - 220).slice(0, 10);
-      for (const line of transLines) {
-        ctx.fillText(line, width / 2, y);
-        y += 56;
-      }
+      // Translation text if available
+      if (translationObj && translationObj.text.trim().length > 0) {
+        y += 80;
+        ctx.fillStyle = '#ECFDF5';
+        ctx.font = 'italic 36px sans-serif';
+        const transLines = wrapText(`"${translationObj.text}"`, width - 220).slice(0, 10);
+        for (const line of transLines) {
+          ctx.fillText(line, width / 2, y);
+          y += 56;
+        }
 
-      // Translator attribution
-      y += 24;
-      ctx.fillStyle = '#6EE7B7';
-      ctx.font = '500 28px sans-serif';
-      ctx.fillText(`— ${translationObj.translator}`, width / 2, y);
+        // Translator attribution
+        y += 24;
+        ctx.fillStyle = '#6EE7B7';
+        ctx.font = '500 28px sans-serif';
+        ctx.fillText(`— ${translationObj.translator}`, width / 2, y);
+      }
 
       // Footer
       ctx.fillStyle = 'rgba(255, 251, 235, 0.6)';
@@ -579,9 +634,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const handleSaveReflection = () => {
     StorageService.saveReflection(verse.id, {
       verseId: verse.id,
-      reflectNotes,
-      applyNotes,
-      liveNotes,
+      understandNotes: '',
+      reflectNotes: reflectionNotes,
+      applyNotes: '',
+      liveNotes: '',
       mood: selectedMood,
     });
     StorageService.recordDailyVisit();
@@ -600,9 +656,9 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         verseId: verse.id,
         date: new Date().toISOString(),
         understandNotes: '',
-        reflectNotes,
-        applyNotes,
-        liveNotes,
+        reflectNotes: reflectionNotes,
+        applyNotes: '',
+        liveNotes: '',
         mood: selectedMood,
       };
       await ExportService.exportToPPTX(verse, language, reflectionPayload);
@@ -628,8 +684,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       ? 'تُفهم هذه الآية الكريمة في ضوء سياقها القرآني العام ومقاصد الشريعة.'
       : 'Read this passage within its broader Quranic context and scholarly tradition.');
 
-  const hasSavedNotes = Boolean(reflectNotes.trim() || applyNotes.trim() || liveNotes.trim());
-  const availableCitations = localizedDetails.tafsirCitations;
+  const hasSavedNotes = Boolean(reflectionNotes.trim());
   const currentCitation = useMemo(() => {
     if (!availableCitations || availableCitations.length === 0) return null;
     const match = availableCitations.find(
@@ -637,6 +692,22 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     );
     return match || availableCitations[0];
   }, [availableCitations, selectedScholar]);
+
+  // Trusted Tafsir text audit check: ensure commentary text is genuine and not duplicated from Quran or Translation
+  const isTrustedTafsirText = useMemo(() => {
+    if (!currentCitation?.text) return false;
+    const tafsirTrimmed = currentCitation.text.trim();
+    if (tafsirTrimmed.length === 0) return false;
+    // Check if duplicate of Quranic text
+    if (tafsirTrimmed === verse.arabicText.trim()) return false;
+    // Check if duplicate of active human translation
+    if (translationObj?.text && tafsirTrimmed === translationObj.text.trim()) return false;
+    // Check if duplicate of any raw translation in the fixture
+    for (const trans of Object.values(verse.translations)) {
+      if (trans?.text && tafsirTrimmed === trans.text.trim()) return false;
+    }
+    return true;
+  }, [currentCitation, verse.arabicText, verse.translations, translationObj]);
 
   const rootItem = ageBundle.defaultRoot;
 
@@ -661,6 +732,11 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             <span className="text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-400 tabular-nums">
               {effectiveVerseId}
             </span>
+            {totalCards !== undefined && totalCards > 1 && (
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-900/10 dark:bg-emerald-400/15 text-emerald-800 dark:text-emerald-300 font-semibold">
+                #{cardIndex !== undefined ? cardIndex + 1 : 1} of {totalCards}
+              </span>
+            )}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             <span>{localizedDetails.surahMeaning}</span>
@@ -799,31 +875,36 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         </section>
 
         {/* LEVEL 2: Certified Human Translation with Word-by-Word Highlighting when Spoken */}
-        <section aria-label="Level 2: Certified Translation" className="space-y-1.5">
-          <blockquote className="text-slate-800 dark:text-slate-100 text-base sm:text-lg leading-relaxed">
-            &ldquo;
-            {translationWords.map((word, idx) => {
-              const isWordActive = idx === activeTranslationWordIndex;
-              return (
-                <React.Fragment key={idx}>
-                  <span
-                    className={`inline-block rounded-md px-0.5 transition-colors duration-150 ${
-                      isWordActive
-                        ? 'bg-amber-400/35 dark:bg-amber-400/30 text-emerald-950 dark:text-amber-200 underline decoration-amber-500 decoration-2 underline-offset-4'
-                        : ''
-                    }`}
-                  >
-                    {word}
-                  </span>{' '}
-                </React.Fragment>
-              );
-            })}
-            &rdquo;
-          </blockquote>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            — {translationObj.translator}
-          </p>
-        </section>
+        {translationObj && translationObj.text.trim().length > 0 && (
+          <section aria-label="Level 2: Certified Translation" className="space-y-1.5">
+            <blockquote
+              style={{ fontSize: `${readingScale * 1.125}rem` }}
+              className="text-slate-800 dark:text-slate-100 leading-relaxed font-serif"
+            >
+              &ldquo;
+              {translationWords.map((word, idx) => {
+                const isWordActive = idx === activeTranslationWordIndex;
+                return (
+                  <React.Fragment key={idx}>
+                    <span
+                      className={`inline-block rounded-md px-0.5 transition-colors duration-150 ${
+                        isWordActive
+                          ? 'bg-amber-400/35 dark:bg-amber-400/30 text-emerald-950 dark:text-amber-200 underline decoration-amber-500 decoration-2 underline-offset-4'
+                          : ''
+                      }`}
+                    >
+                      {word}
+                    </span>{' '}
+                  </React.Fragment>
+                );
+              })}
+              &rdquo;
+            </blockquote>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              — {translationObj.translator}
+            </p>
+          </section>
+        )}
 
         {/* LEVEL 4 (Kids & Family Companion): Simple Story & Family Question when Kids Mode is active */}
         {readerProfile === 'kids' && (
@@ -888,7 +969,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             surahNumber={verse.surahNumber}
             verseNumber={effectiveVerseNumberStr}
             surahVerseId={effectiveVerseId}
-            translationText={translationObj.text}
+            translationText={translationObj?.text || ''}
             language={language}
             onPlaybackProgress={(ratio, playing, phase) => {
               setPlaybackRatio(ratio);
@@ -898,14 +979,14 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           />
         </div>
 
-        {/* Single-Row 3-Segment Inline Disclosure Bar (Tafsir · Reflection · Context) */}
-        <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-emerald-950/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40">
+        {/* Single-Row 2-Segment Inline Disclosure Bar (Tafsir · Reflection) */}
+        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-emerald-950/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40">
           {/* Level 3: Inline Classical Tafsir Toggle */}
           <button
             type="button"
             onClick={() => toggleSection('tafsir')}
             aria-expanded={activeSection === 'tafsir'}
-            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate ${
+            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate ${
               activeSection === 'tafsir'
                 ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
                 : 'text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
@@ -925,7 +1006,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             type="button"
             onClick={() => toggleSection('reflection')}
             aria-expanded={activeSection === 'reflection'}
-            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate ${
+            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate ${
               activeSection === 'reflection'
                 ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
                 : 'text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
@@ -937,25 +1018,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Saved notes" />
             )}
             {activeSection === 'reflection' ? (
-              <ChevronUp className="w-3.5 h-3.5 shrink-0" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-70" />
-            )}
-          </button>
-
-          {/* Context, Root Imagery, Family Halaqah & Surrounding Verses Toggle */}
-          <button
-            type="button"
-            onClick={() => toggleSection('context')}
-            aria-expanded={activeSection === 'context'}
-            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate ${
-              activeSection === 'context'
-                ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
-                : 'text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
-            }`}
-          >
-            <span className="truncate">{t.contextTab}</span>
-            {activeSection === 'context' ? (
               <ChevronUp className="w-3.5 h-3.5 shrink-0" />
             ) : (
               <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-70" />
@@ -998,7 +1060,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               </div>
             )}
 
-            {currentCitation && (
+            {currentCitation && isTrustedTafsirText ? (
               <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 space-y-3.5 shadow-2xs">
                 {/* Header: Scholar info + Provenance Badge + View Original Source Trigger */}
                 <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-emerald-900/40">
@@ -1069,7 +1131,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 )}
 
                 {/* Translated Commentary Text */}
-                <p className="text-sm leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line">
+                <p
+                  style={{ fontSize: `${readingScale * 0.95}rem` }}
+                  className="leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line"
+                >
                   {currentCitation.text}
                 </p>
 
@@ -1079,6 +1144,20 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                     * {currentCitation.translationDisclaimer}
                   </p>
                 )}
+              </div>
+            ) : (
+              <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/50 dark:bg-emerald-950/20 border border-amber-900/10 dark:border-emerald-800/20 text-center space-y-2.5">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+                  {t.tafsirNoDataText}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setProvenanceModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-emerald-200 bg-white dark:bg-emerald-900/40 border border-emerald-900/15 dark:border-emerald-700/40 hover:bg-emerald-800 hover:text-white transition-colors cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>{t.viewProvenanceBtn}</span>
+                </button>
               </div>
             )}
 
@@ -1103,13 +1182,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 </div>
               </div>
             )}
-
-            <div className="pt-3 border-t border-emerald-900/10 dark:border-emerald-800/30 text-xs text-slate-600 dark:text-slate-400">
-              <span className="font-semibold text-emerald-900 dark:text-emerald-300">
-                {t.revelationLabel}:{' '}
-              </span>
-              <span>{localizedDetails.revelationContext}</span>
-            </div>
           </div>
         )}
 
@@ -1144,60 +1216,28 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               </div>
             </div>
 
-            <div className="space-y-1">
-              <h3 className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
-                {t.step1Title}
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                {localizedReflection.understand}
-              </p>
-            </div>
+            {/* Clean Personal Reflection Note & Journal Command Box */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor={`reflection-notes-${verse.id}`}
+                  className="block text-xs font-bold text-emerald-900 dark:text-emerald-300"
+                >
+                  {t.reflectionNotepadTitle}
+                </label>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {t.reflectionNotepadHint}
+                </span>
+              </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
-                {t.step2Title}
-              </label>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                {localizedReflection.reflectPrompt}
-              </p>
               <textarea
-                value={reflectNotes}
-                onChange={(e) => setReflectNotes(e.target.value)}
-                placeholder={t.step2Placeholder}
-                rows={2}
-                className="w-full p-3 text-xs sm:text-sm rounded-xl bg-white dark:bg-emerald-950/50 border border-slate-200 dark:border-emerald-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
-                {t.step3Title}
-              </label>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                {localizedReflection.applyAction}
-              </p>
-              <textarea
-                value={applyNotes}
-                onChange={(e) => setApplyNotes(e.target.value)}
-                placeholder={t.step3Placeholder}
-                rows={2}
-                className="w-full p-3 text-xs sm:text-sm rounded-xl bg-white dark:bg-emerald-950/50 border border-slate-200 dark:border-emerald-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
-                {t.step4Title}
-              </label>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                {localizedReflection.livePrompt}
-              </p>
-              <textarea
-                value={liveNotes}
-                onChange={(e) => setLiveNotes(e.target.value)}
-                placeholder={t.step4Placeholder}
-                rows={2}
-                className="w-full p-3 text-xs sm:text-sm rounded-xl bg-white dark:bg-emerald-950/50 border border-slate-200 dark:border-emerald-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                id={`reflection-notes-${verse.id}`}
+                value={reflectionNotes}
+                onChange={(e) => setReflectionNotes(e.target.value)}
+                placeholder={t.reflectionNotepadPlaceholder}
+                rows={5}
+                style={{ fontSize: `${readingScale * 0.9}rem` }}
+                className="w-full p-3.5 leading-relaxed rounded-2xl bg-white dark:bg-emerald-950/50 border border-slate-200 dark:border-emerald-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-600 placeholder:text-slate-400 dark:placeholder:text-emerald-300/40 text-slate-800 dark:text-slate-100 resize-y"
               />
             </div>
 
@@ -1237,97 +1277,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 <span>{isSaved ? t.savedBtn : t.saveBtn}</span>
               </button>
             </div>
-          </div>
-        )}
-
-        {/* INLINE PANEL 3: CONTEXT, ROOT IMAGERY, FAMILY QUESTION, BOUNDARY & SURROUNDING VERSES */}
-        {activeSection === 'context' && (
-          <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/30 border border-emerald-900/10 dark:border-emerald-800/30 space-y-4 text-xs sm:text-sm">
-            <div>
-              <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
-                {localizedDetails.mappingExplanation}
-              </p>
-            </div>
-
-            {/* Arabic Root Word Visual Imagery (Loved by 13yo & 17yo) */}
-            <div className="pt-3 border-t border-emerald-900/10 dark:border-emerald-800/30 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-emerald-900 dark:text-emerald-300">
-                  {t.rootImageryTitle}
-                </span>
-                <span className="font-arabic text-base text-amber-700 dark:text-amber-400 font-bold">
-                  {rootItem.termArabic} ({rootItem.termTransliterated}) · {rootItem.root}
-                </span>
-              </div>
-              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                {rootItem.literalImagery[language] || rootItem.literalImagery.en}
-              </p>
-            </div>
-
-            {/* Family Circle Question (Loved by 8yo & Parents) */}
-            <div className="pt-3 border-t border-emerald-900/10 dark:border-emerald-800/30 space-y-1">
-              <span className="font-semibold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-amber-600" />
-                {ageBundle.kids.familyQuestionTitle}
-              </span>
-              <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
-                {ageBundle.kids.familyQuestion}
-              </p>
-            </div>
-
-            {/* Contextual Boundary ("What this verse is NOT saying") */}
-            <div className="pt-3 border-t border-emerald-900/10 dark:border-emerald-800/30">
-              <span className="font-semibold text-amber-800 dark:text-amber-400 block mb-1">
-                {t.notSayingTitle}
-              </span>
-              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                {notSayingText}
-              </p>
-            </div>
-
-            {verse.surroundingVerses && (
-              <div className="pt-3 border-t border-emerald-900/10 dark:border-emerald-800/30 space-y-3">
-                {verse.surroundingVerses.before && (
-                  <div className="space-y-1">
-                    <span className="text-xs font-semibold text-slate-500">
-                      {t.beforeVerse} ({verse.surroundingVerses.before.verseNumber})
-                    </span>
-                    <p
-                      dir="rtl"
-                      className="font-arabic text-right text-base text-emerald-950 dark:text-emerald-100"
-                    >
-                      {verse.surroundingVerses.before.arabicText}
-                    </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 italic">
-                      &ldquo;
-                      {verse.surroundingVerses.before.translations[language] ||
-                        verse.surroundingVerses.before.translations.en}
-                      &rdquo;
-                    </p>
-                  </div>
-                )}
-
-                {verse.surroundingVerses.after && (
-                  <div className="space-y-1">
-                    <span className="text-xs font-semibold text-slate-500">
-                      {t.afterVerse} ({verse.surroundingVerses.after.verseNumber})
-                    </span>
-                    <p
-                      dir="rtl"
-                      className="font-arabic text-right text-base text-emerald-950 dark:text-emerald-100"
-                    >
-                      {verse.surroundingVerses.after.arabicText}
-                    </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 italic">
-                      &ldquo;
-                      {verse.surroundingVerses.after.translations[language] ||
-                        verse.surroundingVerses.after.translations.en}
-                      &rdquo;
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
       </div>

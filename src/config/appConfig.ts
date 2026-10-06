@@ -15,6 +15,7 @@ export const APP_CONFIG = {
   DEFAULTS: {
     LANGUAGE: 'en' as Language,
     ARABIC_SCALE: 1.15,
+    READING_SCALE: 1.0,
     SHOW_TRANSLITERATION: true,
     DARK_MODE: false,
     HIGH_CONTRAST: false,
@@ -33,6 +34,7 @@ export const APP_CONFIG = {
     REFLECTIONS: 'hidaya_reflections',
     LANGUAGE: 'hidaya_pref_lang',
     FONT_SIZE: 'hidaya_pref_font_size',
+    READING_SCALE: 'hidaya_pref_reading_scale',
     SHOW_TRANSLITERATION: 'hidaya_pref_transliteration',
     DARK_MODE: 'hidaya_pref_dark_mode',
     HIGH_CONTRAST: 'hidaya_pref_high_contrast',

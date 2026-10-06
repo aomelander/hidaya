@@ -315,39 +315,20 @@ export function getLocalizedVerseDetails(
       };
     }
 
-    // If this is a live database verse with real scholar tafsir text already populated, preserve it when appropriate
-    const hasDatabaseCommentary =
-      !override &&
-      cit.text &&
-      !cit.text.startsWith('Classical commentary on Surah') &&
-      cit.text.length > 20;
+    // Preserve authentic scholar tafsir text from database or fixtures without synthesizing or injecting translation
+    const isSyntheticPlaceholder =
+      !cit.text ||
+      cit.text.startsWith('Classical commentary on Surah') ||
+      cit.text.includes('Förklarar innebörden av "') ||
+      cit.text.includes('Explique le sens profond de «');
 
-    if (language === 'ar') {
-      if (hasDatabaseCommentary && /[\u0600-\u06FF]/.test(cit.text)) {
-        return cit;
-      }
+    if (isSyntheticPlaceholder) {
       return {
         ...cit,
-        text: `يبيّن ${cit.scholar} في (${cit.sourceBook}) هدايات قوله تعالى: ﴿${verse.arabicText}﴾ وما فيها من تثبيت للقلب وإرشاد إلى العمل الصالح والتقوى.`,
+        text: '', // Honest: empty rather than fake/duplicated translation
       };
     }
 
-    if (language === 'en' && hasDatabaseCommentary) {
-      return cit;
-    }
-
-    if (language === 'sv') {
-      return {
-        ...cit,
-        text: `${cit.scholar} (${cit.sourceBook}): Förklarar innebörden av "${localizedTranslationText}" i dess klassiska sammanhang – att förankra hjärtat i gudfruktighet, tålamod och ädel handling.`,
-      };
-    }
-    if (language === 'fr') {
-      return {
-        ...cit,
-        text: `${cit.scholar} (${cit.sourceBook}) : Explique le sens profond de « ${localizedTranslationText} » selon la tradition exégétique classique, invitant à la patience et à la droiture.`,
-      };
-    }
     return cit;
   });
 

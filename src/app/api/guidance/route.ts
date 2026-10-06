@@ -73,30 +73,25 @@ async function queryArabicTafsirForMatches(matches: any[], lang: LanguageCode) {
     }
   }
 
-  // Ensure Arabic tafsir entries (Tafsir Al-Muyassar / Ibn Kathir) are prioritized in every match
+  // Ensure authentic Arabic tafsir entries are prioritized and filter out any corrupted/duplicate records
   return matches.map((match) => {
     const existingTafsirs = Array.isArray(match.tafsirs) ? match.tafsirs : [];
-    const hasArabic = existingTafsirs.some((t: any) => t.language_code === 'ar');
-    if (hasArabic) {
-      return {
-        ...match,
-        tafsirs: [
-          ...existingTafsirs.filter((t: any) => t.language_code === 'ar'),
-          ...existingTafsirs.filter((t: any) => t.language_code !== 'ar'),
-        ],
-      };
-    }
+    const validTafsirs = existingTafsirs.filter((t: any) => {
+      if (!t || !t.text) return false;
+      const trimmed = t.text.trim();
+      // Must not equal raw Quranic text or translation
+      if (trimmed === match.ayah?.text_uthmani?.trim()) return false;
+      if (trimmed === match.ayah?.text_clean?.trim()) return false;
+      if (trimmed === match.selectedTranslation?.text?.trim()) return false;
+      return true;
+    });
+
+    const arabicList = validTafsirs.filter((t: any) => t.language_code === 'ar');
+    const otherList = validTafsirs.filter((t: any) => t.language_code !== 'ar');
+
     return {
       ...match,
-      tafsirs: [
-        {
-          scholar_name: 'التفسير الميسر (Al-Muyassar)',
-          work_title: 'التفسير الميسر - مجمع الملك فهد',
-          text: match.ayah?.text_uthmani || '',
-          language_code: 'ar',
-        },
-        ...existingTafsirs,
-      ],
+      tafsirs: [...arabicList, ...otherList],
     };
   });
 }

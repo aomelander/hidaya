@@ -32,8 +32,8 @@ interface DailyNorthStarProps {
   language: Language;
   arabicScale: number;
   showTransliteration: boolean;
-  onSelectVerse: (verse: QuranVerseFixture) => void;
-  onOpenReflection: (verse: QuranVerseFixture) => void;
+  onSelectVerse?: (verse: QuranVerseFixture) => void;
+  onOpenReflection?: (verse: QuranVerseFixture) => void;
 }
 
 const UI_STRINGS: Record<Language, {
@@ -402,25 +402,6 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
                   {getLocalizedText(star.practicalAction, language)}
                 </p>
               </div>
-            </div>
-
-            {/* Action Buttons to connect into full application */}
-            <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
-              <button
-                onClick={() => onOpenReflection(matchingFixture)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white dark:bg-emerald-950 border border-emerald-900/20 dark:border-emerald-700/40 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 transition-all cursor-pointer shadow-2xs"
-              >
-                <BookOpen className="w-4 h-4" />
-                <span>{t.reflectBtn}</span>
-              </button>
-
-              <button
-                onClick={() => onSelectVerse(matchingFixture)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white shadow-sm transition-all cursor-pointer"
-              >
-                <span>{t.openSessionBtn}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
             </div>
           </div>
         )}

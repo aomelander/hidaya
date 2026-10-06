@@ -168,6 +168,27 @@ export const StorageService = {
   },
 
   /**
+   * Gets text scale multiplier for general reading/translation languages.
+   */
+  getReadingScale(): number {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.READING_SCALE);
+      return val ? parseFloat(val) : DEFAULTS.READING_SCALE;
+    } catch {
+      return DEFAULTS.READING_SCALE;
+    }
+  },
+
+  /**
+   * Sets text scale multiplier for general reading/translation languages.
+   */
+  setReadingScale(scale: number): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.READING_SCALE, scale.toString());
+    } catch {}
+  },
+
+  /**
    * Gets preference for phonetic transliteration display.
    */
   getShowTransliteration(): boolean {

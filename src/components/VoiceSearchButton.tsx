@@ -133,7 +133,7 @@ export const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
         type="button"
         onClick={handleVoiceTrigger}
         dir={locale === 'ar' ? 'rtl' : 'ltr'}
-        className={`min-h-[40px] min-w-[40px] p-2 rounded-xl flex items-center justify-center gap-1.5 rtl:space-x-reverse transition-all cursor-pointer ${
+        className={`min-h-[40px] min-w-[40px] p-2 rounded-xl flex items-center justify-center gap-1.5 rtl:space-x-reverse transition-all cursor-pointer shrink-0 ${
           isListening
             ? 'bg-red-500 text-white animate-pulse px-3 shadow-md shadow-red-500/20'
             : 'text-slate-500 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-900/10'
