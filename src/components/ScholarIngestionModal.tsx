@@ -26,33 +26,28 @@ interface ScholarIngestionModalProps {
 
 const PRESET_SCHOLARS = [
   {
-    name: "Sheikh Muhammad Metwalli Al-Sha'rawi",
-    work: "Khawatir Al-Sha'rawi (Audio/Video Lecture Archives)",
-    ref: "Khawatir Al-Sha'rawi, Video Episode #342 (Surah Ali 'Imran 134-135)",
-  },
-  {
-    name: "Dr. Muhammad Sa'id Ramadan Al-Bouti",
-    work: "Min Rawai' al-Qur'an & Fiqh al-Sirah Lectures",
-    ref: "Duroos al-Tafsir, Umayyad Mosque Archive (Damascus)",
+    name: "Al-Sha'rawi",
+    work: "تفسير الشعراوي — محمد متولي الشعراوي (Quranpedia Book #18)",
+    ref: "Quranpedia (book_id=18) | verse_key=3:134 | Vol. 3 | pp. 1753–1757 | version=2026-08-10",
   },
 ];
 
 const SAMPLE_TRANSCRIPTS = [
   {
-    label: "Al-Sha'rawi on 3:134 (Anger Restraint)",
-    scholar: "Sheikh Muhammad Metwalli Al-Sha'rawi",
+    label: "Al-Sha'rawi on 3:134 (Quranpedia Book 18)",
+    scholar: "Al-Sha'rawi",
     surah: 3,
     ayah: 134,
-    ref: "Khawatir Al-Sha'rawi, Video Episode #342 (Surah Ali 'Imran 134-135)",
-    text: "الكظم هو حبس الشيء الممتلئ بقوة، كالقربة إذا مُلئت بالماء حتى شارف الماء أن ينفجر منها فرُبط فمها. فالإنسان حين يغضب يكون كالإناء الذي يغلي، فمن كظم غيظه فكأنما ربط على نفسه لئلا تنفجر في وجوه الخلق، ثم ارتقى إلى العفو وهو محو الأثر من القلب، ثم ارتقى إلى الإحسان بأن يقابل الإساءة بالبر.",
+    ref: "Quranpedia (book_id=18) | verse_key=3:134 | Vol. 3 | pp. 1753–1757 | version=2026-08-10",
+    text: "هذه بعض من صفات المتقين ﴿والكاظمين الغيظ﴾ لأن المعركة - معركة أُحد - ستعطينا هذه الصورة أيضاً. وأصل الكظم أن تملأ القِرْبة، فإذا مُلئت القربة بالماء شُدّ على رأسها أي رُبط رأسها ربطاً محكماً بحيث لا يخرج شيء مَمّا فيها. فهناك ثلاث مراحل: الأولى: كظم الغيظ. والثانية: العفو. والثالثة: أن يتجاوز الإنسان الكظم والعفو بأن يحسن إلى المسئ إليه.",
   },
   {
-    label: "Al-Bouti on 94:5-6 (Hardship & Ease)",
-    scholar: "Dr. Muhammad Sa'id Ramadan Al-Bouti",
-    surah: 94,
-    ayah: 5,
-    ref: "Hikmat al-Ibtila' wa al-Yusr, Damascus Cultural Center",
-    text: "اليُسر ليس مجرد زوال الألم؛ بل اليسر الحقيقي هو انشراح الصدر ونزول السكينة في قلب المؤمن حتى وهو في قلب المحنة، لأن معية الله تكفي العبد مؤونة الخوف.",
+    label: "Al-Sha'rawi on 7:199 (Quranpedia Book 18)",
+    scholar: "Al-Sha'rawi",
+    surah: 7,
+    ayah: 199,
+    ref: "Quranpedia (book_id=18) | verse_key=7:199 | Vol. 8 | pp. 4531–4535 | version=2026-08-10",
+    text: "وهذه آية جمع فيها المولى سبحانه وتعالى مكارم الأخلاق. والحق هنا يأمر رسوله عَلَيْهِ الصَّلَاة وَالسَّلَام ُ أن يأخذ العفو، أي أن يأخذ الأمر الميسر السهل، الذي لا تكلف فيه ولا اجتهاد؛ لأنك بذلك تُسهل على الناس أمورهم ولا تعقدها.",
   },
 ];
 
@@ -263,7 +258,7 @@ export const ScholarIngestionModal: React.FC<ScholarIngestionModalProps> = ({
                 </span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Grounded AI translation of Sheikh Al-Sha&apos;rawi &amp; Dr. Al-Bouti lectures with strict AGENTS.md bounds
+                Official Quranpedia Tafsir Al-Sha&apos;rawi (Book 18) synchronization &amp; grounded audit with strict AGENTS.md bounds
               </p>
             </div>
           </div>

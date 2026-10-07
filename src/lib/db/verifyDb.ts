@@ -81,6 +81,20 @@ async function verify() {
       }
     }
 
+    const { count: shaarawiCount } = await supabase
+      .from('tafsir')
+      .select('*', { count: 'exact', head: true })
+      .eq('scholar_name', "Al-Sha'rawi");
+
+    const { count: boutiCount } = await supabase
+      .from('tafsir')
+      .select('*', { count: 'exact', head: true })
+      .or('scholar_name.ilike.%Bouti%,scholar_name.ilike.%البوطي%');
+
+    console.log(`\nQuranpedia Book 18 (Tafsir Al-Sha'rawi) & Legacy Cleanup Audit:`);
+    console.log(`- Official Tafsir Al-Sha'rawi (Book 18) records: ${shaarawiCount ?? 0}`);
+    console.log(`- Legacy Al-Bouti records remaining:             ${boutiCount ?? 0}`);
+
     console.log('\nAudit complete.');
   } catch (err: any) {
     console.error('Audit encountered error querying database:', err.message || err);

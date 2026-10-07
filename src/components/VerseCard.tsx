@@ -434,17 +434,61 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     return null;
   }, [language, verse.translations, verse.arabicText, availableCitations]);
 
-  const combinedArabicText = useMemo(() => {
-    const parts: string[] = [];
+  // Build structured Arabic segments (up to 3 consecutive verses) with their exact Ayah numbers
+  const arabicSegments = useMemo(() => {
+    const cleanText = (str: string) =>
+      str
+        .replace(/[\u06DD\u06DE]/g, '')
+        .replace(/[\u0660-\u0669]+/g, '')
+        .trim();
+
+    const segments: { verseNumber: string; text: string }[] = [];
+
+    const pushParsedSegments = (rawText: string, vNumStr: string) => {
+      const subParts = rawText
+        .split('۝')
+        .map((s) => cleanText(s))
+        .filter(Boolean);
+      const rangeMatch = vNumStr.match(/^(\d+)\s*-\s*(\d+)$/);
+      const startNum = rangeMatch ? parseInt(rangeMatch[1], 10) : parseInt(vNumStr, 10);
+
+      if (subParts.length > 1 && !isNaN(startNum)) {
+        subParts.forEach((part, idx) => {
+          segments.push({
+            verseNumber: String(startNum + idx),
+            text: part,
+          });
+        });
+      } else {
+        segments.push({
+          verseNumber: vNumStr,
+          text: subParts.join(' ') || cleanText(rawText),
+        });
+      }
+    };
+
     if (includeBefore && canAddBefore && verse.surroundingVerses?.before) {
-      parts.push(verse.surroundingVerses.before.arabicText);
+      pushParsedSegments(
+        verse.surroundingVerses.before.arabicText,
+        verse.surroundingVerses.before.verseNumber
+      );
     }
-    parts.push(verse.arabicText);
+
+    pushParsedSegments(verse.arabicText, verse.verseNumber);
+
     if (includeAfter && canAddAfter && verse.surroundingVerses?.after) {
-      parts.push(verse.surroundingVerses.after.arabicText);
+      pushParsedSegments(
+        verse.surroundingVerses.after.arabicText,
+        verse.surroundingVerses.after.verseNumber
+      );
     }
-    return parts.join(' ۝ ');
+
+    return segments;
   }, [verse, includeBefore, canAddBefore, includeAfter, canAddAfter]);
+
+  const combinedArabicText = useMemo(() => {
+    return arabicSegments.map((s) => `${s.text} ﴿${s.verseNumber}﴾`).join(' ');
+  }, [arabicSegments]);
 
   const combinedTranslationText = useMemo(() => {
     if (!baseTranslationObj) return '';
@@ -472,11 +516,25 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       }
     : null;
 
-  // Split Uthmani Arabic into words for synchronized word-by-word reading highlight
-  const arabicWords = useMemo(
-    () => combinedArabicText.trim().split(/\s+/).filter(Boolean),
-    [combinedArabicText]
-  );
+  // Tokenize Uthmani Arabic segments into words with global indices for synchronized word-by-word reading highlight
+  const { tokenizedArabicSegments, totalArabicWordsCount } = useMemo(() => {
+    let globalIndex = 0;
+    const tokenized = arabicSegments.map((seg) => {
+      const words = seg.text
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => ({
+          word,
+          globalIdx: globalIndex++,
+        }));
+      return {
+        verseNumber: seg.verseNumber,
+        words,
+      };
+    });
+    return { tokenizedArabicSegments: tokenized, totalArabicWordsCount: globalIndex };
+  }, [arabicSegments]);
 
   // Split Translation into words for synchronized word-by-word highlight when translation voiceover plays
   const translationWords = useMemo(
@@ -485,10 +543,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   );
 
   const activeWordIndex = useMemo(() => {
-    if (!isReciting || playbackPhase !== 'recitation' || arabicWords.length === 0) return -1;
-    const idx = Math.floor(playbackRatio * arabicWords.length);
-    return Math.min(arabicWords.length - 1, Math.max(0, idx));
-  }, [isReciting, playbackPhase, playbackRatio, arabicWords.length]);
+    if (!isReciting || playbackPhase !== 'recitation' || totalArabicWordsCount === 0) return -1;
+    const idx = Math.floor(playbackRatio * totalArabicWordsCount);
+    return Math.min(totalArabicWordsCount - 1, Math.max(0, idx));
+  }, [isReciting, playbackPhase, playbackRatio, totalArabicWordsCount]);
 
   const activeTranslationWordIndex = useMemo(() => {
     if (!isReciting || playbackPhase !== 'translation' || translationWords.length === 0) return -1;
@@ -727,14 +785,14 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             id={`verse-heading-${verse.id}`}
             className="text-sm sm:text-base font-bold text-emerald-950 dark:text-emerald-50 flex items-center gap-2 flex-wrap"
           >
+            {/* Chosen Ayah Number at the start inside the circular symbol without duplication */}
+            <AyahCartouche
+              number={effectiveVerseNumberStr}
+              size="md"
+              className="text-amber-700 dark:text-amber-400"
+            />
             <span>
               {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
-            </span>
-            <span className="text-slate-400" aria-hidden="true">
-              ·
-            </span>
-            <span className="text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-400 tabular-nums">
-              {effectiveVerseId}
             </span>
             {totalCards !== undefined && totalCards > 1 && (
               <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-900/10 dark:bg-emerald-400/15 text-emerald-800 dark:text-emerald-300 font-semibold">
@@ -893,7 +951,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           </div>
         )}
 
-        {/* LEVEL 1: Original Verified Quranic Arabic (Uthmani Script) with Word-by-Word Recitation Sync */}
+        {/* LEVEL 1: Original Verified Quranic Arabic (Uthmani Script) with Word-by-Word Recitation Sync & Circular Ayah Symbols */}
         <section aria-label="Level 1: Verified Uthmani Arabic">
           <div
             className="p-5 sm:p-7 rounded-2xl bg-[#FAF8F5] dark:bg-[#071711] border border-emerald-900/10 dark:border-emerald-800/30"
@@ -907,22 +965,29 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               lang="ar"
               className="font-arabic text-right text-emerald-950 dark:text-emerald-50 select-text antialiased font-normal"
             >
-              {arabicWords.map((word, idx) => {
-                const isWordActive = idx === activeWordIndex;
-                return (
-                  <React.Fragment key={idx}>
-                    <span
-                      className={`inline-block rounded-lg px-0.5 transition-colors duration-150 ${
-                        isWordActive
-                          ? 'bg-amber-400/35 dark:bg-amber-400/30 text-emerald-950 dark:text-amber-200 underline decoration-amber-500 decoration-2 underline-offset-8'
-                          : ''
-                      }`}
-                    >
-                      {word}
-                    </span>{' '}
-                  </React.Fragment>
-                );
-              })}
+              {tokenizedArabicSegments.map((seg, segIdx) => (
+                <React.Fragment key={segIdx}>
+                  {seg.words.map(({ word, globalIdx }) => {
+                    const isWordActive = globalIdx === activeWordIndex;
+                    return (
+                      <React.Fragment key={globalIdx}>
+                        <span
+                          className={`inline-block rounded-lg px-0.5 transition-colors duration-150 ${
+                            isWordActive
+                              ? 'bg-amber-400/35 dark:bg-amber-400/30 text-emerald-950 dark:text-amber-200 underline decoration-amber-500 decoration-2 underline-offset-8'
+                              : ''
+                          }`}
+                        >
+                          {word}
+                        </span>{' '}
+                      </React.Fragment>
+                    );
+                  })}
+                  <span className="inline-flex items-center align-middle mx-1 text-amber-700 dark:text-amber-400 select-none">
+                    <AyahCartouche number={seg.verseNumber} size="inline" />
+                  </span>{' '}
+                </React.Fragment>
+              ))}
             </p>
           </div>
 
@@ -1177,22 +1242,31 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                   </button>
                 </div>
 
-                {/* Verbatim Arabic Quote Excerpt Preview (If available and viewing in EN/SV/FR) */}
-                {currentCitation.originalArabicRaw && language !== 'ar' && (
-                  <div
-                    dir="rtl"
-                    className="p-3 rounded-xl bg-amber-500/5 dark:bg-black/20 border border-amber-600/15 dark:border-emerald-800/30 text-right"
-                  >
-                    <p className="font-arabic text-sm text-slate-800 dark:text-amber-50 leading-loose line-clamp-2 select-text">
-                      &ldquo;{currentCitation.originalArabicRaw}&rdquo;
-                    </p>
-                  </div>
-                )}
+                {/* Verbatim Arabic Quote Excerpt Preview (Only if originalArabicRaw is distinct from currentCitation.text and viewing in EN/SV/FR) */}
+                {currentCitation.originalArabicRaw &&
+                  language !== 'ar' &&
+                  currentCitation.originalArabicRaw.trim() !== currentCitation.text.trim() && (
+                    <div
+                      dir="rtl"
+                      className="p-3 rounded-xl bg-amber-500/5 dark:bg-black/20 border border-amber-600/15 dark:border-emerald-800/30 text-right"
+                    >
+                      <p className="font-arabic text-sm text-slate-800 dark:text-amber-50 leading-loose line-clamp-2 select-text">
+                        &ldquo;{currentCitation.originalArabicRaw}&rdquo;
+                      </p>
+                    </div>
+                  )}
 
-                {/* Translated Commentary Text */}
+                {/* Commentary Text (Preserves verbatim Arabic RTL for Quranpedia Book 18 or localized commentary) */}
                 <p
+                  dir={
+                    /[\u0600-\u06FF]/.test(currentCitation.text.slice(0, 80)) ? 'rtl' : undefined
+                  }
                   style={{ fontSize: `${readingScale * 0.95}rem` }}
-                  className="leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line"
+                  className={`leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line ${
+                    /[\u0600-\u06FF]/.test(currentCitation.text.slice(0, 80))
+                      ? 'font-arabic text-right leading-loose'
+                      : ''
+                  }`}
                 >
                   {currentCitation.text}
                 </p>

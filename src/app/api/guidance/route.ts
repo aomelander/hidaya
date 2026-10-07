@@ -52,10 +52,18 @@ async function queryArabicTafsirForMatches(matches: any[], lang: LanguageCode) {
     try {
       const { data: arabicTafsirs, error } = await supabase
         .from('tafsir')
-        .select('id, ayah_id, scholar_name, work_title, text, language_code')
+        .select('id, ayah_id, scholar_name, work_title, text, language_code, source_type, source_reference, original_arabic_raw, verification_status')
         .eq('language_code', 'ar')
-        .in('scholar_name', ['Al-Muyassar', 'التفسير الميسر', 'Ibn Kathir', 'ابن كثير', "Al-Sa'di"])
-        .limit(30);
+        .in('scholar_name', [
+          'Al-Muyassar',
+          'التفسير الميسر',
+          'Ibn Kathir',
+          'ابن كثير',
+          "Al-Sa'di",
+          "Al-Sha'rawi",
+          'الشعراوي',
+        ])
+        .limit(40);
 
       if (!error && arabicTafsirs && arabicTafsirs.length > 0) {
         return matches.map((match) => {
@@ -98,58 +106,144 @@ async function queryArabicTafsirForMatches(matches: any[], lang: LanguageCode) {
 
 /**
  * Enriches all matches so that the active user language (e.g. 'fr' or 'sv') is guaranteed
- * to have its authentic translation and tafsir populated directly from Supabase.
+ * to have its authentic translation and tafsir populated directly from Supabase, plus
+ * official Quranpedia Tafsir Al-Sha'rawi (Book 18) and adjacent before/after verses.
  */
 async function enrichMatchesForLanguage(matches: any[], lang: LanguageCode) {
   if (!matches || matches.length === 0) return matches;
 
-  if (lang !== 'en' && !useMock) {
-    try {
-      for (const match of matches) {
-        const hasLangTrans = match.translations?.some(
-          (t: any) => t.language_code === lang && t.text && t.text.trim().length > 0
-        );
+  try {
+    for (const match of matches) {
+      const idStr = String(match.id || match.ayah_id || '');
+      const parts = idStr.split(':');
+      const surahNum = Number(parts[0]);
+      const rangeParts = (parts[1] || '').split('-').map((n) => Number(n.trim()));
+      const startAyahNum = rangeParts[0];
+      const endAyahNum = rangeParts.length > 1 && !isNaN(rangeParts[1]) ? rangeParts[1] : startAyahNum;
 
-        if (!hasLangTrans) {
-          const parts = String(match.id || match.ayah_id || '').split(':');
-          const surahNum = Number(parts[0]);
-          const ayahNum = Number(parts[1]);
+      if (!useMock && surahNum && startAyahNum) {
+        const { data: surah } = await supabase
+          .from('surah')
+          .select('id')
+          .eq('number', surahNum)
+          .single();
 
-          if (surahNum && ayahNum) {
-            const { data: surah } = await supabase.from('surah').select('id').eq('number', surahNum).single();
-            if (surah) {
-              const { data: ayah } = await supabase.from('ayah').select('id').eq('surah_id', surah.id).eq('ayah_number', ayahNum).single();
-              if (ayah) {
-                const { data: dbTranslations } = await supabase
-                  .from('translation')
-                  .select('id, language_code, text, source')
-                  .eq('ayah_id', ayah.id)
-                  .eq('language_code', lang);
+        if (surah) {
+          const { data: ayah } = await supabase
+            .from('ayah')
+            .select('id')
+            .eq('surah_id', surah.id)
+            .eq('ayah_number', startAyahNum)
+            .single();
 
-                if (dbTranslations && dbTranslations.length > 0) {
-                  const found = dbTranslations[0];
-                  match.translations = [found, ...(match.translations || [])];
-                  match.selectedTranslation = found;
+          if (ayah) {
+            // 1. Ensure active language translation & tafsir are loaded
+            const hasLangTrans = match.translations?.some(
+              (t: any) => t.language_code === lang && t.text && t.text.trim().length > 0
+            );
+
+            if (!hasLangTrans && lang !== 'en') {
+              const { data: dbTranslations } = await supabase
+                .from('translation')
+                .select('id, language_code, text, source')
+                .eq('ayah_id', ayah.id)
+                .eq('language_code', lang);
+
+              if (dbTranslations && dbTranslations.length > 0) {
+                const found = dbTranslations[0];
+                match.translations = [found, ...(match.translations || [])];
+                match.selectedTranslation = found;
+              }
+
+              const { data: dbTafsirs } = await supabase
+                .from('tafsir')
+                .select(
+                  'id, scholar_name, work_title, text, language_code, source_type, source_reference, original_arabic_raw, verification_status'
+                )
+                .eq('ayah_id', ayah.id)
+                .eq('language_code', lang);
+
+              if (dbTafsirs && dbTafsirs.length > 0) {
+                match.tafsirs = [...dbTafsirs, ...(match.tafsirs || [])];
+              }
+            }
+
+            // 1b. Always attach official Quranpedia Tafsir Al-Sha'rawi (Book 18) if available for this Ayah
+            const hasShaarawi = match.tafsirs?.some(
+              (t: any) =>
+                t.scholar_name === "Al-Sha'rawi" || t.scholar_name === 'الشعراوي'
+            );
+            if (!hasShaarawi) {
+              const { data: shaarawiRows } = await supabase
+                .from('tafsir')
+                .select(
+                  'id, scholar_name, work_title, text, language_code, source_type, source_reference, original_arabic_raw, verification_status'
+                )
+                .eq('ayah_id', ayah.id)
+                .in('scholar_name', ["Al-Sha'rawi", 'الشعراوي'])
+                .limit(1);
+
+              if (shaarawiRows && shaarawiRows.length > 0) {
+                match.tafsirs = [...(match.tafsirs || []), shaarawiRows[0]];
+              }
+            }
+          }
+
+          // 2. Fetch adjacent Before (startAyahNum - 1) and After (endAyahNum + 1) verses if not already present
+          if (!match.surroundingVerses) {
+            const adjNumbers: number[] = [];
+            if (startAyahNum > 1) adjNumbers.push(startAyahNum - 1);
+            adjNumbers.push(endAyahNum + 1);
+
+            const { data: adjAyahs } = await supabase
+              .from('ayah')
+              .select(
+                `
+                ayah_number,
+                text_uthmani,
+                translation(language_code, text)
+              `
+              )
+              .eq('surah_id', surah.id)
+              .in('ayah_number', adjNumbers);
+
+            if (adjAyahs && adjAyahs.length > 0) {
+              const surrounding: any = {};
+              for (const adj of adjAyahs as any[]) {
+                const transList = Array.isArray(adj.translation) ? adj.translation : [];
+                const enT = transList.find((t: any) => t.language_code === 'en')?.text || '';
+                const svT = transList.find((t: any) => t.language_code === 'sv')?.text || enT;
+                const frT = transList.find((t: any) => t.language_code === 'fr')?.text || enT;
+                const arT = transList.find((t: any) => t.language_code === 'ar')?.text || '';
+
+                const formattedAdj = {
+                  verseNumber: String(adj.ayah_number),
+                  arabicText: adj.text_uthmani,
+                  translations: {
+                    en: enT,
+                    sv: svT,
+                    fr: frT,
+                    ...(arT ? { ar: arT } : {}),
+                  },
+                };
+
+                if (adj.ayah_number === startAyahNum - 1) {
+                  surrounding.before = formattedAdj;
+                } else if (adj.ayah_number === endAyahNum + 1) {
+                  surrounding.after = formattedAdj;
                 }
+              }
 
-                // Also fetch localized tafsir
-                const { data: dbTafsirs } = await supabase
-                  .from('tafsir')
-                  .select('id, scholar_name, work_title, text, language_code, source_type, source_reference, original_arabic_raw, verification_status')
-                  .eq('ayah_id', ayah.id)
-                  .eq('language_code', lang);
-
-                if (dbTafsirs && dbTafsirs.length > 0) {
-                  match.tafsirs = [...dbTafsirs, ...(match.tafsirs || [])];
-                }
+              if (surrounding.before || surrounding.after) {
+                match.surroundingVerses = surrounding;
               }
             }
           }
         }
       }
-    } catch (err) {
-      console.warn('[Guidance API] Error enriching matches for language:', err);
     }
+  } catch (err) {
+    console.warn('[Guidance API] Error enriching matches for language & surrounding verses:', err);
   }
 
   return queryArabicTafsirForMatches(matches, lang);

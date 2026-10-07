@@ -74,26 +74,12 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       {
         scholar: "Al-Sha'rawi",
         century: "Contemporary (1911–1998 CE)",
-        sourceBook: "Khawatir Al-Sha'rawi (Video Archive)",
-        text: "Al-Ghaydh is the boiling of the heart's blood due to something a person detests. When you contain it ('Kadhama'), you are like a full waterskin whose neck is tightly bound so not a single drop spills. But containment alone is not enough; contained rage left untreated can ferment inside the chest and transform into rancor and hatred. Therefore, the divine command ascends to a higher station: 'and those who pardon people' ('wal-'aafeena 'anin-naas'). Pardon empties the chest of rage's residue. Then the believer rises to the highest summit: 'and Allah loves the doers of good' (Ihsan)—by responding to the wrongdoer with active benevolence, thereby extinguishing the resentment within their heart as well.",
-        sourceType: 'ai_translated_expert',
-        sourceReference: "Khawatir Al-Sha'rawi, Video Episode #342 (Egyptian TV Heritage Archive / Surah Ali 'Imran 134)",
-        originalArabicRaw: "الغيظ هو غليان دم القلب لحدث يكرهه الإنسان، فإذا أردت أن تكتمه وتكظمه فإنك تشبه القربة المملوءة ماءً حين تُشد رأسها حتى لا يسيل منها قطرة. ولكن الكظم وحده لا يكفي؛ لأن الغيظ المكظوم قد يختمر في الصدر فيتحول إلى حقد وكراهية، ولذلك جاء الأمر الإلهي مرتقياً: (والعافين عن الناس)، فالعفو يفرغ الصدر من أثر الغيظ، ثم يرتقي المؤمن إلى أعلى الدرجات: (والله يحب المحسنين) بأن تقابل إساءة من ظلمك بالإحسان إليه، فتنزع الغل من قلبه هو أيضاً.",
-        verificationStatus: 'transcription_verified',
-        aiModel: 'gemini-2.5-pro (strict grounded translation)',
-        translationDisclaimer: 'Transcribed verbatim from Sheikh Al-Sha’rawi’s video lecture archive and translated with strict negative constraints prohibiting extrapolation or rulings.'
-      },
-      {
-        scholar: "Al-Bouti",
-        century: "Contemporary (1929–2013 CE)",
-        sourceBook: "Fiqh al-Sirah & Spiritual Discourse",
-        text: "The fundamental distinction between restraining anger and pardoning is that containment is holding back the limbs and the tongue from aggression, whereas pardon is purifying the inner conscience from resentment. Excellence (Ihsan) is making this conflict a bridge to Allah by desiring guidance for the wrongdoer and offering them a kindness that breaks the barrier of enmity.",
-        sourceType: 'ai_translated_expert',
-        sourceReference: "Dr. Muhammad Sa'id Ramadan Al-Bouti, Damascus Umayyad Mosque Lecture Archives (Surah Ali 'Imran 134)",
-        originalArabicRaw: "الفرق بين كظم الغيظ والعفو أن الكظم كفٌّ للجوارح واللسان عن العدوان، بينما العفو تطهير للسريرة من الضغينة. والإحسان هو أن تجعل من هذا الموقف جسراً إلى الله تعالى، بأن تتمنى للظالم الهداية وتسدي إليه معروفاً يكسر حاجز الخصومة.",
-        verificationStatus: 'transcription_verified',
-        aiModel: 'gemini-2.5-pro (strict grounded translation)',
-        translationDisclaimer: 'Transcribed verbatim from Dr. Al-Bouti’s recorded lectures and translated under Usul al-Tafsir safety protocol.'
+        sourceBook: "تفسير الشعراوي (Quranpedia Book #18)",
+        text: "هذه بعض من صفات المتقين ﴿والكاظمين الغيظ﴾ لأن المعركة - معركة أُحد - ستعطينا هذه الصورة أيضاً. وأصل الكظم أن تملأ القِرْبة، والقِرَب كان يحملها «السقا» في الماضي، وكانت وعاء نقل الماء عند العرب، وهي من جلد مدبوغ، فإذا مُلئت القربة بالماء شُدّ على رأسها أي رُبط رأسها ربطاً محكماً بحيث لا يخرج شيء مَمّا فيها، ويقال عن هذا الفعل: «كظم القربة» أي ملأها وربطها. كذلك الغيظ يفعل في النفس البشرية، إنه يهيجها، والله لا يمنع الهياج في النفس لأنه انفعال طبيعي، ولكن على المؤمن أن يكظمه.. أي لا يجعل الانفعال غالبا على حسن السلوك والتدبير. والحق سبحانه يقول: ﴿والكاظمين الغيظ والعافين عَنِ الناس﴾. فهناك ثلاث مراحل: الأولى: كظم الغيظ. والثانية: العفو وهو أن تخرج الغيظ من قلبك وكأن الأمر لم يحدث. والثالثة: أن يتجاوز الإنسان الكظم والعفو بأن يحسن إلى المسئ إليه ﴿والله يُحِبُّ المحسنين﴾.",
+        sourceType: 'classical_book',
+        sourceReference: "Quranpedia (book_id=18) | verse_key=3:134 | Vol. 3 | pp. 1753–1757 | version=2026-08-10",
+        originalArabicRaw: "هذه بعض من صفات المتقين ﴿والكاظمين الغيظ﴾ لأن المعركة - معركة أُحد - ستعطينا هذه الصورة أيضاً. وأصل الكظم أن تملأ القِرْبة، والقِرَب كان يحملها «السقا» في الماضي، وكانت وعاء نقل الماء عند العرب، وهي من جلد مدبوغ، فإذا مُلئت القربة بالماء شُدّ على رأسها أي رُبط رأسها ربطاً محكماً بحيث لا يخرج شيء مَمّا فيها، ويقال عن هذا الفعل: «كظم القربة» أي ملأها وربطها. كذلك الغيظ يفعل في النفس البشرية، إنه يهيجها، والله لا يمنع الهياج في النفس لأنه انفعال طبيعي، ولكن على المؤمن أن يكظمه.. أي لا يجعل الانفعال غالبا على حسن السلوك والتدبير. والحق سبحانه يقول: ﴿والكاظمين الغيظ والعافين عَنِ الناس﴾. فهناك ثلاث مراحل: الأولى: كظم الغيظ. والثانية: العفو وهو أن تخرج الغيظ من قلبك وكأن الأمر لم يحدث. والثالثة: أن يتجاوز الإنسان الكظم والعفو بأن يحسن إلى المسئ إليه ﴿والله يُحِبُّ المحسنين﴾.",
+        verificationStatus: 'verified_canonical'
       }
     ],
     reflectionFramework: {
@@ -254,30 +240,6 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
         sourceReference: "Al-Tafsir Al-Muyassar, King Fahd Complex",
         originalArabicRaw: "فإن مع الضيق والشدة سعةً وفرجاً، إن مع الضيق والشدة سعةً وفرجاً، فلا يثنك الأذى عن تبليغ رسالتك.",
         verificationStatus: 'verified_canonical'
-      },
-      {
-        scholar: "Al-Sha'rawi",
-        century: "Contemporary (1911–1998 CE)",
-        sourceBook: "Khawatir Al-Sha'rawi (Video Archive)",
-        text: "Notice the miracle in the word 'Ma'a' (With). Allah did not say 'after hardship', but said 'with hardship'. Relief does not start only when the hardship is completely finished; rather, God injects serenity, fortitude, and unseen openings in the very midst of the crisis to carry you through.",
-        sourceType: 'ai_translated_expert',
-        sourceReference: "Khawatir Al-Sha'rawi, Video Episode #812 (Surah Al-Sharh 5-6)",
-        originalArabicRaw: "انظر إلى دقة التعبير القرآني في كلمة (مع)؛ لم يقل سبحانه (بعد العسر) بل قال (مع العسر)؛ فالمعونة والتثبيت ينزلان مع البلاء في نفس اللحظة، والفرج يصاحب الشدة ولا يتأخر عنها، ولذلك يشعر المؤمن بسكينة لا يشعر بها غيره.",
-        verificationStatus: 'transcription_verified',
-        aiModel: 'gemini-2.5-pro (strict grounded translation)',
-        translationDisclaimer: 'Transcribed verbatim from Sheikh Al-Sha’rawi’s video lecture archive and translated under strict Usul al-Tafsir protocol.'
-      },
-      {
-        scholar: "Al-Bouti",
-        century: "Contemporary (1929–2013 CE)",
-        sourceBook: "Tadabbur al-Quran & Damascus Lectures",
-        text: "Contemplate the divine precision: the trial is singular and definite ('Al-'Usr'), while ease is doubled and indefinite ('Yusran'). One hardship can never vanquish two eases. Allah accompanies the tribulation with an inner ease that anchors your heart, and an outer ease when the storm subsides.",
-        sourceType: 'ai_translated_expert',
-        sourceReference: "Dr. Muhammad Sa'id Ramadan Al-Bouti, Damascus Umayyad Mosque Lecture Archives (Surah Al-Sharh)",
-        originalArabicRaw: "تأمل قوله تعالى: (فإن مع العسر يسرا)؛ لم يقل سبحانه (بعد العسر) بل قال (مع)، وهذا تدقيق رباني ينبئك أن لطف الله وتيسيره ليس أمراً مؤجلاً تنتظره بعد انقضاء البلاء، بل هو مصاحب للبلاء مودع في ثناياه، ينزل معه لحظة بلحظة.",
-        verificationStatus: 'transcription_verified',
-        aiModel: 'gemini-2.5-pro (strict grounded translation)',
-        translationDisclaimer: 'Transcribed verbatim from Dr. Al-Bouti’s recorded lectures and translated with strict fidelity.'
       }
     ],
     reflectionFramework: {
@@ -1624,24 +1586,15 @@ export const QURAN_FIXTURES: QuranVerseFixture[] = [
       applyAction: "Recite the final two verses of Surah Al-Baqarah before sleeping tonight, breathing in the assurance that God will not let you break."
     },
     surroundingVerses: {
-          "before": {
-                "verseNumber": "285",
-                "arabicText": "آمَنَ الرَّسُولُ بِمَا أُنزِلَ إِلَيْهِ مِن رَّبِّهِ وَالْمُؤْمِنُونَ ۚ كُلٌّ آمَنَ بِاللَّهِ وَمَلَائِكَتِهِ وَكُتُبِهِ وَرُسُلِهِ لَا نُفَرِّقُ بَيْنَ أَحَدٍ مِّن رُّسُلِهِ ۚ وَقَالُوا سَمِعْنَا وَأَطَعْنَا ۖ غُفْرَانَكَ رَبَّنَا وَإِلَيْكَ الْمَصِيرُ",
-                "translations": {
-                      "en": "The Messenger has believed in what was revealed to him from his Lord, and [so have] the believers. All of them have believed in Allah and His angels and His books and His messengers, [saying], 'We make no distinction between any of His messengers.' And they say, 'We hear and we obey. [We seek] Your forgiveness, our Lord, and to You is the [final] destination.'",
-                      "sv": "Sändebudet tror på vad som har uppenbarats för honom från hans Herre, och det gör även de troende. Alla tror de på Gud, Hans änglar, Hans skrifter och Hans sändebud: 'Vi gör ingen skillnad mellan något av Hans sändebud.' Och de säger: 'Vi har hört och vi lyder. Förlåt oss, Herre! Till Dig är återkomsten.'",
-                      "fr": "Le Messager a cru en ce qu'on a fait descendre vers lui venant de son Seigneur, et aussi les croyants : tous ont cru en Allah, en Ses anges, à Ses livres et en Ses messagers ; [en disant] : 'Nous ne faisons aucune distinction entre Ses messagers.' Et ils ont dit : 'Nous avons entendu et obéi. Seigneur, nous implorons Ton pardon. C'est à Toi que sera le retour.'"
-                }
-          },
-          "after": {
-                "verseNumber": "284",
-                "arabicText": "لِّلَّهِ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ وَإِن تُبْدُوا مَا فِي أَنفُسِكُمْ أَوْ تُخْفُوهُ يُحَاسِبْكُم بِهِ اللَّهُ ۖ فَيَغْفِرُ لِمَن يَشَاءُ وَيُعَذِّبُ مَن يَشَاءُ ۗ وَاللَّهُ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ",
-                "translations": {
-                      "en": "To Allah belongs whatever is in the heavens and whatever is in the earth. Whether you show what is within yourselves or conceal it, Allah will bring you to account for it. Then He will forgive whom He wills and punish whom He wills, and Allah is over all things competent.",
-                      "sv": "Allt som himlarna och jorden rymmer tillhör Gud. Vare sig ni öppet visar vad som finns i era hjärtan eller döljer det, ska Gud ställa er till svars för det. Han förlåter den Han vill och straffar den Han vill. Gud har makt över allt.",
-                      "fr": "À Allah appartient tout ce qui est dans les cieux et sur la terre. Que vous manifestiez ce qui est en vous ou que vous le cachiez, Allah vous en demandera compte. Puis Il pardonnera à qui Il veut, et châtiera qui Il veut. Et Allah est Omnipotent."
-                }
-          }
+      before: {
+        verseNumber: "285",
+        arabicText: "آمَنَ الرَّسُولُ بِمَا أُنزِلَ إِلَيْهِ مِن رَّبِّهِ وَالْمُؤْمِنُونَ ۚ كُلٌّ آمَنَ بِاللَّهِ وَمَلَائِكَتِهِ وَكُتُبِهِ وَرُسُلِهِ لَا نُفَرِّقُ بَيْنَ أَحَدٍ مِّن رُّسُلِهِ ۚ وَقَالُوا سَمِعْنَا وَأَطَعْنَا ۖ غُفْرَانَكَ رَبَّنَا وَإِلَيْكَ الْمَصِيرُ",
+        translations: {
+          en: "The Messenger has believed in what was revealed to him from his Lord, and [so have] the believers. All of them have believed in Allah and His angels and His books and His messengers, [saying], 'We make no distinction between any of His messengers.' And they say, 'We hear and we obey. [We seek] Your forgiveness, our Lord, and to You is the [final] destination.'",
+          sv: "Sändebudet tror på vad som har uppenbarats för honom från hans Herre, och det gör även de troende. Alla tror de på Gud, Hans änglar, Hans skrifter och Hans sändebud: 'Vi gör ingen skillnad mellan något av Hans sändebud.' Och de säger: 'Vi har hört och vi lyder. Förlåt oss, Herre! Till Dig är återkomsten.'",
+          fr: "Le Messager a cru en ce qu'on a fait descendre vers lui venant de son Seigneur, et aussi les croyants : tous ont cru en Allah, en Ses anges, à Ses livres et en Ses messagers ; [en disant] : 'Nous ne faisons aucune distinction entre Ses messagers.' Et ils ont dit : 'Nous avons entendu et obéi. Seigneur, nous implorons Ton pardon. C'est à Toi que sera le retour.'"
+        }
+      }
     }
   },
   {

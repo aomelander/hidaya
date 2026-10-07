@@ -10,7 +10,7 @@ export type ExplanationDepth = 'simple' | 'context' | 'tafsir' | 'study';
 
 export type AudioPlaybackMode = 'quran_only' | 'quran_translation' | 'quran_tafsir';
 
-export type PreferredScholar = 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar' | "Al-Sha'rawi" | 'Al-Bouti';
+export type PreferredScholar = 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar' | "Al-Sha'rawi";
 
 export type TafsirSourceType =
   | 'classical_book'

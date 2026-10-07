@@ -27,6 +27,7 @@ import {
 } from '../data/dailyNorthStar';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
 import { StorageService, StreakData } from '../services/storage';
+import { AyahCartouche } from './AyahCartouche';
 
 interface DailyNorthStarProps {
   language: Language;
@@ -304,8 +305,15 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
                 <h3 className="text-lg sm:text-xl font-bold text-emerald-950 dark:text-emerald-50">
                   {getLocalizedText(star.theme, language)}
                 </h3>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {star.surahNameTransliterated} ({star.surahNameMeaning}) • Surah {star.surahNumber}, Ayah {star.verseNumber}
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium inline-flex items-center gap-1.5 mt-0.5">
+                  <AyahCartouche
+                    number={star.verseNumber}
+                    size="md"
+                    className="text-amber-700 dark:text-amber-400"
+                  />
+                  <span>
+                    {star.surahNameTransliterated} ({star.surahNameMeaning}) • Surah {star.surahNumber}
+                  </span>
                 </span>
               </div>
 
@@ -349,7 +357,41 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
                 style={{ fontSize: `${arabicScale * 1.5}rem` }}
                 className="font-arabic text-emerald-950 dark:text-amber-100 leading-[2.4] text-right p-4 rounded-2xl bg-amber-50/50 dark:bg-emerald-950/30 border border-amber-900/10 dark:border-emerald-800/20 select-text"
               >
-                {star.arabicText}
+                {(() => {
+                  const cleanText = (str: string) =>
+                    str
+                      .replace(/[\u06DD\u06DE]/g, '')
+                      .replace(/[\u0660-\u0669]+/g, '')
+                      .trim();
+                  const subParts = star.arabicText
+                    .split('۝')
+                    .map((s) => cleanText(s))
+                    .filter(Boolean);
+                  const rangeMatch = star.verseNumber.match(/^(\d+)\s*-\s*(\d+)$/);
+                  const startNum = rangeMatch
+                    ? parseInt(rangeMatch[1], 10)
+                    : parseInt(star.verseNumber, 10);
+
+                  if (subParts.length > 1 && !isNaN(startNum)) {
+                    return subParts.map((part, idx) => (
+                      <React.Fragment key={idx}>
+                        <span>{part}</span>{' '}
+                        <span className="inline-flex items-center align-middle mx-1 text-amber-700 dark:text-amber-400 select-none">
+                          <AyahCartouche number={String(startNum + idx)} size="inline" />
+                        </span>{' '}
+                      </React.Fragment>
+                    ));
+                  }
+
+                  return (
+                    <>
+                      <span>{subParts.join(' ') || cleanText(star.arabicText)}</span>{' '}
+                      <span className="inline-flex items-center align-middle mx-1 text-amber-700 dark:text-amber-400 select-none">
+                        <AyahCartouche number={star.verseNumber} size="inline" />
+                      </span>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Transliteration */}

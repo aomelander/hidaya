@@ -144,7 +144,6 @@ interface VerseLocalizedOverride {
     "Al-Sa'di"?: Record<Language, string>;
     'Al-Muyassar'?: Record<Language, string>;
     "Al-Sha'rawi"?: Record<Language, string>;
-    'Al-Bouti'?: Record<Language, string>;
     [scholar: string]: Record<Language, string> | undefined;
   };
 }
@@ -182,18 +181,6 @@ const VERSE_OVERRIDES: Record<string, VerseLocalizedOverride> = {
         fr: 'Ceux qui dépensent dans l’aisance et la difficulté, qui retiennent leur colère lorsqu’elle bouillonne et pardonnent à ceux qui leur font du tort, atteignant ainsi le rang des bienfaisants.',
         ar: 'الذين ينفقون أموالهم في اليسر والعسر، ويمسكون أنفسهم عند الغضب فلا ينتقمون، ويعفون عمن ظلمهم، والله يحب المحسنين.',
       },
-      "Al-Sha'rawi": {
-        en: "Al-Ghaydh is the boiling of the heart's blood due to an event a person hates. When you contain it ('Kadhama'), you resemble a water-skin whose opening is tightly tied shut so not a single drop spills. But containment alone is insufficient; contained rage can ferment inside the chest into rancor and hatred. Therefore, the divine command ascends: 'and those who pardon people' ('wal-'aafeena 'anin-naas'). Pardon cleanses the heart, and then the believer rises to Ihsan: returning good for harm, which removes bitterness from the transgressor's heart as well.",
-        sv: "Al-Ghaydh är blodets kokande i hjärtat vid en kränkning. Att hålla tillbaka det ('Kadhama') liknar en lädersäck som knyts åt hårt så att inte en droppe läcker ut. Men behärskning allena räcker inte, då instängd ilska kan jäsa till bitterhet och agg. Därför stiger det gudomliga påbudet till nästa nivå: 'och som förlåter människorna'. Förlåtelsen renar bröstet, och den troende når därefter Ihsan genom att bemöta oförrätten med godhet.",
-        fr: "Al-Ghaydh est le bouillonnement du sang du cœur face à une injustice subie. En la réprimant ('Kadhama'), l'être humain est semblable à une outre pleine d'eau dont l'ouverture est fermement scellée. Mais la rétention seule ne suffit point, car elle risque de fermenter en rancœur. L'injonction divine s'élève donc : « et ceux qui pardonnent aux gens ». Le pardon vide la poitrine de ce venin, et l'être s'élève enfin au sommet de l'Ihsan en répondant au mal par le bien.",
-        ar: 'الغيظ هو غليان دم القلب لحدث يكرهه الإنسان، فإذا أردت أن تكتمه وتكظمه فإنك تشبه القربة المملوءة ماءً حين تُشد رأسها حتى لا يسيل منها قطرة. ولكن الكظم وحده لا يكفي؛ لأن الغيظ المكظوم قد يختمر في الصدر فيتحول إلى حقد وكراهية، ولذلك جاء الأمر الإلهي مرتقياً: (والعافين عن الناس)، فالعفو يفرغ الصدر من أثر الغيظ، ثم يرتقي المؤمن إلى أعلى الدرجات: (والله يحب المحسنين) بأن تقابل إساءة من ظلمك بالإحسان إليه.',
-      },
-      'Al-Bouti': {
-        en: 'The essential distinction between containing anger and pardoning is that containment holds back the limbs and tongue from aggression, whereas pardon purifies the inner conscience from resentment. Excellence (Ihsan) is making this trial a bridge to Allah, wishing guidance for the transgressor and presenting a kindness that breaks the wall of hostility.',
-        sv: 'Skillnaden mellan att hålla tillbaka vrede och att förlåta är att behärskning hejdar tungan och lemmarna från angrepp, medan förlåtelse renar det inre från agg. Ihsan (ädelhet) är att förvandla situationen till en bro till Gud genom att önska den orättvise vägledning och bemöta denne med en handling som river fiendskapens mur.',
-        fr: 'La différence essentielle entre la retenue et le pardon est que la retenue retient la langue et les membres de toute agression, tandis que le pardon purifie la conscience profonde de toute animosité. L’Excellence (Ihsan) consiste à faire de cette épreuve un pont vers Dieu, en souhaitant la guidance à l’offenseur et en lui tendant un bienfait qui brise le mur de l’inimitié.',
-        ar: 'الفرق بين كظم الغيظ والعفو أن الكظم كفٌّ للجوارح واللسان عن العدوان، بينما العفو تطهير للسريرة من الضغينة. والإحسان هو أن تجعل من هذا الموقف جسراً إلى الله تعالى، بأن تتمنى للظالم الهداية وتسدي إليه معروفاً يكسر حاجز الخصومة.',
-      },
     },
   },
   '94:5-6': {
@@ -227,18 +214,6 @@ const VERSE_OVERRIDES: Record<string, VerseLocalizedOverride> = {
         sv: 'Sannerligen följs varje prövning av riklig lättnad, så låt inte motgången leda till misströstan.',
         fr: 'Certes, avec la difficulté vient une grande facilité ; que la détresse ne vous fasse jamais désespérer du secours d’Allah.',
         ar: 'فإن مع الضيق والشدة سعةً وفرجاً، إن مع الضيق والشدة سعةً وفرجاً، فلا يثنك الأذى عن رسالتك.',
-      },
-      "Al-Sha'rawi": {
-        en: "Notice the miracle in the word 'Ma'a' (With). Allah did not say 'after hardship', but said 'with hardship'. Relief does not start only when the hardship is completely finished; rather, God injects serenity, fortitude, and unseen openings in the very midst of the crisis to carry you through.",
-        sv: "Lägg märke till det språkliga undret i ordet 'Ma'a' (Med). Gud sade inte 'efter svårigheten', utan 'med svårigheten'. Lättnaden börjar inte först när prövningen är över; Gud ingjuter ro, tålamod och dolda öppningar mitt under krisens mest intensiva skede.",
-        fr: "Méditez la précision du mot « Ma'a » (Avec). Allah n'a point dit « après la difficulté », mais « avec la difficulté ». Le soulagement ne commence pas lorsque l'épreuve a disparu, mais Dieu insuffle la paix, l'endurance et des portes dérobées au cœur même de la tourmente.",
-        ar: 'انظر إلى دقة التعبير القرآني في كلمة (مع)؛ لم يقل سبحانه (بعد العسر) بل قال (مع العسر)؛ فالمعونة والتثبيت ينزلان مع البلاء في نفس اللحظة، والفرج يصاحب الشدة ولا يتأخر عنها.',
-      },
-      'Al-Bouti': {
-        en: "Contemplate the divine precision: the trial is singular and definite ('Al-'Usr'), while ease is doubled and indefinite ('Yusran'). One hardship can never vanquish two eases. Allah accompanies the tribulation with an inner ease that anchors your heart, and an outer ease when the storm subsides.",
-        sv: "Begrunda den gudomliga precisionen: svårigheten är bestämd och ental ('Al-'Usr'), medan lättnaden är obestämd och fördubblad ('Yusran'). En enda svårighet kan aldrig besegra två lättnader. Gud skänker en inre lättnad som förankrar hjärtat i stormen, och en yttre lättnad när prövningen lyfts.",
-        fr: "Contemplez la précision divine : l'épreuve est définie et singulière (« Al-'Usr »), tandis que la facilité est indéfinie et dédoublée (« Yusran »). Une difficulté ne vaincra jamais deux facilités. Allah accompagne l'adversité d'une paix intérieure qui ancre l'âme, puis d'un dénouement extérieur.",
-        ar: 'تأمل قوله تعالى: (فإن مع العسر يسرا)؛ لم يقل سبحانه (بعد العسر) بل قال (مع)، وهذا تدقيق رباني ينبئك أن لطف الله وتيسيره ليس أمراً مؤجلاً تنتظره بعد انقضاء البلاء، بل هو مصاحب للبلاء مودع في ثناياه.',
       },
     },
   },

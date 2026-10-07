@@ -12,6 +12,8 @@
     "db:seed-master": "npx tsx src/lib/db/seedMasterQuran.ts",
     "db:seed-companion": "npx tsx src/lib/db/seedCompanionGuidance.ts",
     "db:ingest-scholar": "npx tsx src/lib/db/ingestScholarTranscription.ts",
+    "db:import-shaarawi": "npx tsx src/lib/db/importShaarawiQuranpedia.ts",
+    "db:sync-shaarawi": "npx tsx src/lib/db/importShaarawiQuranpedia.ts --force-download",
     "db:embed": "npx tsx src/lib/db/generateEmbeddings.ts",
     "db:embed-check": "npx tsx src/lib/db/generateEmbeddings.ts --check",
     "db:verify": "npx tsx src/lib/db/verifyDb.ts",

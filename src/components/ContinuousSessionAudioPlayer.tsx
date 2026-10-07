@@ -33,6 +33,7 @@ import { StorageService } from '../services/storage';
 import { SpeechService } from '../services/speechSynthesisService';
 import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
+import { AyahCartouche } from './AyahCartouche';
 
 interface ContinuousSessionAudioPlayerProps {
   verses: QuranVerseFixture[];
@@ -207,11 +208,56 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
 
   const tafsirText = currentTafsirCitation?.text || '';
 
-  // Word tokenization for word-by-word synchronous highlighting
-  const arabicWords = useMemo(
-    () => (currentVerse?.arabicText || '').trim().split(/\s+/).filter(Boolean),
-    [currentVerse?.arabicText]
-  );
+  // Word tokenization and per-ayah segmentation for word-by-word synchronous highlighting + circular verse symbols
+  const { tokenizedArabicSegments, totalArabicWordsCount } = useMemo(() => {
+    const rawText = currentVerse?.arabicText || '';
+    const vNumStr = currentVerse?.verseNumber || '1';
+    const cleanText = (str: string) =>
+      str
+        .replace(/[\u06DD\u06DE]/g, '')
+        .replace(/[\u0660-\u0669]+/g, '')
+        .trim();
+
+    const subParts = rawText
+      .split('۝')
+      .map((s) => cleanText(s))
+      .filter(Boolean);
+    const rangeMatch = vNumStr.match(/^(\d+)\s*-\s*(\d+)$/);
+    const startNum = rangeMatch ? parseInt(rangeMatch[1], 10) : parseInt(vNumStr, 10);
+
+    const segments: { verseNumber: string; text: string }[] = [];
+    if (subParts.length > 1 && !isNaN(startNum)) {
+      subParts.forEach((part, idx) => {
+        segments.push({
+          verseNumber: String(startNum + idx),
+          text: part,
+        });
+      });
+    } else {
+      segments.push({
+        verseNumber: vNumStr,
+        text: subParts.join(' ') || cleanText(rawText),
+      });
+    }
+
+    let globalIdx = 0;
+    const tokenized = segments.map((seg) => {
+      const words = seg.text
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => ({
+          word,
+          globalIdx: globalIdx++,
+        }));
+      return {
+        verseNumber: seg.verseNumber,
+        words,
+      };
+    });
+
+    return { tokenizedArabicSegments: tokenized, totalArabicWordsCount: globalIdx };
+  }, [currentVerse?.arabicText, currentVerse?.verseNumber]);
 
   const translationWords = useMemo(
     () => translationText.trim().split(/\s+/).filter(Boolean),
@@ -225,10 +271,10 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
 
   // Active word indices
   const activeArabicWordIndex = useMemo(() => {
-    if (playbackPhase !== 'recitation' || arabicWords.length === 0) return -1;
-    const idx = Math.floor(recitationRatio * arabicWords.length);
-    return Math.min(arabicWords.length - 1, Math.max(0, idx));
-  }, [playbackPhase, recitationRatio, arabicWords.length]);
+    if (playbackPhase !== 'recitation' || totalArabicWordsCount === 0) return -1;
+    const idx = Math.floor(recitationRatio * totalArabicWordsCount);
+    return Math.min(totalArabicWordsCount - 1, Math.max(0, idx));
+  }, [playbackPhase, recitationRatio, totalArabicWordsCount]);
 
   const activeTranslationWordIndex = useMemo(() => {
     if (playbackPhase !== 'translation' || translationWords.length === 0) return -1;
@@ -571,16 +617,24 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
         <div className="p-5 sm:p-7 rounded-2xl bg-[#FAF8F5] dark:bg-[#071711] border border-emerald-900/10 dark:border-emerald-800/30 space-y-5">
           {/* Card Top Sub-Header */}
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 border-b border-emerald-900/10 dark:border-emerald-800/30 pb-3">
-            <span className="font-semibold text-emerald-900 dark:text-emerald-300">
-              Surah {currentVerse.surahNameTransliterated} · {currentVerse.id}{' '}
-              {totalTracks > 1 ? `(${currentTrackIndex + 1}/${totalTracks})` : ''}
+            <span className="font-semibold text-emerald-900 dark:text-emerald-300 inline-flex items-center gap-2">
+              <AyahCartouche
+                number={currentVerse.verseNumber}
+                size="md"
+                className="text-amber-700 dark:text-amber-400"
+              />
+              <span>
+                {localizedDetails?.surahPrefix || 'Surah'}{' '}
+                {localizedDetails?.surahNameDisplay || currentVerse.surahNameTransliterated}{' '}
+                {totalTracks > 1 ? `(${currentTrackIndex + 1}/${totalTracks})` : ''}
+              </span>
             </span>
             <span className="tabular-nums">
               {currentIndex + 1} / {displayedVerses.length} · {activeReciter.name}
             </span>
           </div>
 
-          {/* LEVEL 1: Verified Uthmani Arabic Script with synchronized word highlighting */}
+          {/* LEVEL 1: Verified Uthmani Arabic Script with synchronized word highlighting & circular verse symbols */}
           <div className="space-y-1">
             <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 block tracking-wider uppercase">
               Level 1 · Uthmani Script
@@ -590,23 +644,30 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
               lang="ar"
               className="font-arabic text-right text-2xl sm:text-3xl text-emerald-950 dark:text-emerald-50 leading-loose select-text"
             >
-              {arabicWords.map((word, idx) => {
-                const isWordActive =
-                  playbackPhase === 'recitation' && idx === activeArabicWordIndex;
-                return (
-                  <React.Fragment key={idx}>
-                    <span
-                      className={`inline-block rounded-lg px-0.5 transition-colors duration-150 ${
-                        isWordActive
-                          ? 'bg-amber-400/35 dark:bg-amber-400/30 text-emerald-950 dark:text-amber-200 underline decoration-amber-500 decoration-2 underline-offset-8'
-                          : ''
-                      }`}
-                    >
-                      {word}
-                    </span>{' '}
-                  </React.Fragment>
-                );
-              })}
+              {tokenizedArabicSegments.map((seg, segIdx) => (
+                <React.Fragment key={segIdx}>
+                  {seg.words.map(({ word, globalIdx }) => {
+                    const isWordActive =
+                      playbackPhase === 'recitation' && globalIdx === activeArabicWordIndex;
+                    return (
+                      <React.Fragment key={globalIdx}>
+                        <span
+                          className={`inline-block rounded-lg px-0.5 transition-colors duration-150 ${
+                            isWordActive
+                              ? 'bg-amber-400/35 dark:bg-amber-400/30 text-emerald-950 dark:text-amber-200 underline decoration-amber-500 decoration-2 underline-offset-8'
+                              : ''
+                          }`}
+                        >
+                          {word}
+                        </span>{' '}
+                      </React.Fragment>
+                    );
+                  })}
+                  <span className="inline-flex items-center align-middle mx-1 text-amber-700 dark:text-amber-400 select-none">
+                    <AyahCartouche number={seg.verseNumber} size="inline" />
+                  </span>{' '}
+                </React.Fragment>
+              ))}
             </p>
           </div>
 

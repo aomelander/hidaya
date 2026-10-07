@@ -11,7 +11,8 @@ interface AyahCartoucheProps {
   number: string | number;
   active?: boolean;
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'inline';
+  scale?: number;
 }
 
 export const AyahCartouche: React.FC<AyahCartoucheProps> = ({
@@ -19,23 +20,41 @@ export const AyahCartouche: React.FC<AyahCartoucheProps> = ({
   active = false,
   className = '',
   size = 'md',
+  scale = 1,
 }) => {
   const numStr = String(number || '');
   const len = numStr.length;
 
-  // Responsive font sizing based on digit count (1, 2, 3 digits)
-  const fontSize = len <= 1 ? 22 : len === 2 ? 19 : len === 3 ? 15 : 12;
+  // Significantly larger, high-legibility font sizing based on character count
+  const fontSize =
+    len <= 1
+      ? 34
+      : len === 2
+      ? 30
+      : len === 3
+      ? 25
+      : len <= 5
+      ? 20
+      : 16;
 
-  // Dimensions based on size prop
+  // Dimensions based on size prop; 'inline' uses em units so it scales dynamically when user increases Arabic font size!
   const sizeClasses =
-    size === 'sm'
-      ? 'w-9 h-7'
+    size === 'inline'
+      ? 'w-[2.15em] h-[1.68em]'
+      : size === 'sm'
+      ? 'w-12 h-9.5'
       : size === 'lg'
-      ? 'w-14 h-11'
-      : 'w-11 h-8.5';
+      ? 'w-16 h-12.5'
+      : 'w-14 h-11';
+
+  const customStyle =
+    scale !== 1 && size !== 'inline'
+      ? { transform: `scale(${scale})`, transformOrigin: 'center' }
+      : undefined;
 
   return (
     <div
+      style={customStyle}
       className={`inline-flex items-center justify-center shrink-0 transition-transform ${sizeClasses} ${className}`}
       aria-hidden="true"
     >
@@ -50,15 +69,15 @@ export const AyahCartouche: React.FC<AyahCartoucheProps> = ({
           <ellipse
             cx="50"
             cy="42"
-            rx="32"
-            ry="20"
+            rx="35"
+            ry="22"
             className="fill-white/15 dark:fill-emerald-400/20"
           />
         )}
 
         {/* Main Cartouche Outer Oval Body */}
         <path
-          d="M 47,18 C 39,18 20,18 13,32 C 8,40 8,44 13,52 C 20,66 39,66 47,66 M 53,18 C 61,18 80,18 87,32 C 92,40 92,44 87,52 C 80,66 61,66 53,66"
+          d="M 47,16 C 38,16 17,16 10,31 C 5,40 5,44 10,53 C 17,68 38,68 47,68 M 53,16 C 62,16 83,16 90,31 C 95,40 95,44 90,53 C 83,68 62,68 53,68"
           stroke="currentColor"
           strokeWidth="2.8"
           strokeLinecap="round"
@@ -67,7 +86,7 @@ export const AyahCartouche: React.FC<AyahCartoucheProps> = ({
 
         {/* Inner subtle decorative border line */}
         <path
-          d="M 47,22 C 40,22 23,22 17,34 C 13,40 13,44 17,50 C 23,62 40,62 47,62 M 53,22 C 60,22 77,22 83,34 C 87,40 87,44 83,50 C 77,62 60,62 53,62"
+          d="M 47,20 C 39,20 20,20 14,33 C 10,40 10,44 14,51 C 20,64 39,64 47,64 M 53,20 C 61,20 80,20 86,33 C 90,40 90,44 86,51 C 80,64 61,64 53,64"
           stroke="currentColor"
           strokeWidth="1.2"
           strokeOpacity="0.4"
@@ -77,60 +96,60 @@ export const AyahCartouche: React.FC<AyahCartoucheProps> = ({
         {/* Top Ornament Crest */}
         {/* Central pointed flame petal */}
         <path
-          d="M 50,5 C 46,11 46,15 50,19 C 54,15 54,11 50,5 Z"
+          d="M 50,3 C 46,9 46,13 50,17 C 54,13 54,9 50,3 Z"
           fill="currentColor"
         />
         {/* Left top scrolling tendril */}
         <path
-          d="M 47,18 C 40,12 32,13 35,19 C 37,22 43,21 46,18"
+          d="M 47,16 C 40,10 32,11 35,17 C 37,20 43,19 46,16"
           stroke="currentColor"
           strokeWidth="2.2"
           strokeLinecap="round"
         />
         {/* Right top scrolling tendril */}
         <path
-          d="M 53,18 C 60,12 68,13 65,19 C 63,22 57,21 54,18"
+          d="M 53,16 C 60,10 68,11 65,17 C 63,20 57,19 54,16"
           stroke="currentColor"
           strokeWidth="2.2"
           strokeLinecap="round"
         />
         {/* Floating pearls / dots at top shoulders */}
-        <circle cx="33" cy="11" r="2.4" fill="currentColor" />
-        <circle cx="67" cy="11" r="2.4" fill="currentColor" />
+        <circle cx="33" cy="9" r="2.4" fill="currentColor" />
+        <circle cx="67" cy="9" r="2.4" fill="currentColor" />
 
         {/* Bottom Ornament Crest (Mirrored) */}
         {/* Central downward pointed flame petal */}
         <path
-          d="M 50,79 C 46,73 46,69 50,65 C 54,69 54,73 50,79 Z"
+          d="M 50,81 C 46,75 46,71 50,67 C 54,71 54,75 50,81 Z"
           fill="currentColor"
         />
         {/* Left bottom scrolling tendril */}
         <path
-          d="M 47,66 C 40,72 32,71 35,65 C 37,62 43,63 46,66"
+          d="M 47,68 C 40,74 32,73 35,67 C 37,64 43,65 46,68"
           stroke="currentColor"
           strokeWidth="2.2"
           strokeLinecap="round"
         />
         {/* Right bottom scrolling tendril */}
         <path
-          d="M 53,66 C 60,72 68,71 65,65 C 63,62 57,63 54,66"
+          d="M 53,68 C 60,74 68,73 65,67 C 63,64 57,65 54,68"
           stroke="currentColor"
           strokeWidth="2.2"
           strokeLinecap="round"
         />
         {/* Floating pearls / dots at bottom shoulders */}
-        <circle cx="33" cy="73" r="2.4" fill="currentColor" />
-        <circle cx="67" cy="73" r="2.4" fill="currentColor" />
+        <circle cx="33" cy="75" r="2.4" fill="currentColor" />
+        <circle cx="67" cy="75" r="2.4" fill="currentColor" />
 
         {/* Ayah Number Inside Cartouche */}
         <text
           x="50"
-          y="42"
+          y="42.5"
           dominantBaseline="central"
           textAnchor="middle"
           fill="currentColor"
           fontSize={fontSize}
-          fontWeight="bold"
+          fontWeight="800"
           fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
           letterSpacing="-0.5px"
         >

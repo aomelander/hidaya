@@ -302,8 +302,7 @@ const SCHOLAR_LABELS: Record<
       { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Classical Hadith & Tradition' },
       { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Heart & Spiritual Wisdom' },
       { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Concise & Direct Clarity' },
-      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Transcribed Lectures & Linguistic Gems' },
-      { id: 'Al-Bouti', label: 'Al-Bouti', sub: 'Fiqh of Sunnah & Heart Purification' },
+      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Tafsir Al-Shaarawi (Quranpedia Book 18)' },
     ],
   },
   sv: {
@@ -313,8 +312,7 @@ const SCHOLAR_LABELS: Record<
       { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Klassisk tradition & kontext' },
       { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Andlig visdom & hjärtats väg' },
       { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Kortfattad & tydlig innebörd' },
-      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Föreläsningstranskript & språkligt djup' },
-      { id: 'Al-Bouti', label: 'Al-Bouti', sub: 'Själens rening & profetisk visdom' },
+      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Tafsir Al-Shaarawi (Quranpedia Bok 18)' },
     ],
   },
   fr: {
@@ -324,19 +322,17 @@ const SCHOLAR_LABELS: Record<
       { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Tradition classique & contexte' },
       { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Sagesse spirituelle du cœur' },
       { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Clarté concise & directe' },
-      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Transcriptions de cours & perles linguistiques' },
-      { id: 'Al-Bouti', label: 'Al-Bouti', sub: 'Purification du cœur & sagesse prophétique' },
+      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Tafsir Al-Shaarawi (Quranpedia Livre 18)' },
     ],
   },
   ar: {
-    sectionTitle: 'المفسر المفضل (أمهات التفاسير والمحاضرات الموثقة)',
+    sectionTitle: 'المفسر المفضل (أمهات التفاسير المعتمدة)',
     entryModeTitle: 'مسار التدبر الافتراضي',
     scholars: [
       { id: 'Ibn Kathir', label: 'ابن كثير', sub: 'تفسير القرآن العظيم بالمأثور' },
       { id: "Al-Sa'di", label: 'السعدي', sub: 'تيسير الكريم الرحمن والمقاصد' },
       { id: 'Al-Muyassar', label: 'التفسير الميسر', sub: 'عبارة وجيزة وواضحة' },
-      { id: "Al-Sha'rawi", label: 'الشعراوي', sub: 'خواطر وتفريغات مرئية وبلاغية' },
-      { id: 'Al-Bouti', label: 'البوطي', sub: 'فقه السيرة وتزكية النفس' },
+      { id: "Al-Sha'rawi", label: 'الشعراوي', sub: 'تفسير الشعراوي (الموسوعة القرآنية - كتاب ١٨)' },
     ],
   },
 };
@@ -828,12 +824,12 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
           <div className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 space-y-3">
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               {language === 'ar'
-                ? 'استيراد تسجيلات ومرئيات الشيخ محمد متولي الشعراوي والدكتور محمد سعيد رمضان البوطي مع ترجمة منضبطة بالذكاء الاصطناعي وتوثيق المصدر بدقة.'
+                ? 'استيراد ومزامنة تفسير الشيخ محمد متولي الشعراوي الموثق (الموسوعة القرآنية - كتاب رقم ١٨) مع حفظ النص العربي الأصلي كاملاً.'
                 : language === 'sv'
-                ? 'Läs in ljud/video-transkriberingar av Sheikh Al-Sha\'rawi och Dr. Al-Bouti med strikt jordad AI-översättning och fullständig ursprungskontroll.'
+                ? 'Synkronisera och granska Sheikh Muhammad Metwalli Al-Sha\'rawis autentiska Tafsir (Quranpedia Bok 18) med bevarad arabisk originaltext.'
                 : language === 'fr'
-                ? 'Ingérez les transcriptions de cours de Cheikh Al-Sha\'rawi et Dr. Al-Bouti avec une traduction stricte par IA et une traçabilité totale.'
-                : 'Ingest audio/video transcriptions from Sheikh Al-Sha\'rawi and Dr. Al-Bouti with strict grounded AI translation and complete provenance tracking.'}
+                ? 'Synchronisez et vérifiez le Tafsir authentique de Cheikh Muhammad Metwalli Al-Sha\'rawi (Quranpedia Livre 18) avec texte arabe intégral préservé.'
+                : 'Synchronize and audit Sheikh Muhammad Metwalli Al-Sha\'rawi\'s official Tafsir dataset (Quranpedia Book 18) with verbatim Arabic preservation.'}
             </p>
 
             <button

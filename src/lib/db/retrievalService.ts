@@ -683,7 +683,7 @@ export class RetrievalService {
 
     const pool = filtered.length > 0 ? filtered : SEED_FIXTURES;
 
-    const candidates = pool.map((f) => {
+    const candidates = pool.map((f: any) => {
       const { selected, orderedList } = resolveTranslation(f.translations, language);
       return {
         id: `${f.surah.number}:${f.ayah.ayah_number}`,
@@ -695,6 +695,7 @@ export class RetrievalService {
         selectedTranslation: selected,
         tafsirs: resolveTafsirs(f.tafsirs, language),
         topic: f.topic,
+        surroundingVerses: f.surroundingVerses,
       };
     });
 
@@ -711,11 +712,11 @@ export class RetrievalService {
     const normalized = (queryText || '').toLowerCase().trim();
     const tokens = normalized.split(/[\s,.'"-]+/).filter((t) => t.length > 2);
 
-    const scored = SEED_FIXTURES.map((f) => {
+    const scored = SEED_FIXTURES.map((f: any) => {
       let score = 0;
       const title = f.topic.title.toLowerCase();
       const slug = f.topic.slug.toLowerCase();
-      const transl = f.translations.map((t) => t.text.toLowerCase()).join(' ');
+      const transl = f.translations.map((t: any) => t.text.toLowerCase()).join(' ');
       const arabicAyah = `${f.ayah.text_clean || ''} ${f.ayah.text_uthmani || ''} ${f.surah.name_arabic || ''}`;
 
       if (title.includes(normalized) || transl.includes(normalized) || arabicAyah.includes(normalized)) {
@@ -740,6 +741,7 @@ export class RetrievalService {
         selectedTranslation: selected,
         tafsirs: resolveTafsirs(f.tafsirs, language),
         topic: f.topic,
+        surroundingVerses: f.surroundingVerses,
       };
     });
 

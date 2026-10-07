@@ -52,6 +52,7 @@ export interface BackendMatchPayload {
     life_domain: string;
   };
   companionGuidance?: any;
+  surroundingVerses?: QuranVerseFixture['surroundingVerses'];
 }
 
 /**
@@ -88,13 +89,33 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
       f.id.split('-')[0] === id.split('-')[0]
   );
   if (curated) {
-    if (match.companionGuidance) {
-      return {
-        ...curated,
-        companionGuidance: match.companionGuidance,
-      };
-    }
-    return curated;
+    const shaarawiDb = match.tafsirs?.find(
+      (t) => t.scholar_name === "Al-Sha'rawi" || t.scholar_name === 'الشعراوي'
+    );
+    const hasShaarawiCurated = curated.tafsirCitations.some(
+      (c) => c.scholar === "Al-Sha'rawi" || c.scholar === 'الشعراوي'
+    );
+    const mergedCitations =
+      shaarawiDb && !hasShaarawiCurated
+        ? [
+            ...curated.tafsirCitations,
+            {
+              scholar: "Al-Sha'rawi",
+              sourceBook: shaarawiDb.work_title,
+              text: shaarawiDb.text,
+              sourceType: (shaarawiDb.source_type as any) || 'classical_book',
+              sourceReference: shaarawiDb.source_reference,
+              originalArabicRaw: shaarawiDb.original_arabic_raw || shaarawiDb.text,
+              verificationStatus: (shaarawiDb.verification_status as any) || 'verified_canonical',
+            },
+          ]
+        : curated.tafsirCitations;
+
+    return {
+      ...curated,
+      tafsirCitations: mergedCitations,
+      ...(match.companionGuidance ? { companionGuidance: match.companionGuidance } : {}),
+    };
   }
 
   if (!match.surah || !match.ayah) {
@@ -163,7 +184,10 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
     return true;
   });
 
-  const findScholarTafsir = (scholarKey: 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar', defaultBook: string) => {
+  const findScholarTafsir = (
+    scholarKey: 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar' | "Al-Sha'rawi",
+    defaultBook: string
+  ) => {
     const found = trustedTafsirs.find((t) =>
       t.scholar_name.toLowerCase().includes(scholarKey.toLowerCase().split(' ')[1] || scholarKey.toLowerCase())
     );
@@ -193,6 +217,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
           findScholarTafsir('Ibn Kathir', "Tafsir al-Qur'an al-'Azim"),
           findScholarTafsir("Al-Sa'di", 'Taysir al-Karim al-Rahman'),
           findScholarTafsir('Al-Muyassar', 'Al-Tafsir Al-Muyassar'),
+          findScholarTafsir("Al-Sha'rawi", 'تفسير الشعراوي (Quranpedia Book #18)'),
         ].filter((c) => c.text.length > 0);
 
   const revType =
@@ -244,6 +269,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
       applyAction: 'Choose one calm, sincere action today that aligns with the wisdom of this verse.',
       livePrompt: 'What reminder from this verse will you carry with you through the rest of today?',
     },
+    surroundingVerses: match.surroundingVerses,
     lifeSphere:
       match.topic?.life_domain === 'family'
         ? 'family'

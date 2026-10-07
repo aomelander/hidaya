@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS translation (
   source TEXT NOT NULL
 );
 
--- Tafsir Table with Provenance Tracking
+-- Tafsir Table with Provenance & Quranpedia Book Synchronization Tracking
 CREATE TABLE IF NOT EXISTS tafsir (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ayah_id UUID REFERENCES ayah(id) ON DELETE CASCADE,
@@ -41,7 +41,33 @@ CREATE TABLE IF NOT EXISTS tafsir (
   source_type TEXT DEFAULT 'classical_book' CHECK (source_type IN ('classical_book', 'expert_transcription', 'ai_translated_expert', 'ai_synthesis')),
   source_reference TEXT,
   original_arabic_raw TEXT,
-  verification_status TEXT DEFAULT 'verified_canonical' CHECK (verification_status IN ('verified_canonical', 'transcription_verified', 'ai_translated_pending_review', 'ai_synthesized'))
+  verification_status TEXT DEFAULT 'verified_canonical' CHECK (verification_status IN ('verified_canonical', 'transcription_verified', 'ai_translated_pending_review', 'ai_synthesized')),
+  tafsir_book_id INTEGER,
+  surah_number INTEGER,
+  ayah_number INTEGER,
+  source_provider TEXT DEFAULT 'Quranpedia',
+  source_version TEXT,
+  content_hash TEXT
+);
+
+-- Unique Constraint / Index on (tafsir_book_id, surah_number, ayah_number) for idempotent Quranpedia imports
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tafsir_book_surah_ayah_unique
+  ON tafsir (tafsir_book_id, surah_number, ayah_number)
+  WHERE tafsir_book_id IS NOT NULL AND surah_number IS NOT NULL AND ayah_number IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tafsir_ayah_scholar_lang_unique
+  ON tafsir (ayah_id, scholar_name, language_code);
+
+-- Import Errors Table (for unmapped records without guessing)
+CREATE TABLE IF NOT EXISTS import_errors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tafsir_book_id INTEGER NOT NULL,
+  surah_number INTEGER,
+  ayah_number INTEGER,
+  verse_key TEXT,
+  error_reason TEXT NOT NULL,
+  raw_payload JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Topic Table
