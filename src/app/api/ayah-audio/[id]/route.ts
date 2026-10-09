@@ -47,8 +47,23 @@ export async function GET(
       if (!isNaN(start) && start >= 0 && start < totalLength && end >= start) {
         const safeEnd = Math.min(end, totalLength - 1);
         const chunk = audioBuffer.subarray(start, safeEnd + 1);
+        const chunkArrayBuffer = new Uint8Array(chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)) as BodyInit;
 
-        return new Response(new Uint8Array(chunk), {
+        // If the request is for the full range from 0 to end, a 200 OK with full Content-Length
+        // is valid per RFC 7233 and avoids workerd chunked-encoding quirks on 206
+        if (start === 0 && safeEnd === totalLength - 1) {
+          return new Response(chunkArrayBuffer, {
+            status: 200,
+            headers: {
+              'Content-Type': 'audio/mpeg',
+              'Content-Length': String(totalLength),
+              'Accept-Ranges': 'bytes',
+              'Cache-Control': 'public, max-age=31536000, immutable',
+            },
+          });
+        }
+
+        return new Response(chunkArrayBuffer, {
           status: 206,
           headers: {
             'Content-Type': 'audio/mpeg',

@@ -13,7 +13,7 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   ScholarIngestionPayload,
   ScholarIngestionRecord,
@@ -21,34 +21,24 @@ import {
   TafsirVerificationStatus,
 } from '../types';
 
-// Supabase Connection Helper
-function getResolvedSupabaseConfig() {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const envAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-  const envService = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+let cachedServerClient: SupabaseClient | null = null;
 
-  let resolvedUrl = 'https://kipsrzozphdgbaqrhiok.supabase.co';
-  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
-    resolvedUrl = envUrl;
-  } else if (envAnon.startsWith('http://') || envAnon.startsWith('https://')) {
-    resolvedUrl = envAnon;
+function getServerSupabase(): SupabaseClient | null {
+  if (cachedServerClient) return cachedServerClient;
+
+  const url = process.env.SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+  if (!url || !key) return null;
+
+  try {
+    cachedServerClient = createClient(url, key, { auth: { persistSession: false } });
+    return cachedServerClient;
+  } catch (err) {
+    console.warn('[ScholarIngestionService] Failed to initialize Supabase client:', err);
+    return null;
   }
-
-  let resolvedKey = envService;
-  if (!resolvedKey || resolvedKey.startsWith('http')) {
-    resolvedKey =
-      !envAnon.startsWith('http') && envAnon
-        ? envAnon
-        : envUrl && !envUrl.startsWith('http')
-        ? envUrl
-        : 'mock-key';
-  }
-
-  return { url: resolvedUrl, key: resolvedKey };
 }
-
-const { url: supabaseUrl, key: supabaseKey } = getResolvedSupabaseConfig();
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 const getAiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY || '';
@@ -260,65 +250,68 @@ export async function ingestScholarCommentary(
   };
 
   // 3. Attempt PostgreSQL `tafsir` table persistence
-  try {
-    const { data: surahData } = await supabase
-      .from('surah')
-      .select('id')
-      .eq('number', surahNumber)
-      .maybeSingle();
-
-    if (surahData?.id) {
-      const { data: ayahData } = await supabase
-        .from('ayah')
+  const supabase = getServerSupabase();
+  if (supabase) {
+    try {
+      const { data: surahData } = await supabase
+        .from('surah')
         .select('id')
-        .eq('surah_id', surahData.id)
-        .eq('ayah_number', ayahNumber)
+        .eq('number', surahNumber)
         .maybeSingle();
 
-      if (ayahData?.id) {
-        record.ayahId = ayahData.id;
+      if (surahData?.id) {
+        const { data: ayahData } = await supabase
+          .from('ayah')
+          .select('id')
+          .eq('surah_id', surahData.id)
+          .eq('ayah_number', ayahNumber)
+          .maybeSingle();
 
-        // Upsert for each language
-        const languages: Array<'en' | 'sv' | 'fr' | 'ar'> = ['en', 'sv', 'fr', 'ar'];
-        for (const lang of languages) {
-          const textContent =
-            lang === 'ar'
-              ? originalArabicRaw
-              : effectiveTranslations[lang] || effectiveTranslations.en;
+        if (ayahData?.id) {
+          record.ayahId = ayahData.id;
 
-          await supabase.from('tafsir').upsert(
-            {
-              ayah_id: ayahData.id,
-              scholar_name: scholarName,
-              work_title: workTitle,
-              text: textContent,
-              language_code: lang,
-              source_type: sourceType,
-              source_reference: sourceReference,
-              original_arabic_raw: originalArabicRaw,
-              verification_status: verificationStatus,
-            },
-            { onConflict: 'ayah_id,scholar_name,language_code' }
-          );
+          // Upsert for each language
+          const languages: Array<'en' | 'sv' | 'fr' | 'ar'> = ['en', 'sv', 'fr', 'ar'];
+          for (const lang of languages) {
+            const textContent =
+              lang === 'ar'
+                ? originalArabicRaw
+                : effectiveTranslations[lang] || effectiveTranslations.en;
+
+            await supabase.from('tafsir').upsert(
+              {
+                ayah_id: ayahData.id,
+                scholar_name: scholarName,
+                work_title: workTitle,
+                text: textContent,
+                language_code: lang,
+                source_type: sourceType,
+                source_reference: sourceReference,
+                original_arabic_raw: originalArabicRaw,
+                verification_status: verificationStatus,
+              },
+              { onConflict: 'ayah_id,scholar_name,language_code' }
+            );
+          }
         }
       }
+    } catch (dbErr) {
+      console.warn('Direct tafsir table insert skipped or unavailable:', dbErr);
     }
-  } catch (dbErr) {
-    console.warn('Direct tafsir table insert skipped or unavailable:', dbErr);
-  }
 
-  // 4. Always persist in `cached_reflection` for immediate live queries
-  try {
-    await supabase.from('cached_reflection').upsert({
-      query_hash: `scholar_transcription:${surahNumber}:${ayahNumber}:${record.id}`,
-      response_json: record,
-      created_at: now,
-    });
+    // 4. Always persist in `cached_reflection` for immediate live queries
+    try {
+      await supabase.from('cached_reflection').upsert({
+        query_hash: `scholar_transcription:${surahNumber}:${ayahNumber}:${record.id}`,
+        response_json: record,
+        created_at: now,
+      });
 
-    // Also update the pending review list
-    await appendToPendingList(record);
-  } catch (cacheErr) {
-    console.warn('Cached reflection persistence error:', cacheErr);
+      // Also update the pending review list
+      await appendToPendingList(record);
+    } catch (cacheErr) {
+      console.warn('Cached reflection persistence error:', cacheErr);
+    }
   }
 
   return record;
@@ -328,6 +321,8 @@ export async function ingestScholarCommentary(
  * Appends or updates record in the pending queue
  */
 async function appendToPendingList(record: ScholarIngestionRecord) {
+  const supabase = getServerSupabase();
+  if (!supabase) return;
   try {
     const { data } = await supabase
       .from('cached_reflection')
@@ -361,6 +356,8 @@ export async function approveScholarTranscription(
   ingestionId: string,
   reviewerName = 'Theological Review Committee'
 ): Promise<boolean> {
+  const supabase = getServerSupabase();
+  if (!supabase) return false;
   const now = new Date().toISOString();
 
   try {
@@ -413,6 +410,8 @@ export async function approveScholarTranscription(
  * Lists all scholar commentaries in the review queue
  */
 export async function listPendingScholarTranscriptions(): Promise<ScholarIngestionRecord[]> {
+  const supabase = getServerSupabase();
+  if (!supabase) return [];
   try {
     const { data } = await supabase
       .from('cached_reflection')

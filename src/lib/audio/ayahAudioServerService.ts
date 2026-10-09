@@ -40,38 +40,13 @@ export interface InternalAyahAudioRecord {
   duration_seconds?: number;
 }
 
-function getResolvedSupabaseConfig() {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const envAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-  const envService = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
-  let resolvedUrl = 'https://kipsrzozphdgbaqrhiok.supabase.co';
-  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
-    resolvedUrl = envUrl;
-  } else if (envAnon.startsWith('http://') || envAnon.startsWith('https://')) {
-    resolvedUrl = envAnon;
-  }
-
-  let resolvedKey = envService;
-  if (!resolvedKey || resolvedKey.startsWith('http')) {
-    resolvedKey =
-      !envAnon.startsWith('http') && envAnon
-        ? envAnon
-        : envUrl && !envUrl.startsWith('http')
-        ? envUrl
-        : 'mock-key';
-  }
-
-  const isMock = resolvedKey === 'mock-key';
-  return { url: resolvedUrl, key: resolvedKey, isMock };
-}
-
 let serverClient: SupabaseClient | null = null;
 
 function getServerSupabaseClient(): SupabaseClient | null {
   if (serverClient) return serverClient;
-  const { url, key, isMock } = getResolvedSupabaseConfig();
-  if (isMock) return null;
+  const url = process.env.SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+  if (!url || !key) return null;
 
   try {
     serverClient = createClient(url, key, {

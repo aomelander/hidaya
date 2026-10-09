@@ -29,7 +29,7 @@
  *      it is NEVER guessed; it is recorded in `import_errors` (`import_errors` table & audit log).
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import zlib from 'zlib';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -51,25 +51,29 @@ try {
   // Ignore
 }
 
-function getResolvedSupabaseConfig() {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const envAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-  const envService = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+let cachedServerClient: SupabaseClient | null = null;
 
-  let validUrl = 'https://kipsrzozphdgbaqrhiok.supabase.co';
-  if (envUrl.startsWith('http')) validUrl = envUrl;
-  else if (envAnon.startsWith('http')) validUrl = envAnon;
+export function getServerSupabase(): SupabaseClient | null {
+  if (cachedServerClient) return cachedServerClient;
 
-  let validKey = envService;
-  if (!validKey || validKey.startsWith('http')) {
-    validKey = !envAnon.startsWith('http') && envAnon ? envAnon : envUrl;
+  // Server client uses server credentials only
+  const url = process.env.SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+  if (!url || !key) {
+    return null;
   }
 
-  return { supabaseUrl: validUrl, supabaseKey: validKey };
+  try {
+    cachedServerClient = createClient(url, key, {
+      auth: { persistSession: false },
+    });
+    return cachedServerClient;
+  } catch (err) {
+    console.warn('[ShaarawiQuranpedia] Failed to initialize Supabase client:', err);
+    return null;
+  }
 }
-
-const { supabaseUrl, supabaseKey } = getResolvedSupabaseConfig();
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const QURANPEDIA_DUMP_URL = 'https://api.quranpedia.net/dumps/tafsir-book-18.json.gz';
 export const QURANPEDIA_SUPPLEMENT_DUMP_URL =
@@ -187,6 +191,11 @@ export function extractVerbatimArabicFromContent(contentPages: QuranpediaContent
  */
 export async function purgeLegacyBoutiAndShaarawiRecords(): Promise<number> {
   console.log("\n[Purge] Removing all legacy Al-Bouti and previous Al-Sha'rawi records...");
+  const supabase = getServerSupabase();
+  if (!supabase) {
+    console.warn('[Purge] Skipping purge: Supabase credentials not configured.');
+    return 0;
+  }
   let totalPurged = 0;
 
   // 1. Delete from `tafsir` table
@@ -315,6 +324,8 @@ async function logImportError(errorEntry: {
   error_reason: string;
   raw_payload: unknown;
 }) {
+  const supabase = getServerSupabase();
+  if (!supabase) return;
   try {
     const { error } = await supabase.from('import_errors').insert(errorEntry);
     if (error) {
@@ -341,6 +352,11 @@ export async function importAndSyncShaarawiTafsir(options?: {
   purgeFirst?: boolean;
   forceDownload?: boolean;
 }): Promise<ImportStats> {
+  const supabase = getServerSupabase();
+  if (!supabase) {
+    throw new Error('Supabase server configuration is missing: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
+  }
+
   console.log('========================================================================');
   console.log('  QURANPEDIA OFFICIAL TAFSIR AL-SHAARAWI (BOOK 18 + BOOK 27803) SYNC');
   console.log('========================================================================');
@@ -736,6 +752,8 @@ export async function getShaarawiTafsirBySurahAyah(
   sourceReference: string;
   arabicTafsirText: string;
 } | null> {
+  const supabase = getServerSupabase();
+  if (!supabase) return null;
   const { data: surah } = await supabase
     .from('surah')
     .select('id, number')

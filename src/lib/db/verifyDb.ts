@@ -12,14 +12,17 @@ try {
   // Ignore missing local env file
 }
 
-const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const envKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
-
-const url = envUrl.startsWith('http') ? envUrl : 'https://kipsrzozphdgbaqrhiok.supabase.co';
-const key = envKey || 'anon-key';
-const supabase = createClient(url, key);
+const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
 
 async function verify() {
+  if (!url || !key) {
+    console.error('Database verification skipped: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) are required.');
+    process.exit(1);
+  }
+
+  const supabase = createClient(url, key);
+
   console.log('====================================================');
   console.log('       HIDAYA DATABASE AUDIT & VERIFICATION         ');
   console.log('====================================================');

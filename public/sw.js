@@ -117,10 +117,10 @@ self.addEventListener('fetch', (event) => {
   // Only intercept GET requests beyond this point
   if (request.method !== 'GET') return;
 
-  // B. Audio Recitations & Stored Neural Audio (.mp3 / /api/ayah-audio/ / everyayah.com): Cache-First if already saved in AUDIO_CACHE
+  // B. Audio Recitations & Stored Neural Audio (.mp3 / /api/ayah-audio/[id] / everyayah.com): Cache-First if already saved in AUDIO_CACHE
   if (
     url.pathname.endsWith('.mp3') ||
-    url.pathname.startsWith('/api/ayah-audio/') ||
+    (url.pathname.startsWith('/api/ayah-audio/') && !url.pathname.includes('/metadata')) ||
     url.hostname.includes('everyayah.com')
   ) {
     event.respondWith(

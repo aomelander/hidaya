@@ -469,8 +469,48 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           try {
             await sec.play();
             return;
-          } catch {
+          } catch (secErr) {
+            console.warn(`[playStoredAudio] sec.play() failed on secondary audio for ${type}, attempting primary audioRef fallback:`, secErr);
             cleanup();
+            if (audioRef.current) {
+              const pri = audioRef.current;
+              pri.src = meta.record.audioUrl;
+              pri.playbackRate = playbackRate;
+
+              const priTimeUpdate = () => {
+                if (pri.duration > 0) {
+                  onProgress(Math.min(1, pri.currentTime / pri.duration));
+                }
+              };
+              const priCleanup = () => {
+                pri.removeEventListener('timeupdate', priTimeUpdate);
+                pri.removeEventListener('ended', priEnded);
+                pri.removeEventListener('error', priError);
+              };
+              const priEnded = () => {
+                priCleanup();
+                onProgress(1);
+                onComplete();
+              };
+              const priError = () => {
+                priCleanup();
+                onComplete();
+              };
+
+              pri.addEventListener('timeupdate', priTimeUpdate);
+              pri.addEventListener('ended', priEnded);
+              pri.addEventListener('error', priError);
+
+              try {
+                await pri.play();
+                return;
+              } catch (priErr) {
+                console.warn(`[playStoredAudio] Fallback to primary audioRef also failed:`, priErr);
+                priCleanup();
+                onComplete();
+                return;
+              }
+            }
             onComplete();
             return;
           }
@@ -612,8 +652,13 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       setPlaybackPhase('idle');
       stopAllSpeech();
       audioRef.current?.pause();
+      secondaryAudioRef.current?.pause();
     } else {
       setIsPlaying(true);
+      // Pre-warm secondary audio element within the user gesture to satisfy browser autoplay policies
+      if (secondaryAudioRef.current) {
+        secondaryAudioRef.current.load();
+      }
       startRecitation();
     }
   };

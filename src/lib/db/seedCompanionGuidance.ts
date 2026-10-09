@@ -13,39 +13,34 @@
  * 2. Seeds into `verse_companion_guidance` and `linguistic_root` relational tables if present.
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { QURAN_FIXTURES } from '../../data/quranFixtures';
 import { getAgeAdaptiveContent } from '../../data/ageAdaptiveContent';
 import { Language } from '../../types';
 
-function getResolvedSupabaseConfig() {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const envAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-  const envService = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+function getSeedSupabase(): { supabase: SupabaseClient | null; url: string } {
+  const url = process.env.SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '';
 
-  let validUrl = '';
-  if (envUrl.startsWith('http')) {
-    validUrl = envUrl;
-  } else if (envAnon.startsWith('http')) {
-    validUrl = envAnon;
-  } else {
-    validUrl = 'https://kipsrzozphdgbaqrhiok.supabase.co';
+  if (!url || !key) {
+    return { supabase: null, url };
   }
 
-  let validKey = envService;
-  if (!validKey || validKey.startsWith('http')) {
-    validKey = !envAnon.startsWith('http') && envAnon ? envAnon : envUrl;
-  }
-
-  return { supabaseUrl: validUrl, supabaseKey: validKey };
+  return {
+    supabase: createClient(url, key, { auth: { persistSession: false } }),
+    url,
+  };
 }
-
-const { supabaseUrl, supabaseKey } = getResolvedSupabaseConfig();
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 const SUPPORTED_LANGUAGES: Language[] = ['en', 'sv', 'fr', 'ar'];
 
 export async function seedCompanionGuidance() {
+  const { supabase, url: supabaseUrl } = getSeedSupabase();
+  if (!supabase) {
+    console.error('Cannot run seed: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
+    return;
+  }
+
   console.log('--- Starting Companion Guidance & Linguistic Roots Seeding ---');
   console.log(`Supabase Target: ${supabaseUrl}`);
 

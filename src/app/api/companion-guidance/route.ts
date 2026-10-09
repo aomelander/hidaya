@@ -1,33 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-function getResolvedSupabaseConfig() {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const envAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-  const envService = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+function getServerSupabase(): SupabaseClient | null {
+  const url = process.env.SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
 
-  let resolvedUrl = 'https://kipsrzozphdgbaqrhiok.supabase.co';
-  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
-    resolvedUrl = envUrl;
-  } else if (envAnon.startsWith('http://') || envAnon.startsWith('https://')) {
-    resolvedUrl = envAnon;
+  if (!url || !key) return null;
+
+  try {
+    return createClient(url, key, { auth: { persistSession: false } });
+  } catch (err) {
+    console.warn('[API /companion-guidance] Failed to initialize Supabase client:', err);
+    return null;
   }
-
-  let resolvedKey = envService;
-  if (!resolvedKey || resolvedKey.startsWith('http')) {
-    resolvedKey =
-      !envAnon.startsWith('http') && envAnon
-        ? envAnon
-        : envUrl && !envUrl.startsWith('http')
-        ? envUrl
-        : 'mock-key';
-  }
-
-  return { url: resolvedUrl, key: resolvedKey };
 }
-
-const { url: supabaseUrl, key: supabaseKey } = getResolvedSupabaseConfig();
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,6 +21,17 @@ export async function GET(req: NextRequest) {
     const verseId = searchParams.get('verseId') || searchParams.get('id');
     const lang = searchParams.get('lang') || 'en';
     const all = searchParams.get('all') === 'true';
+
+    const supabase = getServerSupabase();
+    if (!supabase) {
+      return NextResponse.json(
+        {
+          status: 'fallback',
+          message: 'Database not configured; using local companion guidance fixtures',
+        },
+        { status: 404 }
+      );
+    }
 
     // 1. Bulk request for all companion fixtures
     if (all) {

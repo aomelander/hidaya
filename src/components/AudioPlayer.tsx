@@ -178,6 +178,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   // Stored neural audio states
   const [translationMetadata, setTranslationMetadata] = useState<StoredAudioMetadata | null>(null);
   const [tafsirMetadata, setTafsirMetadata] = useState<StoredAudioMetadata | null>(null);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
 
   const [isAudioCached, setIsAudioCached] = useState(false);
   const [isCachingAudio, setIsCachingAudio] = useState(false);
@@ -241,6 +242,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setHasPlaybackError(false);
     setTranslationMetadata(null);
     setTafsirMetadata(null);
+    setIsLoadingMetadata(true);
     onPlaybackProgress?.(0, false, 'idle');
 
     const loadMetadata = async () => {
@@ -275,8 +277,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
         setTranslationMetadata(transMeta);
         setTafsirMetadata(tafMeta);
+        setIsLoadingMetadata(false);
       } catch {
-        // Ignore aborted requests
+        if (currentRequestId === metadataRequestIdRef.current && !controller.signal.aborted) {
+          setIsLoadingMetadata(false);
+        }
       }
     };
 
@@ -287,14 +292,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     };
   }, [resolvedSurah, resolvedVerse, language, ayahId, hasTranslationText, hasTafsirText]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // If the currently selected stream mode is not available in the selected language, switch back to recitation
+  // Only fallback to recitation once metadata check has completed and stream is confirmed unavailable
   useEffect(() => {
-    if (streamMode === 'translation' && !isTranslationAudioAvailable) {
-      setStreamMode('recitation');
-    } else if (streamMode === 'tafsir' && !isTafsirAudioAvailable) {
-      setStreamMode('recitation');
+    if (!isLoadingMetadata) {
+      if (streamMode === 'translation' && !isTranslationAudioAvailable) {
+        setStreamMode('recitation');
+      } else if (streamMode === 'tafsir' && !isTafsirAudioAvailable) {
+        setStreamMode('recitation');
+      }
     }
-  }, [streamMode, isTranslationAudioAvailable, isTafsirAudioAvailable]);
+  }, [streamMode, isTranslationAudioAvailable, isTafsirAudioAvailable, isLoadingMetadata]);
 
   // Determine active MP3 audio URL based on stream mode
   const effectiveActiveUrl = useMemo(() => {
@@ -332,6 +339,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
+      if (effectiveActiveUrl) {
+        audioRef.current.load();
+      }
     }
 
     if (effectiveActiveUrl) {

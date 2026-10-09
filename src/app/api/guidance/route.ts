@@ -1,35 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { RetrievalService, LanguageCode } from '../../../lib/db/retrievalService';
 import { GoogleGenAI } from '@google/genai';
 
-function getResolvedSupabaseConfig() {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const envAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-  const envService = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+function getServerSupabaseConfig(): { client: SupabaseClient | null; isConfigured: boolean } {
+  const url = process.env.SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
 
-  let resolvedUrl = 'https://kipsrzozphdgbaqrhiok.supabase.co';
-  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
-    resolvedUrl = envUrl;
-  } else if (envAnon.startsWith('http://') || envAnon.startsWith('https://')) {
-    resolvedUrl = envAnon;
+  if (!url || !key) {
+    return { client: null, isConfigured: false };
   }
 
-  let resolvedKey = envService;
-  if (!resolvedKey || resolvedKey.startsWith('http')) {
-    resolvedKey =
-      !envAnon.startsWith('http') && envAnon
-        ? envAnon
-        : envUrl && !envUrl.startsWith('http')
-        ? envUrl
-        : 'mock-key';
+  try {
+    const client = createClient(url, key, {
+      auth: { persistSession: false },
+    });
+    return { client, isConfigured: true };
+  } catch (err) {
+    console.warn('[API /guidance] Failed to initialize Supabase client:', err);
+    return { client: null, isConfigured: false };
   }
-
-  return { url: resolvedUrl, key: resolvedKey, isMock: false };
 }
 
-const { url: supabaseUrl, key: supabaseKey, isMock: useMock } = getResolvedSupabaseConfig();
-const supabase = createClient(supabaseUrl, supabaseKey);
+const { client: supabaseClient, isConfigured: isDbConfigured } = getServerSupabaseConfig();
+const supabase = supabaseClient as SupabaseClient;
+const useMock = !isDbConfigured || !supabaseClient;
 
 async function hashString(str: string) {
   const encoder = new TextEncoder();
