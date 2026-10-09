@@ -34,6 +34,7 @@ import { SpeechService } from '../services/speechSynthesisService';
 import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
 import { AyahCartouche } from './AyahCartouche';
+import { fetchAyahAudioMetadata } from '../lib/audio/audioResolverService';
 
 interface ContinuousSessionAudioPlayerProps {
   verses: QuranVerseFixture[];
@@ -146,6 +147,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   const [tafsirRatio, setTafsirRatio] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const secondaryAudioRef = useRef<HTMLAudioElement | null>(null);
   const t = AUDIO_UI[language] || AUDIO_UI.en;
 
   // Resilient verses pool: use passed verses or fall back to verified fixtures so audio section is NEVER blank
@@ -296,6 +298,10 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
 
   const stopAllSpeech = useCallback(() => {
     SpeechService.cancel();
+    if (secondaryAudioRef.current) {
+      secondaryAudioRef.current.pause();
+      secondaryAudioRef.current.currentTime = 0;
+    }
   }, []);
 
   useEffect(() => {
@@ -363,6 +369,79 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     [language, playbackRate]
   );
 
+  // Plays stored neural audio first, retaining SpeechService as an explicit fallback
+  const playStoredOrFallback = useCallback(
+    async (
+      type: 'translation' | 'tafsir',
+      text: string,
+      onProgress: (ratio: number) => void,
+      onComplete: () => void
+    ) => {
+      onProgress(0);
+
+      if (currentVerse) {
+        try {
+          const meta = await fetchAyahAudioMetadata({
+            surahNumber: currentVerse.surahNumber,
+            ayahNumber: currentVerse.verseNumber,
+            language,
+            type,
+            ayahId: currentVerse.id,
+          });
+
+          if (meta.status === 'available' && meta.record?.audioUrl && secondaryAudioRef.current) {
+            const sec = secondaryAudioRef.current;
+            sec.src = meta.record.audioUrl;
+            sec.playbackRate = playbackRate;
+
+            const onTimeUpdate = () => {
+              if (sec.duration > 0) {
+                onProgress(Math.min(1, sec.currentTime / sec.duration));
+              }
+            };
+
+            const cleanup = () => {
+              sec.removeEventListener('timeupdate', onTimeUpdate);
+              sec.removeEventListener('ended', onEnded);
+              sec.removeEventListener('error', onError);
+            };
+
+            const onEnded = () => {
+              cleanup();
+              onProgress(1);
+              onComplete();
+            };
+
+            const onError = () => {
+              cleanup();
+              // Fall back to client speech synthesis if stored stream fails
+              speakWithHighlight(text, onProgress, onComplete);
+            };
+
+            sec.addEventListener('timeupdate', onTimeUpdate);
+            sec.addEventListener('ended', onEnded);
+            sec.addEventListener('error', onError);
+
+            try {
+              await sec.play();
+              return;
+            } catch {
+              cleanup();
+              speakWithHighlight(text, onProgress, onComplete);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn(`Error resolving stored ${type} audio:`, err);
+        }
+      }
+
+      // Explicit fallback to SpeechService when stored neural audio is unavailable
+      speakWithHighlight(text, onProgress, onComplete);
+    },
+    [currentVerse, language, playbackRate, speakWithHighlight]
+  );
+
   const startRecitation = useCallback(() => {
     if (!audioRef.current) return;
     setPlaybackPhase('recitation');
@@ -401,16 +480,18 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       return;
     }
 
-    // Phase 2: Translation voiceover with word-by-word progress
+    // Phase 2: Translation with stored neural audio first, SpeechService as fallback
     setPlaybackPhase('translation');
-    speakWithHighlight(
+    playStoredOrFallback(
+      'translation',
       translationText,
       (ratio) => setTranslationRatio(ratio),
       () => {
-        if (playbackMode === 'quran_tafsir' && tafsirText) {
-          // Phase 3: Classical Tafsir voiceover with word-by-word progress
+        if (playbackMode === 'quran_tafsir' && (tafsirText || language === 'ar')) {
+          // Phase 3: Classical Tafsir with stored audio first (including Arabic tafsir)
           setPlaybackPhase('tafsir');
-          speakWithHighlight(
+          playStoredOrFallback(
+            'tafsir',
             tafsirText,
             (ratio) => setTafsirRatio(ratio),
             () => {
@@ -429,7 +510,8 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     playbackMode,
     translationText,
     tafsirText,
-    speakWithHighlight,
+    language,
+    playStoredOrFallback,
     handleNext,
   ]);
 
@@ -493,6 +575,10 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
         preload="metadata"
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleAudioEnded}
+      />
+      <audio
+        ref={secondaryAudioRef}
+        preload="none"
       />
 
       {/* Main Audio Sanctuary Card */}

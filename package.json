@@ -8,6 +8,7 @@
     "build": "vinext build",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
+    "test": "npx tsx src/__tests__/ayahAudio.test.ts",
     "db:seed": "tsx src/lib/db/seedFullQuran.ts",
     "db:seed-master": "npx tsx src/lib/db/seedMasterQuran.ts",
     "db:seed-companion": "npx tsx src/lib/db/seedCompanionGuidance.ts",

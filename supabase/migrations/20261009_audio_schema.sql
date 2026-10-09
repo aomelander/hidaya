@@ -1,0 +1,32 @@
+-- ==============================================================================
+-- Schema Reference: public.ayah_audio (Managed by Kaggle pipeline)
+-- Note: Table is already created and populated in live Supabase.
+-- DO NOT recreate or modify core tables or add obsolete constraints.
+-- ==============================================================================
+
+-- Structure of public.ayah_audio populated by Kaggle pipeline:
+-- id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- ayah_id UUID NOT NULL REFERENCES public.ayah(id) ON DELETE CASCADE,
+-- translation_id UUID REFERENCES public.translation(id) ON DELETE CASCADE,
+-- tafsir_id UUID REFERENCES public.tafsir(id) ON DELETE CASCADE,
+-- language_code VARCHAR(10) NOT NULL, -- 'ar', 'en', 'sv', 'fr'
+-- audio_type VARCHAR(20) NOT NULL,     -- 'translation', 'tafsir'
+-- reciter_or_voice VARCHAR(100),
+-- voice VARCHAR(100),
+-- rate VARCHAR(20),
+-- pitch VARCHAR(20),
+-- engine VARCHAR(50),
+-- duration_seconds FLOAT,
+-- byte_size BIGINT,
+-- text_sha256 VARCHAR(64),
+-- audio_sha256 VARCHAR(64),
+-- archive_url TEXT NOT NULL,
+-- archive_member TEXT NOT NULL,
+-- archive_sha256 VARCHAR(64),
+-- release_tag VARCHAR(50),
+-- delivery VARCHAR(20) DEFAULT 'zip_member',
+-- source_table VARCHAR(50),
+-- source_id UUID,
+-- attribution JSONB,
+-- github_asset_path TEXT DEFAULT NULL, -- intentionally NULL (uses zip_member delivery)
+-- created_at TIMESTAMPTZ DEFAULT NOW()

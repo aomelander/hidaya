@@ -46,6 +46,7 @@ export default function App() {
   // User Preferences State
   const [language, setLanguage] = useState<Language>(APP_CONFIG.DEFAULTS.LANGUAGE);
   const [arabicScale, setArabicScale] = useState<number>(APP_CONFIG.DEFAULTS.ARABIC_SCALE);
+  const [readingScale, setReadingScale] = useState<number>(APP_CONFIG.DEFAULTS.READING_SCALE);
   const [showTransliteration, setShowTransliteration] = useState<boolean>(
     APP_CONFIG.DEFAULTS.SHOW_TRANSLITERATION
   );
@@ -102,6 +103,7 @@ export default function App() {
     setMounted(true);
     setLanguage(StorageService.getLanguage());
     setArabicScale(StorageService.getFontSizeMultiplier());
+    setReadingScale(StorageService.getReadingScale());
     setShowTransliteration(StorageService.getShowTransliteration());
     setIsDark(StorageService.getDarkMode());
     setIsHighContrast(StorageService.getHighContrast());
@@ -278,9 +280,30 @@ export default function App() {
 
             {!isAnalyzing && displayedPassages.length > 0 && (
               <section id="passages-section" aria-label="Quranic Passages" className="space-y-5">
-                {displayedPassages.map((verse) => (
+                {displayedPassages.length > 1 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-white/80 dark:bg-[#0A1E17]/80 border border-emerald-900/10 dark:border-emerald-800/30 backdrop-blur-xs text-xs">
+                    <span className="font-semibold text-emerald-950 dark:text-emerald-200">
+                      {language === 'ar'
+                        ? `${displayedPassages.length} آيات مطابقة للبحث`
+                        : `${displayedPassages.length} Quranic Passages Found`}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {displayedPassages.map((p, idx) => (
+                        <a
+                          key={p.id}
+                          href={`#verse-${p.id}`}
+                          className="px-2.5 py-1 rounded-xl bg-emerald-950/5 dark:bg-emerald-900/30 hover:bg-emerald-800 hover:text-white dark:hover:bg-emerald-700 text-emerald-900 dark:text-emerald-200 transition-colors font-medium border border-emerald-900/10 dark:border-emerald-800/40"
+                        >
+                          Ayah {p.id}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {displayedPassages.map((verse, idx) => (
                   <div
                     key={verse.id}
+                    id={`verse-${verse.id}`}
                     className={
                       activeAudioVerseId === verse.id
                         ? 'ring-2 ring-amber-500/80 rounded-3xl transition-all'
@@ -291,6 +314,9 @@ export default function App() {
                       verse={verse}
                       language={language}
                       arabicScale={arabicScale}
+                      readingScale={readingScale}
+                      cardIndex={idx}
+                      totalCards={displayedPassages.length}
                       showTransliteration={showTransliteration}
                       isBookmarked={bookmarks.includes(verse.id)}
                       onToggleBookmark={handleToggleBookmark}
@@ -366,6 +392,11 @@ export default function App() {
             onSphereChange={setActiveSphere}
             arabicScale={arabicScale}
             onArabicScaleChange={setArabicScale}
+            readingScale={readingScale}
+            onReadingScaleChange={(scale) => {
+              setReadingScale(scale);
+              StorageService.setReadingScale(scale);
+            }}
             showTransliteration={showTransliteration}
             onToggleTransliteration={() => setShowTransliteration(!showTransliteration)}
             isHighContrast={isHighContrast}

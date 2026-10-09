@@ -1093,12 +1093,14 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             surahNumber={verse.surahNumber}
             verseNumber={effectiveVerseNumberStr}
             surahVerseId={effectiveVerseId}
+            ayahId={verse.id}
             translationText={translationObj?.text || ''}
+            tafsirText={currentCitation?.text || ''}
             language={language}
             onPlaybackProgress={(ratio, playing, phase) => {
               setPlaybackRatio(ratio);
               setIsReciting(playing);
-              setPlaybackPhase(phase || (playing ? 'recitation' : 'idle'));
+              setPlaybackPhase(phase === 'tafsir' ? 'idle' : phase || (playing ? 'recitation' : 'idle'));
             }}
           />
         </div>
