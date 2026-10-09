@@ -218,7 +218,7 @@ export default function App() {
       />
 
       {/* Dedicated Tab Viewport — Each Onglet Manages Its Own Page With Zero Popups */}
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-28">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-36 sm:pb-40">
         {/* TAB 1: GUIDANCE (Search, Topics & Inline Verse Study) */}
         {activeNavTab === 'guidance' && (
           <div className="space-y-6">

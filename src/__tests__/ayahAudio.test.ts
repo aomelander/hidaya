@@ -241,6 +241,193 @@ async function runTests() {
   console.log('✓ Test 6 passed\n');
   passed++;
 
+  // =========================================================================
+  // Test 7: Mocked Range extraction from >15 MB archive without downloading it all
+  // =========================================================================
+  console.log('Test 7: Proving extraction from >15 MB archive without full download...');
+  const virtualArchiveSize = 25 * 1024 * 1024; // 25 MB archive
+  const mockMemberPath = 'en/translation/large-test.mp3';
+  const mockPayload = Buffer.from([0xff, 0xfb, 0x90, 0x64, 0x01, 0x02, 0x03, 0x04]); // 8-byte MP3
+  const mockNameBytes = Buffer.from(mockMemberPath, 'utf8');
+
+  // Place local file header at 12 MB offset
+  const localHeaderOffset = 12 * 1024 * 1024;
+  const mockLocalHeader = Buffer.alloc(30);
+  mockLocalHeader.writeUInt32LE(0x04034b50, 0); // sig
+  mockLocalHeader.writeUInt16LE(20, 4);
+  mockLocalHeader.writeUInt16LE(0, 6);
+  mockLocalHeader.writeUInt16LE(0, 8); // STORED
+  mockLocalHeader.writeUInt16LE(0, 10);
+  mockLocalHeader.writeUInt16LE(0, 12);
+  mockLocalHeader.writeUInt32LE(0x99887766, 14); // crc
+  mockLocalHeader.writeUInt32LE(mockPayload.length, 18);
+  mockLocalHeader.writeUInt32LE(mockPayload.length, 22);
+  mockLocalHeader.writeUInt16LE(mockNameBytes.length, 26);
+  mockLocalHeader.writeUInt16LE(0, 28);
+  const localSlice = Buffer.concat([mockLocalHeader, mockNameBytes, mockPayload]);
+
+  // Place Central Directory near end: 24.9 MB
+  const mockCdOffset = virtualArchiveSize - 4096;
+  const mockCdHeader = Buffer.alloc(46);
+  mockCdHeader.writeUInt32LE(0x02014b50, 0); // sig
+  mockCdHeader.writeUInt16LE(20, 4);
+  mockCdHeader.writeUInt16LE(20, 6);
+  mockCdHeader.writeUInt16LE(0, 8); // flags
+  mockCdHeader.writeUInt16LE(0, 10); // STORED
+  mockCdHeader.writeUInt16LE(0, 12);
+  mockCdHeader.writeUInt16LE(0, 14);
+  mockCdHeader.writeUInt32LE(0x99887766, 16);
+  mockCdHeader.writeUInt32LE(mockPayload.length, 20);
+  mockCdHeader.writeUInt32LE(mockPayload.length, 24);
+  mockCdHeader.writeUInt16LE(mockNameBytes.length, 28);
+  mockCdHeader.writeUInt16LE(0, 30);
+  mockCdHeader.writeUInt16LE(0, 32);
+  mockCdHeader.writeUInt16LE(0, 34);
+  mockCdHeader.writeUInt16LE(0, 36);
+  mockCdHeader.writeUInt32LE(0, 38);
+  mockCdHeader.writeUInt32LE(localHeaderOffset, 42); // offset of local header
+  const cdSlice = Buffer.concat([mockCdHeader, mockNameBytes]);
+
+  // EOCD record
+  const mockEocdOffset = mockCdOffset + cdSlice.length;
+  const mockEocd = Buffer.alloc(22);
+  mockEocd.writeUInt32LE(0x06054b50, 0); // sig
+  mockEocd.writeUInt16LE(0, 4);
+  mockEocd.writeUInt16LE(0, 6);
+  mockEocd.writeUInt16LE(1, 8); // 1 entry
+  mockEocd.writeUInt16LE(1, 10);
+  mockEocd.writeUInt32LE(cdSlice.length, 12); // cd size
+  mockEocd.writeUInt32LE(mockCdOffset, 16); // cd offset
+  mockEocd.writeUInt16LE(0, 20); // comment len
+
+  let totalBytesTransferred = 0;
+  const mockFetch: any = async (_url: string, init?: RequestInit) => {
+    const rangeHeader = (init?.headers as Record<string, string>)?.Range || '';
+    let start = 0;
+    let end = virtualArchiveSize - 1;
+
+    if (rangeHeader.startsWith('bytes=')) {
+      const parts = rangeHeader.replace('bytes=', '').split('-');
+      if (parts[0] === '' && parts[1]) {
+        // Suffix range bytes=-N
+        const suffix = parseInt(parts[1], 10);
+        start = Math.max(0, virtualArchiveSize - suffix);
+        end = virtualArchiveSize - 1;
+      } else {
+        start = parseInt(parts[0], 10);
+        end = parts[1] ? parseInt(parts[1], 10) : virtualArchiveSize - 1;
+      }
+    }
+
+    const length = end - start + 1;
+    const chunkBuf = Buffer.alloc(length);
+
+    // Fill local header slice if overlap
+    const localStart = localHeaderOffset;
+    const localEnd = localStart + localSlice.length - 1;
+    if (end >= localStart && start <= localEnd) {
+      const s = Math.max(start, localStart);
+      const e = Math.min(end, localEnd);
+      localSlice.copy(chunkBuf, s - start, s - localStart, e - localStart + 1);
+    }
+
+    // Fill CD slice if overlap
+    const cdEnd = mockCdOffset + cdSlice.length - 1;
+    if (end >= mockCdOffset && start <= cdEnd) {
+      const s = Math.max(start, mockCdOffset);
+      const e = Math.min(end, cdEnd);
+      cdSlice.copy(chunkBuf, s - start, s - mockCdOffset, e - mockCdOffset + 1);
+    }
+
+    // Fill EOCD slice if overlap
+    const eocdEnd = mockEocdOffset + mockEocd.length - 1;
+    if (end >= mockEocdOffset && start <= eocdEnd) {
+      const s = Math.max(start, mockEocdOffset);
+      const e = Math.min(end, eocdEnd);
+      mockEocd.copy(chunkBuf, s - start, s - mockEocdOffset, e - mockEocdOffset + 1);
+    }
+
+    totalBytesTransferred += chunkBuf.length;
+
+    return new Response(chunkBuf, {
+      status: 206,
+      headers: {
+        'Content-Range': `bytes ${start}-${end}/${virtualArchiveSize}`,
+        'Content-Length': String(chunkBuf.length),
+      },
+    });
+  };
+
+  const largeExtracted = await extractZipStoredMember(
+    'https://github.com/aomelander/hidaya/releases/download/v1.0.0-audio/large-archive.zip',
+    mockMemberPath,
+    mockFetch
+  );
+
+  assert(Buffer.compare(largeExtracted, mockPayload) === 0, 'Extracted audio payload must match');
+  assert(
+    totalBytesTransferred < 200 * 1024,
+    `Total transferred bytes (${totalBytesTransferred}) must be far below 15 MB (proves sparse range extraction)`
+  );
+  console.log(`Transferred only ${(totalBytesTransferred / 1024).toFixed(1)} KB from a 25 MB archive.`);
+  console.log('✓ Test 7 passed\n');
+  passed++;
+
+  // =========================================================================
+  // Test 8: Server ignores Range request (returns HTTP 200 OK)
+  // =========================================================================
+  console.log('Test 8: Testing server that ignores Range (HTTP 200 instead of 206)...');
+  const ignoringFetch: any = async () => {
+    return new Response(Buffer.alloc(100), {
+      status: 200,
+      headers: { 'Content-Length': '100' },
+    });
+  };
+
+  let ignoredErrorThrown = false;
+  try {
+    await extractZipStoredMember(
+      'https://github.com/aomelander/hidaya/releases/download/v1.0.0-audio/test.zip',
+      'en/translation/test.mp3',
+      ignoringFetch
+    );
+  } catch (err: any) {
+    ignoredErrorThrown = true;
+    assert(
+      err.message.includes('ignored HTTP Range request') || err.message.includes('200'),
+      'Should report that server ignored HTTP Range request'
+    );
+  }
+  assert(ignoredErrorThrown, 'Must throw error when server returns HTTP 200 for Range request');
+  console.log('✓ Test 8 passed\n');
+  passed++;
+
+  // =========================================================================
+  // Test 9: Server returns 500 error on range request
+  // =========================================================================
+  console.log('Test 9: Testing server returning 500 error...');
+  const errorFetch: any = async () => {
+    return new Response('Internal Server Error', {
+      status: 500,
+      headers: {},
+    });
+  };
+
+  let serverErrorThrown = false;
+  try {
+    await extractZipStoredMember(
+      'https://github.com/aomelander/hidaya/releases/download/v1.0.0-audio/test.zip',
+      'en/translation/test.mp3',
+      errorFetch
+    );
+  } catch (err: any) {
+    serverErrorThrown = true;
+    assert(err.message.includes('500'), 'Should report 500 HTTP error');
+  }
+  assert(serverErrorThrown, 'Must throw error when server returns HTTP 500');
+  console.log('✓ Test 9 passed\n');
+  passed++;
+
   console.log(`🎉 ALL ${passed} TESTS PASSED SUCCESSFULLY!`);
 }
 

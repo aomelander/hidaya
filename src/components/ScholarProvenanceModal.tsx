@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   ShieldCheck,
@@ -175,10 +175,50 @@ export const ScholarProvenanceModal: React.FC<ScholarProvenanceModalProps> = ({
   const t = UI_TEXT[language] || UI_TEXT.en;
   const isRtl = language === 'ar';
 
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
+      const timer = setTimeout(() => {
+        closeButtonRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (!isOpen) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
         onClose();
+        return;
+      }
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusables = modalRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, details summary, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -254,6 +294,7 @@ export const ScholarProvenanceModal: React.FC<ScholarProvenanceModalProps> = ({
       aria-labelledby="provenance-modal-title"
     >
       <div
+        ref={modalRef}
         className="relative w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#081B15] text-slate-900 dark:text-slate-100 rounded-3xl shadow-2xl border border-emerald-900/20 dark:border-emerald-700/40 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
@@ -287,8 +328,9 @@ export const ScholarProvenanceModal: React.FC<ScholarProvenanceModalProps> = ({
           </div>
 
           <button
+            ref={closeButtonRef}
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-emerald-900/40 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-emerald-900/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             aria-label={t.closeBtn}
           >
             <X className="w-5 h-5" />
@@ -338,14 +380,17 @@ export const ScholarProvenanceModal: React.FC<ScholarProvenanceModalProps> = ({
               </div>
 
               {citation.sourceReference && (
-                <div className="sm:col-span-2 pt-2 border-t border-emerald-900/10 dark:border-emerald-800/20">
-                  <span className="text-slate-500 dark:text-slate-400 block font-medium">
-                    {t.sourceRefLabel}
-                  </span>
-                  <p className="text-xs font-mono text-emerald-950 dark:text-emerald-200 mt-1 bg-white dark:bg-emerald-900/30 p-2.5 rounded-xl border border-emerald-900/10 dark:border-emerald-800/20">
+                <details className="sm:col-span-2 pt-2 border-t border-emerald-900/10 dark:border-emerald-800/20 group">
+                  <summary className="text-slate-500 dark:text-slate-400 font-medium cursor-pointer hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors list-none flex items-center justify-between">
+                    <span>{t.sourceRefLabel}</span>
+                    <span className="text-[10px] text-emerald-800 dark:text-emerald-400 underline ms-2">
+                      {language === 'ar' ? 'عرض التفاصيل والترميز الفني' : 'Show Technical Identifiers'}
+                    </span>
+                  </summary>
+                  <p className="text-xs font-mono text-emerald-950 dark:text-emerald-200 mt-2 bg-white dark:bg-emerald-900/30 p-2.5 rounded-xl border border-emerald-900/10 dark:border-emerald-800/20 break-all select-all">
                     {citation.sourceReference}
                   </p>
-                </div>
+                </details>
               )}
             </div>
           </div>

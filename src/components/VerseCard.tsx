@@ -450,12 +450,20 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     );
     if (
       dynamicShaarawiCitation &&
+      language === 'ar' &&
       !base.some((c) => c.scholar === "Al-Sha'rawi" || c.scholar === 'الشعراوي')
     ) {
       return [...base, dynamicShaarawiCitation];
     }
     return base;
-  }, [localizedDetails.tafsirCitations, dynamicShaarawiCitation]);
+  }, [localizedDetails.tafsirCitations, dynamicShaarawiCitation, language]);
+
+  // If tafsir is not available in selected language, reset activeSection if it was opened
+  useEffect(() => {
+    if (activeSection === 'tafsir' && availableCitations.length === 0) {
+      setActiveSection('none');
+    }
+  }, [activeSection, availableCitations.length]);
 
   // Level 2 Human Translation object: Strictly distinct from Tafsir to prevent duplicate text
   const baseTranslationObj = useMemo(() => {
@@ -485,18 +493,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         !availableCitations.some((c) => c.text?.trim() === transTrim)
       ) {
         return currentTrans;
-      }
-    }
-
-    // Only fall back to English if requested language is not available and English is distinct
-    if (language !== 'en' && verse.translations.en?.text) {
-      const enTrim = verse.translations.en.text.trim();
-      if (
-        enTrim.length > 0 &&
-        enTrim !== verse.arabicText.trim() &&
-        !availableCitations.some((c) => c.text?.trim() === enTrim)
-      ) {
-        return verse.translations.en;
       }
     }
 
@@ -563,17 +559,13 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     if (!baseTranslationObj) return '';
     const parts: string[] = [];
     if (includeBefore && canAddBefore && verse.surroundingVerses?.before) {
-      const bTrans =
-        verse.surroundingVerses.before.translations[language] ||
-        verse.surroundingVerses.before.translations.en;
-      if (bTrans) parts.push(bTrans);
+      const bTrans = verse.surroundingVerses.before.translations[language];
+      if (bTrans && bTrans.trim().length > 0) parts.push(bTrans.trim());
     }
     parts.push(baseTranslationObj.text);
     if (includeAfter && canAddAfter && verse.surroundingVerses?.after) {
-      const aTrans =
-        verse.surroundingVerses.after.translations[language] ||
-        verse.surroundingVerses.after.translations.en;
-      if (aTrans) parts.push(aTrans);
+      const aTrans = verse.surroundingVerses.after.translations[language];
+      if (aTrans && aTrans.trim().length > 0) parts.push(aTrans.trim());
     }
     return parts.join(' ');
   }, [verse, language, baseTranslationObj, includeBefore, canAddBefore, includeAfter, canAddAfter]);
@@ -1174,34 +1166,40 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           />
         </div>
 
-        {/* Single-Row 2-Segment Inline Disclosure Bar (Tafsir · Reflection) */}
-        <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-emerald-950/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40">
-          {/* Level 3: Inline Classical Tafsir Toggle */}
-          <button
-            type="button"
-            onClick={() => toggleSection('tafsir')}
-            aria-expanded={activeSection === 'tafsir'}
-            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate ${
-              activeSection === 'tafsir'
-                ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
-                : 'text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{t.tafsirTab}</span>
-            {activeSection === 'tafsir' ? (
-              <ChevronUp className="w-3.5 h-3.5 shrink-0" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-70" />
-            )}
-          </button>
+        {/* Single-Row Disclosure Bar (Tafsir · Reflection) */}
+        <div
+          className={`grid ${
+            availableCitations.length > 0 ? 'grid-cols-2' : 'grid-cols-1'
+          } gap-1.5 p-1 rounded-2xl bg-emerald-950/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40`}
+        >
+          {/* Level 3: Inline Classical Tafsir Toggle (only displayed when citations exist in selected language) */}
+          {availableCitations.length > 0 && (
+            <button
+              type="button"
+              onClick={() => toggleSection('tafsir')}
+              aria-expanded={activeSection === 'tafsir'}
+              className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                activeSection === 'tafsir'
+                  ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
+                  : 'text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{t.tafsirTab}</span>
+              {activeSection === 'tafsir' ? (
+                <ChevronUp className="w-3.5 h-3.5 shrink-0" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-70" />
+              )}
+            </button>
+          )}
 
           {/* Level 4: Inline Personal Reflection Toggle */}
           <button
             type="button"
             onClick={() => toggleSection('reflection')}
             aria-expanded={activeSection === 'reflection'}
-            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate ${
+            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
               activeSection === 'reflection'
                 ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
                 : 'text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
@@ -1221,7 +1219,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         </div>
 
         {/* INLINE PANEL 1: LEVEL 3 CLASSICAL & EXPERT TAFSIR WITH PROVENANCE AUDIT */}
-        {activeSection === 'tafsir' && (
+        {activeSection === 'tafsir' && availableCitations.length > 0 && (
           <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/30 border border-emerald-900/10 dark:border-emerald-800/30 space-y-4">
             {/* Interactive Scholar Selector Bar (Segmented Control) */}
             {availableCitations.length > 1 && (

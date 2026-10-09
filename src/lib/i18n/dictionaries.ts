@@ -11,6 +11,7 @@ export interface UIDictionary {
   searchButton: string;
   searchPlaceholder: string;
   voiceSearchActive: string;
+  voiceSearchButton: string;
   tafsirHeader: string;
   handsFreeButton: string;
   sourceLadderTitle: string;
@@ -43,6 +44,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
     searchButton: "Seek",
     searchPlaceholder: "Search emotions, life situations, or questions...",
     voiceSearchActive: "Listening...",
+    voiceSearchButton: "Voice Search",
     tafsirHeader: "Classical Tafsir & Exegesis",
     handsFreeButton: "Listen Hands-Free",
     sourceLadderTitle: "Source Transparency Ladder",
@@ -89,6 +91,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
     searchButton: "Sök",
     searchPlaceholder: "Sök efter känslor, livssituationer eller frågor...",
     voiceSearchActive: "Lyssnar...",
+    voiceSearchButton: "Röstsökning",
     tafsirHeader: "Klassisk Tafsir & Förklaring",
     handsFreeButton: "Lyssna handsfree",
     sourceLadderTitle: "Källtrappa & Referenser",
@@ -135,6 +138,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
     searchButton: "Chercher",
     searchPlaceholder: "Recherchez des émotions, des situations de vie ou des questions...",
     voiceSearchActive: "Écoute en cours...",
+    voiceSearchButton: "Recherche vocale",
     tafsirHeader: "Tafsir Classique & Exégèse",
     handsFreeButton: "Écoute mains libres",
     sourceLadderTitle: "Échelle des Sources et Références",
@@ -181,6 +185,7 @@ export const dictionaries: Record<Locale, UIDictionary> = {
     searchButton: "بحث",
     searchPlaceholder: "ابحث عن المشاعر، أو المواقف الحياتية، أو الأسئلة...",
     voiceSearchActive: "جاري الاستماع...",
+    voiceSearchButton: "البحث الصوتي",
     tafsirHeader: "التفسير والبيان",
     handsFreeButton: "استماع بدون استخدام اليدين",
     sourceLadderTitle: "سلم المصادر والمراجع",

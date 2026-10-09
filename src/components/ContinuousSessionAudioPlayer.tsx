@@ -195,20 +195,31 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   }, [currentVerse, language]);
 
   const currentTafsirCitation = useMemo(() => {
-    const citations = localizedDetails?.tafsirCitations || currentVerse?.tafsirCitations || [];
+    const citations = (localizedDetails?.tafsirCitations || []).filter(
+      (c) => Boolean(c.text && c.text.trim()) && (c.languageCode === language || (language === 'ar' && c.languageCode === 'ar'))
+    );
     if (citations.length === 0) return null;
     const scholarIdx =
       preferredScholar === "Al-Sa'di" ? 1 : preferredScholar === 'Al-Muyassar' ? 2 : 0;
     return citations[scholarIdx] || citations[0] || null;
-  }, [localizedDetails, currentVerse, preferredScholar]);
+  }, [localizedDetails, preferredScholar, language]);
 
-  // Texts
+  // Texts strictly matching the selected language with zero cross-language leaks
   const translationText = useMemo(() => {
     if (!currentVerse) return '';
-    return currentVerse.translations[language]?.text || currentVerse.translations.en?.text || '';
+    return currentVerse.translations[language]?.text || '';
   }, [currentVerse, language]);
 
   const tafsirText = currentTafsirCitation?.text || '';
+
+  // Synchronize playback mode when available content changes in the selected language
+  useEffect(() => {
+    if (playbackMode === 'quran_tafsir' && !tafsirText) {
+      setPlaybackMode(translationText ? 'quran_translation' : 'quran_only');
+    } else if (playbackMode === 'quran_translation' && !translationText) {
+      setPlaybackMode('quran_only');
+    }
+  }, [playbackMode, translationText, tafsirText]);
 
   // Word tokenization and per-ayah segmentation for word-by-word synchronous highlighting + circular verse symbols
   const { tokenizedArabicSegments, totalArabicWordsCount } = useMemo(() => {
@@ -369,8 +380,27 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     [language, playbackRate]
   );
 
-  // Plays stored neural audio first, retaining SpeechService as an explicit fallback
-  const playStoredOrFallback = useCallback(
+  const activeLanguageRef = useRef(language);
+  const playRequestIdRef = useRef(0);
+
+  // On language change, stop previous audio, clear stale content, and ignore late responses
+  useEffect(() => {
+    activeLanguageRef.current = language;
+    playRequestIdRef.current += 1;
+    stopAllSpeech();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+    setPlaybackPhase('idle');
+    setRecitationRatio(0);
+    setTranslationRatio(0);
+    setTafsirRatio(0);
+  }, [language, stopAllSpeech]);
+
+  // Plays stored neural audio first; skips unavailable segments without automatic browser-speech fallback
+  const playStoredAudio = useCallback(
     async (
       type: 'translation' | 'tafsir',
       text: string,
@@ -378,68 +408,81 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       onComplete: () => void
     ) => {
       onProgress(0);
+      const reqId = ++playRequestIdRef.current;
+      const targetLang = language;
 
-      if (currentVerse) {
-        try {
-          const meta = await fetchAyahAudioMetadata({
-            surahNumber: currentVerse.surahNumber,
-            ayahNumber: currentVerse.verseNumber,
-            language,
-            type,
-            ayahId: currentVerse.id,
-          });
-
-          if (meta.status === 'available' && meta.record?.audioUrl && secondaryAudioRef.current) {
-            const sec = secondaryAudioRef.current;
-            sec.src = meta.record.audioUrl;
-            sec.playbackRate = playbackRate;
-
-            const onTimeUpdate = () => {
-              if (sec.duration > 0) {
-                onProgress(Math.min(1, sec.currentTime / sec.duration));
-              }
-            };
-
-            const cleanup = () => {
-              sec.removeEventListener('timeupdate', onTimeUpdate);
-              sec.removeEventListener('ended', onEnded);
-              sec.removeEventListener('error', onError);
-            };
-
-            const onEnded = () => {
-              cleanup();
-              onProgress(1);
-              onComplete();
-            };
-
-            const onError = () => {
-              cleanup();
-              // Fall back to client speech synthesis if stored stream fails
-              speakWithHighlight(text, onProgress, onComplete);
-            };
-
-            sec.addEventListener('timeupdate', onTimeUpdate);
-            sec.addEventListener('ended', onEnded);
-            sec.addEventListener('error', onError);
-
-            try {
-              await sec.play();
-              return;
-            } catch {
-              cleanup();
-              speakWithHighlight(text, onProgress, onComplete);
-              return;
-            }
-          }
-        } catch (err) {
-          console.warn(`Error resolving stored ${type} audio:`, err);
-        }
+      if (!text || !text.trim() || !currentVerse) {
+        onComplete();
+        return;
       }
 
-      // Explicit fallback to SpeechService when stored neural audio is unavailable
-      speakWithHighlight(text, onProgress, onComplete);
+      try {
+        const meta = await fetchAyahAudioMetadata({
+          surahNumber: currentVerse.surahNumber,
+          ayahNumber: currentVerse.verseNumber,
+          language: targetLang,
+          type,
+          ayahId: currentVerse.id,
+        });
+
+        if (reqId !== playRequestIdRef.current || activeLanguageRef.current !== targetLang) {
+          return;
+        }
+
+        if (
+          meta.status === 'available' &&
+          meta.record?.audioUrl &&
+          meta.record?.languageCode?.toLowerCase() === targetLang.toLowerCase() &&
+          secondaryAudioRef.current
+        ) {
+          const sec = secondaryAudioRef.current;
+          sec.src = meta.record.audioUrl;
+          sec.playbackRate = playbackRate;
+
+          const onTimeUpdate = () => {
+            if (sec.duration > 0) {
+              onProgress(Math.min(1, sec.currentTime / sec.duration));
+            }
+          };
+
+          const cleanup = () => {
+            sec.removeEventListener('timeupdate', onTimeUpdate);
+            sec.removeEventListener('ended', onEnded);
+            sec.removeEventListener('error', onError);
+          };
+
+          const onEnded = () => {
+            cleanup();
+            onProgress(1);
+            onComplete();
+          };
+
+          const onError = () => {
+            cleanup();
+            onComplete();
+          };
+
+          sec.addEventListener('timeupdate', onTimeUpdate);
+          sec.addEventListener('ended', onEnded);
+          sec.addEventListener('error', onError);
+
+          try {
+            await sec.play();
+            return;
+          } catch {
+            cleanup();
+            onComplete();
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn(`Error resolving stored ${type} audio:`, err);
+      }
+
+      // No available stored audio: skip segment without automatic browser speech fallback
+      onComplete();
     },
-    [currentVerse, language, playbackRate, speakWithHighlight]
+    [currentVerse, language, playbackRate]
   );
 
   const startRecitation = useCallback(() => {
@@ -475,34 +518,65 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     // Finished reciting all Arabic verses in range
     setRecitationRatio(1);
 
-    if (playbackMode === 'quran_only') {
+    if (playbackMode === 'quran_only' || (!translationText && !tafsirText)) {
       setTimeout(() => handleNext(), 1000);
       return;
     }
 
-    // Phase 2: Translation with stored neural audio first, SpeechService as fallback
-    setPlaybackPhase('translation');
-    playStoredOrFallback(
-      'translation',
-      translationText,
-      (ratio) => setTranslationRatio(ratio),
-      () => {
-        if (playbackMode === 'quran_tafsir' && (tafsirText || language === 'ar')) {
-          // Phase 3: Classical Tafsir with stored audio first (including Arabic tafsir)
-          setPlaybackPhase('tafsir');
-          playStoredOrFallback(
-            'tafsir',
-            tafsirText,
-            (ratio) => setTafsirRatio(ratio),
-            () => {
+    if (playbackMode === 'quran_translation') {
+      if (translationText) {
+        setPlaybackPhase('translation');
+        playStoredAudio(
+          'translation',
+          translationText,
+          (ratio) => setTranslationRatio(ratio),
+          () => {
+            setTimeout(() => handleNext(), 900);
+          }
+        );
+      } else {
+        setTimeout(() => handleNext(), 900);
+      }
+      return;
+    }
+
+    if (playbackMode === 'quran_tafsir') {
+      if (translationText) {
+        setPlaybackPhase('translation');
+        playStoredAudio(
+          'translation',
+          translationText,
+          (ratio) => setTranslationRatio(ratio),
+          () => {
+            if (tafsirText) {
+              setPlaybackPhase('tafsir');
+              playStoredAudio(
+                'tafsir',
+                tafsirText,
+                (ratio) => setTafsirRatio(ratio),
+                () => {
+                  setTimeout(() => handleNext(), 900);
+                }
+              );
+            } else {
               setTimeout(() => handleNext(), 900);
             }
-          );
-        } else {
-          setTimeout(() => handleNext(), 900);
-        }
+          }
+        );
+      } else if (tafsirText) {
+        setPlaybackPhase('tafsir');
+        playStoredAudio(
+          'tafsir',
+          tafsirText,
+          (ratio) => setTafsirRatio(ratio),
+          () => {
+            setTimeout(() => handleNext(), 900);
+          }
+        );
+      } else {
+        setTimeout(() => handleNext(), 900);
       }
-    );
+    }
   }, [
     isPlaying,
     currentTrackIndex,
@@ -510,8 +584,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     playbackMode,
     translationText,
     tafsirText,
-    language,
-    playStoredOrFallback,
+    playStoredAudio,
     handleNext,
   ]);
 
@@ -653,7 +726,8 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                 startRecitation();
               }
             }}
-            className={`flex-1 min-h-[40px] py-2 px-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate ${
+            aria-pressed={playbackMode === 'quran_only'}
+            className={`flex-1 min-h-[40px] py-2 px-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
               playbackMode === 'quran_only'
                 ? 'bg-emerald-800 text-white shadow-2xs'
                 : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
@@ -661,42 +735,48 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           >
             {t.modeQuranOnly}
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setPlaybackMode('quran_translation');
-              if (isPlaying) {
-                stopAllSpeech();
-                setCurrentTrackIndex(0);
-                startRecitation();
-              }
-            }}
-            className={`flex-1 min-h-[40px] py-2 px-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate ${
-              playbackMode === 'quran_translation'
-                ? 'bg-emerald-800 text-white shadow-2xs'
-                : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
-            }`}
-          >
-            {t.modeWithTranslation}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setPlaybackMode('quran_tafsir');
-              if (isPlaying) {
-                stopAllSpeech();
-                setCurrentTrackIndex(0);
-                startRecitation();
-              }
-            }}
-            className={`flex-1 min-h-[40px] py-2 px-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate ${
-              playbackMode === 'quran_tafsir'
-                ? 'bg-emerald-800 text-white shadow-2xs'
-                : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
-            }`}
-          >
-            {t.modeWithTafsir}
-          </button>
+          {translationText && (
+            <button
+              type="button"
+              onClick={() => {
+                setPlaybackMode('quran_translation');
+                if (isPlaying) {
+                  stopAllSpeech();
+                  setCurrentTrackIndex(0);
+                  startRecitation();
+                }
+              }}
+              aria-pressed={playbackMode === 'quran_translation'}
+              className={`flex-1 min-h-[40px] py-2 px-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                playbackMode === 'quran_translation'
+                  ? 'bg-emerald-800 text-white shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
+              }`}
+            >
+              {t.modeWithTranslation}
+            </button>
+          )}
+          {tafsirText && (
+            <button
+              type="button"
+              onClick={() => {
+                setPlaybackMode('quran_tafsir');
+                if (isPlaying) {
+                  stopAllSpeech();
+                  setCurrentTrackIndex(0);
+                  startRecitation();
+                }
+              }}
+              aria-pressed={playbackMode === 'quran_tafsir'}
+              className={`flex-1 min-h-[40px] py-2 px-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                playbackMode === 'quran_tafsir'
+                  ? 'bg-emerald-800 text-white shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
+              }`}
+            >
+              {t.modeWithTafsir}
+            </button>
+          )}
         </div>
 
         {/* Active Multi-Level Card Display with Synchronized Word-by-Word Highlighting */}
@@ -758,35 +838,37 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           </div>
 
           {/* LEVEL 2: Certified Translation with synchronized word highlighting */}
-          <div className="space-y-1 pt-3 border-t border-emerald-900/10 dark:border-emerald-800/30">
-            <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 block tracking-wider uppercase">
-              Level 2 · Translation ({currentVerse.translations[language]?.translator || currentVerse.translations.en.translator})
-            </span>
-            <blockquote className="text-sm sm:text-base text-slate-800 dark:text-slate-100 leading-relaxed italic">
-              &ldquo;
-              {translationWords.map((word, idx) => {
-                const isWordActive =
-                  playbackPhase === 'translation' && idx === activeTranslationWordIndex;
-                return (
-                  <React.Fragment key={idx}>
-                    <span
-                      className={`inline-block rounded-md px-0.5 transition-colors duration-150 ${
-                        isWordActive
-                          ? 'bg-amber-400/35 dark:bg-amber-400/30 text-emerald-950 dark:text-amber-200 underline decoration-amber-500 decoration-2 underline-offset-4'
-                          : ''
-                      }`}
-                    >
-                      {word}
-                    </span>{' '}
-                  </React.Fragment>
-                );
-              })}
-              &rdquo;
-            </blockquote>
-          </div>
+          {translationText && (
+            <div className="space-y-1 pt-3 border-t border-emerald-900/10 dark:border-emerald-800/30">
+              <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 block tracking-wider uppercase">
+                Level 2 · Translation ({currentVerse.translations[language]?.translator || 'Certified Translation'})
+              </span>
+              <blockquote className="text-sm sm:text-base text-slate-800 dark:text-slate-100 leading-relaxed italic">
+                &ldquo;
+                {translationWords.map((word, idx) => {
+                  const isWordActive =
+                    playbackPhase === 'translation' && idx === activeTranslationWordIndex;
+                  return (
+                    <React.Fragment key={idx}>
+                      <span
+                        className={`inline-block rounded-md px-0.5 transition-colors duration-150 ${
+                          isWordActive
+                            ? 'bg-amber-400/35 dark:bg-amber-400/30 text-emerald-950 dark:text-amber-200 underline decoration-amber-500 decoration-2 underline-offset-4'
+                            : ''
+                        }`}
+                      >
+                        {word}
+                      </span>{' '}
+                    </React.Fragment>
+                  );
+                })}
+                &rdquo;
+              </blockquote>
+            </div>
+          )}
 
           {/* LEVEL 3: Classical Tafsir with synchronized word highlighting (included in 'quran_tafsir' mode) */}
-          {playbackMode === 'quran_tafsir' && currentTafsirCitation && (
+          {playbackMode === 'quran_tafsir' && currentTafsirCitation && tafsirText && (
             <div className="space-y-2 pt-3 border-t border-emerald-900/10 dark:border-emerald-800/30 animate-fadeIn">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">

@@ -613,8 +613,75 @@ export function parseZipStoredMember(zipBuffer: Buffer, targetMember: string): B
 }
 
 /**
+ * Fetches the final up-to-65,557 bytes of an archive to locate the EOCD record.
+ * First attempts a standard suffix range (`bytes=-65557`).
+ * If the CDN returns HTTP 501 (Not Implemented / Unsupported client range on suffix bytes, e.g. Varnish/Fastly),
+ * it queries a single byte (`bytes=0-0`) to discover the total archive size from Content-Range,
+ * then fetches the exact closed tail range `bytes=(total-65557)-(total-1)`.
+ * If the server ignores Range (HTTP 200), response is cancelled immediately without buffering.
+ */
+async function fetchArchiveTail(
+  archiveUrl: string,
+  fetchImpl: FetchLike
+): Promise<{
+  buffer: Buffer;
+  contentRange: { start: number; end: number; total: number };
+  resolvedUrl: string;
+}> {
+  try {
+    return await fetchWithValidatedRedirects(
+      archiveUrl,
+      `bytes=-${EOCD_TAIL_BYTES}`,
+      EOCD_TAIL_BYTES,
+      fetchImpl
+    );
+  } catch (err: any) {
+    const isSuffixUnsupported =
+      err?.message && (err.message.includes('501') || err.message.includes('400'));
+    if (!isSuffixUnsupported) {
+      throw err;
+    }
+
+    // Single-byte probe to discover archive size via Content-Range: bytes 0-0/total
+    const probe = await fetchWithValidatedRedirects(
+      archiveUrl,
+      'bytes=0-0',
+      1,
+      fetchImpl
+    );
+
+    const archiveTotal = probe.contentRange.total;
+    if (!archiveTotal || archiveTotal <= 0) {
+      throw new Error('Unable to determine archive total size from Content-Range probe');
+    }
+
+    const tailStart = Math.max(0, archiveTotal - EOCD_TAIL_BYTES);
+    const tailEnd = archiveTotal - 1;
+
+    const tail = await fetchExactByteRange(
+      probe.resolvedUrl,
+      tailStart,
+      tailEnd,
+      archiveTotal,
+      EOCD_TAIL_BYTES,
+      fetchImpl
+    );
+
+    return {
+      buffer: tail.buffer,
+      contentRange: {
+        start: tailStart,
+        end: tailEnd,
+        total: archiveTotal,
+      },
+      resolvedUrl: tail.resolvedUrl,
+    };
+  }
+}
+
+/**
  * Resolves the Central Directory index for a remote ZIP archive using HTTP Range requests:
- * 1. Fetches the final 65,557 bytes (`bytes=-65557`) to locate EOCD.
+ * 1. Fetches the final 65,557 bytes (`bytes=-65557` or probed tail range) to locate EOCD.
  * 2. If the Central Directory is already fully contained in the tail buffer, parses it directly.
  * 3. Otherwise fetches the exact Central Directory byte range (`bytes=cdOffset-cdEnd`).
  */
@@ -628,17 +695,12 @@ async function getOrFetchCentralDirectory(
     return cached;
   }
 
-  // Step 1: Fetch final up-to-65,557 bytes via suffix range
+  // Step 1: Fetch final up-to-65,557 bytes
   const {
     buffer: tailBuffer,
     contentRange: tailRange,
     resolvedUrl,
-  } = await fetchWithValidatedRedirects(
-    archiveUrl,
-    `bytes=-${EOCD_TAIL_BYTES}`,
-    EOCD_TAIL_BYTES,
-    fetchImpl
-  );
+  } = await fetchArchiveTail(archiveUrl, fetchImpl);
 
   const archiveSize = tailRange.total;
   const tailStartOffset = tailRange.start;
