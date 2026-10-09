@@ -6,6 +6,20 @@ export const dynamic = 'force-dynamic';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+  'Access-Control-Allow-Headers': 'Range, Content-Type, Accept',
+  'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+};
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: CORS_HEADERS,
+  });
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> | { id: string } }
@@ -15,7 +29,7 @@ export async function GET(
   if (!id || !UUID_REGEX.test(id)) {
     return NextResponse.json(
       { error: 'Invalid audio record ID format. Must be a valid UUID.' },
-      { status: 400 }
+      { status: 400, headers: CORS_HEADERS }
     );
   }
 
@@ -24,7 +38,7 @@ export async function GET(
   if (!record) {
     return NextResponse.json(
       { error: 'Audio record not found.' },
-      { status: 404 }
+      { status: 404, headers: CORS_HEADERS }
     );
   }
 
@@ -49,23 +63,10 @@ export async function GET(
         const chunk = audioBuffer.subarray(start, safeEnd + 1);
         const chunkArrayBuffer = new Uint8Array(chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)) as BodyInit;
 
-        // If the request is for the full range from 0 to end, a 200 OK with full Content-Length
-        // is valid per RFC 7233 and avoids workerd chunked-encoding quirks on 206
-        if (start === 0 && safeEnd === totalLength - 1) {
-          return new Response(chunkArrayBuffer, {
-            status: 200,
-            headers: {
-              'Content-Type': 'audio/mpeg',
-              'Content-Length': String(totalLength),
-              'Accept-Ranges': 'bytes',
-              'Cache-Control': 'public, max-age=31536000, immutable',
-            },
-          });
-        }
-
         return new Response(chunkArrayBuffer, {
           status: 206,
           headers: {
+            ...CORS_HEADERS,
             'Content-Type': 'audio/mpeg',
             'Content-Length': String(chunk.length),
             'Content-Range': `bytes ${start}-${safeEnd}/${totalLength}`,
@@ -80,6 +81,7 @@ export async function GET(
     return new Response(new Uint8Array(audioBuffer), {
       status: 200,
       headers: {
+        ...CORS_HEADERS,
         'Content-Type': 'audio/mpeg',
         'Content-Length': String(totalLength),
         'Accept-Ranges': 'bytes',
@@ -90,7 +92,7 @@ export async function GET(
     console.error(`Error extracting audio member for record ${id}:`, err?.message || err);
     return NextResponse.json(
       { error: 'Failed to extract audio stream from archive.' },
-      { status: 502 }
+      { status: 502, headers: CORS_HEADERS }
     );
   }
 }

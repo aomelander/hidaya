@@ -519,10 +519,10 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
         console.warn(`Error resolving stored ${type} audio:`, err);
       }
 
-      // No available stored audio: skip segment without automatic browser speech fallback
-      onComplete();
+      // Seamless fallback to high-fidelity speech synthesis so user never misses translation or tafsir audio
+      speakWithHighlight(text, onProgress, onComplete);
     },
-    [currentVerse, language, playbackRate]
+    [currentVerse, language, playbackRate, speakWithHighlight]
   );
 
   const startRecitation = useCallback(() => {

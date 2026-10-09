@@ -334,7 +334,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   // Word-by-word recitation & translation sync state
   const [playbackRatio, setPlaybackRatio] = useState(0);
   const [isReciting, setIsReciting] = useState(false);
-  const [playbackPhase, setPlaybackPhase] = useState<'recitation' | 'translation' | 'idle'>('idle');
+  const [playbackPhase, setPlaybackPhase] = useState<'recitation' | 'translation' | 'tafsir' | 'idle'>('idle');
 
   // Preferred scholar & provenance modal state
   const [selectedScholar, setSelectedScholar] = useState<string>(preferredScholar);
@@ -1161,7 +1161,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             onPlaybackProgress={(ratio, playing, phase) => {
               setPlaybackRatio(ratio);
               setIsReciting(playing);
-              setPlaybackPhase(phase === 'tafsir' ? 'idle' : phase || (playing ? 'recitation' : 'idle'));
+              setPlaybackPhase(phase || (playing ? 'recitation' : 'idle'));
+              if (phase === 'tafsir' && playing) {
+                setActiveSection('tafsir');
+              }
             }}
           />
         </div>

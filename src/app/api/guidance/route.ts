@@ -34,7 +34,7 @@ async function hashString(str: string) {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'mock_key' });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
  * Queries the Supabase `tafsir` table for `language_code = 'ar'` (e.g. Tafsir Al-Muyassar or Ibn Kathir)

@@ -74,7 +74,8 @@ export function validateArchiveUrl(rawUrl: string): boolean {
     }
     if (
       host.endsWith('.github.com') ||
-      host.endsWith('.githubusercontent.com')
+      host.endsWith('.githubusercontent.com') ||
+      (host.endsWith('.amazonaws.com') && host.includes('github-production-release-asset'))
     ) {
       return true;
     }

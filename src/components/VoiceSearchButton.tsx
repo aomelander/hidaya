@@ -6,8 +6,8 @@
  * French (fr-FR), and English (en-US) via Web Speech API with RTL layout support and localized error feedback.
  */
 
-import React, { useState, useCallback, useRef } from 'react';
-import { Mic, MicOff, AlertCircle, Sparkles, X } from 'lucide-react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
+import { Mic, MicOff, AlertCircle, Sparkles, X, Keyboard } from 'lucide-react';
 import { Locale, getDictionary } from '../lib/i18n/dictionaries';
 
 export const SPEECH_LANG_MAP: Record<Locale, string> = {
@@ -24,6 +24,7 @@ export interface VoiceSearchButtonProps {
   onToggleVoice?: () => void;
   className?: string;
   errorMessage?: string | null;
+  onOfferTypedSearch?: () => void;
 }
 
 export const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
@@ -33,6 +34,7 @@ export const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
   onToggleVoice,
   className = '',
   errorMessage: externalErrorMessage,
+  onOfferTypedSearch,
 }) => {
   const [internalListening, setInternalListening] = useState(false);
   const [internalErrorMessage, setInternalErrorMessage] = useState<string | null>(null);
@@ -113,18 +115,38 @@ export const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
     }
   }, [locale, dict, internalListening, onToggleVoice, onTranscript]);
 
-  const handleSampleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const sampleQueries = useMemo(() => {
+    if (locale === 'ar') {
+      return [
+        { label: 'الصبر والسكينة عند الشدائد', query: 'الصبر والسكينة عند نزول البلاء والهم' },
+        { label: 'التوكل وتفريج الكرب', query: 'الرجاء والتوكل على الله عند ضيق الرزق' },
+        { label: 'الرحمة ومغفرة الذنوب', query: 'آيات التوبة وسعة رحمة الله ومغفرة الذنوب' },
+      ];
+    }
+    if (locale === 'sv') {
+      return [
+        { label: 'Tålamod vid svårigheter', query: 'tålamod vid svårigheter och sorg' },
+        { label: 'Hopp och förtröstan', query: 'hopp och tillit till Gud i prövningar' },
+        { label: 'Barmhärtighet och förlåtelse', query: 'Guds barmhärtighet och förlåtelse' },
+      ];
+    }
+    if (locale === 'fr') {
+      return [
+        { label: 'Patience dans l\'épreuve', query: 'la patience face aux épreuves et la tristesse' },
+        { label: 'Espoir et confiance', query: 'l\'espoir et la confiance en Dieu' },
+        { label: 'Miséricorde et pardon', query: 'la miséricorde divine et le pardon des péchés' },
+      ];
+    }
+    return [
+      { label: 'Patience in hardship', query: 'patience in times of hardship and grief' },
+      { label: 'Hope and trust in God', query: 'hope and trust in God during difficulty' },
+      { label: 'Mercy and forgiveness', query: 'divine mercy and seeking forgiveness' },
+    ];
+  }, [locale]);
+
+  const handleSelectQuery = (query: string) => {
     setIsDismissed(true);
-    const sample =
-      locale === 'ar'
-        ? 'الصبر والسكينة عند نزول البلاء والهم'
-        : locale === 'sv'
-        ? 'tålamod vid svårigheter och sorg'
-        : locale === 'fr'
-        ? 'la patience face aux épreuves et la tristesse'
-        : 'patience in times of hardship and grief';
-    onTranscript?.(sample);
+    onTranscript?.(query);
   };
 
   return (
@@ -176,31 +198,50 @@ export const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({
           </div>
 
           <div className="pt-1 border-t border-amber-200/50 dark:border-emerald-800/40 flex flex-col gap-1.5">
+            {onOfferTypedSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDismissed(true);
+                  onOfferTypedSearch();
+                }}
+                className="w-full py-1.5 px-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+              >
+                <Keyboard className="w-3.5 h-3.5" />
+                <span>
+                  {locale === 'ar'
+                    ? 'استخدم البحث الكتابي'
+                    : locale === 'sv'
+                    ? 'Skriv din sökning'
+                    : locale === 'fr'
+                    ? 'Saisir par écrit'
+                    : 'Use Typed Search'}
+                </span>
+              </button>
+            )}
+
             <p className="text-[11px] text-slate-600 dark:text-slate-300">
               {locale === 'ar'
-                ? 'يمكنك تجربة محاكاة الإدخال الصوتي بعبارة نموذجية مباشرة:'
+                ? 'أو اختر أحد الاستفسارات النموذجية:'
                 : locale === 'sv'
-                ? 'Du kan testa röstsökning direkt med en förvald reflektionsfras:'
+                ? 'Eller välj en förvald reflektionsfras:'
                 : locale === 'fr'
-                ? 'Vous pouvez tester directement avec une requête vocale exemplaire :'
-                : 'You can test voice search with a sample reflection query:'}
+                ? 'Ou choisissez une phrase exemplaire :'
+                : 'Or choose a sample reflection query:'}
             </p>
-            <button
-              type="button"
-              onClick={handleSampleClick}
-              className="w-full py-1.5 px-3 rounded-xl bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>
-                {locale === 'ar'
-                  ? 'تجربة استفسار صوتي نموذجي'
-                  : locale === 'sv'
-                  ? 'Testa med exempelreflektion'
-                  : locale === 'fr'
-                  ? 'Essayer avec un exemple'
-                  : 'Try sample voice query'}
-              </span>
-            </button>
+            <div className="flex flex-col gap-1 pt-1">
+              {sampleQueries.map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelectQuery(item.query)}
+                  className="w-full text-start py-1 px-2.5 rounded-lg bg-emerald-950/5 dark:bg-emerald-950/40 hover:bg-emerald-800 hover:text-white dark:hover:bg-emerald-700 text-[11px] font-medium flex items-center justify-between gap-1 transition cursor-pointer border border-emerald-900/10 dark:border-emerald-800/40"
+                >
+                  <span className="truncate">{item.label}</span>
+                  <Sparkles className="w-3 h-3 shrink-0 opacity-70" />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

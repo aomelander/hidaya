@@ -2,8 +2,10 @@
 
 /**
  * @file useSpeechRecognition.ts
- * @description Custom hook for Web Speech API integration, with voice input lifecycle,
- * streaming interim transcriptions in real time, and localized language adaptation (ar-SA, sv-SE, fr-FR, en-US).
+ * @description Browser-supported Web Speech API integration hook for voice input with:
+ * 1. Native SpeechRecognition / webkitSpeechRecognition support (ar-SA, sv-SE, fr-FR, en-US)
+ * 2. Streaming real-time interim results and final transcription dispatch
+ * 3. Clear detection of voice availability and seamless fallback to typed search when unavailable
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
@@ -22,7 +24,8 @@ export function useSpeechRecognition({ language, onResult, onInterim }: UseSpeec
   const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const latestTranscriptRef = useRef<string>('');
-  const [hasSpeechSupport, setHasSpeechSupport] = useState<boolean>(() => {
+
+  const [hasSpeechSupport] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return !!(
       (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown })
@@ -30,6 +33,15 @@ export function useSpeechRecognition({ language, onResult, onInterim }: UseSpeec
       (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
     );
   });
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    setIsListening(false);
+  }, []);
 
   // Clean up on unmount
   useEffect(() => {
@@ -42,21 +54,11 @@ export function useSpeechRecognition({ language, onResult, onInterim }: UseSpeec
     };
   }, []);
 
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {}
-    }
-    setIsListening(false);
-  }, []);
-
   const toggleVoiceInput = useCallback(() => {
     if (typeof window === 'undefined') return;
     setSpeechError(null);
-    const dict = getDictionary(language);
 
-    // If already listening, stop recording immediately and let onend finalize
+    // If already listening, stop recording
     if (isListening) {
       stopListening();
       return;
@@ -68,16 +70,16 @@ export function useSpeechRecognition({ language, onResult, onInterim }: UseSpeec
       (window as unknown as { webkitSpeechRecognition?: any }).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setHasSpeechSupport(false);
-      const unsupportedMsg =
+      const dict = getDictionary(language);
+      setSpeechError(
         language === 'ar'
-          ? 'متصفحك لا يدعم التعرف الصوتي المباشر'
+          ? 'التعرف الصوتي غير مدعوم في هذا المتصفح. يرجى استخدام البحث الكتابي أدناه.'
           : language === 'sv'
-          ? 'Webbläsaren stöder inte röstigenkänning'
+          ? 'Röstigenkänning stöds inte i denna webbläsare. Använd textbaserad sökning nedan.'
           : language === 'fr'
-          ? 'Votre navigateur ne prend pas en charge la reconnaissance vocale'
-          : 'Your browser does not support Web Speech recognition';
-      setSpeechError(unsupportedMsg);
+          ? 'La reconnaissance vocale n\'est pas prise en charge sur ce navigateur. Veuillez utiliser la recherche textuelle.'
+          : 'Voice recognition is not supported in this browser. Please use typed search below.'
+      );
       return;
     }
 
@@ -86,7 +88,7 @@ export function useSpeechRecognition({ language, onResult, onInterim }: UseSpeec
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
       recognition.lang = SPEECH_LANG_MAP[language] || 'en-US';
-      recognition.interimResults = true; // Stream words in real-time as user speaks
+      recognition.interimResults = true;
       recognition.maxAlternatives = 1;
       recognition.continuous = false;
 
@@ -116,7 +118,7 @@ export function useSpeechRecognition({ language, onResult, onInterim }: UseSpeec
         }
 
         if (final.trim()) {
-          latestTranscriptRef.current = ''; // Consumed
+          latestTranscriptRef.current = '';
           onResult(final.trim());
         }
       };
@@ -125,50 +127,42 @@ export function useSpeechRecognition({ language, onResult, onInterim }: UseSpeec
         setIsListening(false);
         const errType = event?.error;
 
-        if (errType === 'not-allowed' || errType === 'permission-denied' || errType === 'service-not-allowed') {
+        if (
+          errType === 'not-allowed' ||
+          errType === 'permission-denied' ||
+          errType === 'service-not-allowed'
+        ) {
           setSpeechError(
             language === 'ar'
-              ? 'تم حظر الميكروفون (في إعدادات المتصفح أو إطار المعاينة). يمكنك تجربة العبارة النموذجية بالأسفل.'
+              ? 'تم حظر الميكروفون. يمكنك كتابة استفسارك مباشرة في حقل البحث.'
               : language === 'sv'
-              ? 'Mikrofonen är blockerad i webbläsaren eller förhandsgranskningsfönstret. Du kan testa med exempelsökning.'
+              ? 'Mikrofonen är inte tillgänglig. Du kan skriva din sökning direkt i sökfältet.'
               : language === 'fr'
-              ? 'Microphone bloqué dans le navigateur ou la prévisualisation. Vous pouvez tester avec une phrase exemple.'
-              : 'Microphone blocked by browser or preview iframe. You can test with a sample voice search below.'
+              ? 'Microphone non autorisé. Vous pouvez saisir votre recherche directement dans le champ de texte.'
+              : 'Microphone blocked or unavailable. You can type your search directly in the search bar.'
           );
         } else if (errType === 'no-speech') {
           if (!latestTranscriptRef.current) {
             setSpeechError(
               language === 'ar'
-                ? 'لم يُسمع أي صوت. تحدث بوضوح بالقرب من الميكروفون.'
+                ? 'لم يُسمع أي صوت. يمكنك التحدث ثانية أو كتابة استفسارك.'
                 : language === 'sv'
-                ? 'Inget tal uppfattades. Försök tala närmare mikrofonen.'
+                ? 'Inget tal uppfattades. Försök igen eller skriv din fråga.'
                 : language === 'fr'
-                ? 'Aucune voix détectée. Veuillez parler plus près du micro.'
-                : 'No speech detected. Please speak closer to your microphone.'
+                ? 'Aucune voix détectée. Veuillez réessayer ou saisir votre recherche.'
+                : 'No speech detected. Please speak closer to your mic or type your query.'
             );
           }
-        } else if (errType === 'audio-capture') {
-          setSpeechError(
-            language === 'ar'
-              ? 'تعذر العثور على ميكروفون متصل بجهازك.'
-              : language === 'sv'
-              ? 'Ingen mikrofon hittades på enheten.'
-              : language === 'fr'
-              ? 'Aucun microphone détecté sur votre appareil.'
-              : 'No microphone found on your device.'
-          );
-        } else if (errType === 'network') {
-          setSpeechError(
-            language === 'ar'
-              ? 'خطأ في الاتصال بخدمة التعرف الصوتي.'
-              : language === 'sv'
-              ? 'Nätverksfel vid röstigenkänning.'
-              : language === 'fr'
-              ? 'Erreur réseau lors de la reconnaissance vocale.'
-              : 'Speech recognition network error.'
-          );
         } else if (errType !== 'aborted') {
-          setSpeechError(event?.error || 'Speech recognition error');
+          setSpeechError(
+            language === 'ar'
+              ? 'تعذر التعرف الصوتي. يرجى استخدام البحث الكتابي.'
+              : language === 'sv'
+              ? 'Röstinmatning misslyckades. Använd textbaserad sökning.'
+              : language === 'fr'
+              ? 'Échec de la saisie vocale. Utilisez la recherche textuelle.'
+              : 'Voice recognition unavailable. Please use typed search.'
+          );
         }
       };
 
@@ -182,9 +176,17 @@ export function useSpeechRecognition({ language, onResult, onInterim }: UseSpeec
 
       recognition.start();
     } catch (err: any) {
-      console.warn('[useSpeechRecognition] Failed to start recognition:', err);
+      console.warn('[useSpeechRecognition] start error:', err);
       setIsListening(false);
-      setSpeechError(dict.micUnsupported);
+      setSpeechError(
+        language === 'ar'
+          ? 'تعذر بدء التعرف الصوتي. يرجى استخدام البحث الكتابي.'
+          : language === 'sv'
+          ? 'Kunde inte starta röstigenkänning. Använd textbaserad sökning.'
+          : language === 'fr'
+          ? 'Impossible de démarrer la reconnaissance vocale. Utilisez la recherche textuelle.'
+          : 'Could not start voice recognition. Please use typed search.'
+      );
     }
   }, [language, isListening, onResult, onInterim, stopListening]);
 

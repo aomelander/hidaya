@@ -1,3 +1,5 @@
+process.env.VINEXT_NO_DEV_LOCK = "1";
+
 import { defineConfig } from "vite";
 import vinext from "vinext";
 import { cloudflare } from "@cloudflare/vite-plugin";

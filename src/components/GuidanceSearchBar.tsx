@@ -5,7 +5,7 @@
  * @description Accessible search and voice input bar for Quranic contemplation inquiries with full RTL & Arabic localization.
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { Search, X } from 'lucide-react';
 import { EntryMode, Language } from '../types';
 import { getDictionary } from '../lib/i18n/dictionaries';
@@ -37,6 +37,7 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
   onVoiceTranscript,
 }) => {
   const dict = getDictionary(language);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const getPlaceholder = () => {
     if (isListening) {
@@ -98,6 +99,7 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
 
           {/* Text Input - flex-1 min-w-0 guarantees text bounds never interfere with buttons */}
           <input
+            ref={inputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -129,6 +131,7 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
                 onToggleVoice={onToggleVoice}
                 onTranscript={onVoiceTranscript}
                 errorMessage={speechError}
+                onOfferTypedSearch={() => inputRef.current?.focus()}
               />
             </div>
 
