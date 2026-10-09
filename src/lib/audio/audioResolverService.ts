@@ -25,6 +25,8 @@ export interface StoredAudioMetadata {
 
 export const AUDIO_CACHE_NAME = 'hidaya-audio-v2';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Resolves stored neural audio metadata for translation or tafsir from the server API.
  * Never connects directly to Supabase with service keys on the client.
@@ -35,8 +37,9 @@ export async function fetchAyahAudioMetadata(params: {
   language: string;
   type: StoredAudioType;
   ayahId?: string;
+  signal?: AbortSignal;
 }): Promise<StoredAudioMetadata> {
-  const { surahNumber, ayahNumber, language, type, ayahId } = params;
+  const { surahNumber, ayahNumber, language, type, ayahId, signal } = params;
 
   // Primary verse number for lookup
   const cleanAyah = String(ayahNumber).split('-')[0].trim();
@@ -48,12 +51,14 @@ export async function fetchAyahAudioMetadata(params: {
     type,
   });
 
-  if (ayahId) {
-    queryParams.set('ayahId', ayahId);
+  if (ayahId && UUID_REGEX.test(ayahId.trim())) {
+    queryParams.set('ayahId', ayahId.trim());
   }
 
   try {
-    const res = await fetch(`/api/ayah-audio/metadata?${queryParams.toString()}`);
+    const res = await fetch(`/api/ayah-audio/metadata?${queryParams.toString()}`, {
+      signal,
+    });
     if (!res.ok) {
       return {
         status: 'unavailable',

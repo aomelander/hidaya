@@ -95,11 +95,10 @@ async function queryArabicTafsirForMatches(matches: any[], lang: LanguageCode) {
     });
 
     const arabicList = validTafsirs.filter((t: any) => t.language_code === 'ar');
-    const otherList = validTafsirs.filter((t: any) => t.language_code !== 'ar');
 
     return {
       ...match,
-      tafsirs: [...arabicList, ...otherList],
+      tafsirs: arabicList,
     };
   });
 }
@@ -107,7 +106,7 @@ async function queryArabicTafsirForMatches(matches: any[], lang: LanguageCode) {
 /**
  * Enriches all matches so that the active user language (e.g. 'fr' or 'sv') is guaranteed
  * to have its authentic translation and tafsir populated directly from Supabase, plus
- * official Quranpedia Tafsir Al-Sha'rawi (Book 18) and adjacent before/after verses.
+ * official Quranpedia Tafsir Al-Sha'rawi (Book 18) when matching the language and adjacent before/after verses.
  */
 async function enrichMatchesForLanguage(matches: any[], lang: LanguageCode) {
   if (!matches || matches.length === 0) return matches;
@@ -154,38 +153,54 @@ async function enrichMatchesForLanguage(matches: any[], lang: LanguageCode) {
                 match.translations = [found, ...(match.translations || [])];
                 match.selectedTranslation = found;
               }
-
-              const { data: dbTafsirs } = await supabase
-                .from('tafsir')
-                .select(
-                  'id, scholar_name, work_title, text, language_code, source_type, source_reference, original_arabic_raw, verification_status'
-                )
-                .eq('ayah_id', ayah.id)
-                .eq('language_code', lang);
-
-              if (dbTafsirs && dbTafsirs.length > 0) {
-                match.tafsirs = [...dbTafsirs, ...(match.tafsirs || [])];
-              }
             }
 
-            // 1b. Always attach official Quranpedia Tafsir Al-Sha'rawi (Book 18) if available for this Ayah
-            const hasShaarawi = match.tafsirs?.some(
+            const { data: dbTafsirs } = await supabase
+              .from('tafsir')
+              .select(
+                'id, scholar_name, work_title, text, language_code, source_type, source_reference, original_arabic_raw, verification_status'
+              )
+              .eq('ayah_id', ayah.id)
+              .eq('language_code', lang);
+
+            if (dbTafsirs && dbTafsirs.length > 0) {
+              const existingIds = new Set((match.tafsirs || []).map((t: any) => t.id || `${t.scholar_name}:${t.language_code}`));
+              const merged = [...(match.tafsirs || [])];
+              for (const row of dbTafsirs) {
+                const rowKey = row.id || `${row.scholar_name}:${row.language_code}`;
+                if (!existingIds.has(rowKey)) {
+                  existingIds.add(rowKey);
+                  merged.push(row);
+                }
+              }
+              match.tafsirs = merged;
+            }
+
+            // 1b. Attach official Quranpedia Tafsir Al-Sha'rawi only when its language matches lang
+            const hasShaarawiInLang = match.tafsirs?.some(
               (t: any) =>
-                t.scholar_name === "Al-Sha'rawi" || t.scholar_name === 'الشعراوي'
+                (t.scholar_name === "Al-Sha'rawi" || t.scholar_name === 'الشعراوي') &&
+                t.language_code === lang
             );
-            if (!hasShaarawi) {
+            if (!hasShaarawiInLang) {
               const { data: shaarawiRows } = await supabase
                 .from('tafsir')
                 .select(
                   'id, scholar_name, work_title, text, language_code, source_type, source_reference, original_arabic_raw, verification_status'
                 )
                 .eq('ayah_id', ayah.id)
+                .eq('language_code', lang)
                 .in('scholar_name', ["Al-Sha'rawi", 'الشعراوي'])
                 .limit(1);
 
               if (shaarawiRows && shaarawiRows.length > 0) {
                 match.tafsirs = [...(match.tafsirs || []), shaarawiRows[0]];
               }
+            }
+
+            // Strictly filter match.tafsirs to only keep records matching lang
+            if (Array.isArray(match.tafsirs)) {
+              match.tafsirs = match.tafsirs.filter((t: any) => t && t.language_code === lang);
             }
           }
 
@@ -212,8 +227,8 @@ async function enrichMatchesForLanguage(matches: any[], lang: LanguageCode) {
               for (const adj of adjAyahs as any[]) {
                 const transList = Array.isArray(adj.translation) ? adj.translation : [];
                 const enT = transList.find((t: any) => t.language_code === 'en')?.text || '';
-                const svT = transList.find((t: any) => t.language_code === 'sv')?.text || enT;
-                const frT = transList.find((t: any) => t.language_code === 'fr')?.text || enT;
+                const svT = transList.find((t: any) => t.language_code === 'sv')?.text || '';
+                const frT = transList.find((t: any) => t.language_code === 'fr')?.text || '';
                 const arT = transList.find((t: any) => t.language_code === 'ar')?.text || '';
 
                 const formattedAdj = {

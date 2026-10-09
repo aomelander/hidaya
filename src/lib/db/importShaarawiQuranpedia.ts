@@ -1,31 +1,30 @@
 /**
  * @file src/lib/db/importShaarawiQuranpedia.ts
- * @description Official Quranpedia Tafsir Al-Sha'rawi (Book ID: 18) Importer & Synchronizer.
+ * @description Official Quranpedia Tafsir Al-Sha'rawi Dual-Dump Importer, Gap Auditor & Synchronizer.
  *
- * Source:
- *   https://api.quranpedia.net/dumps/tafsir-book-18.json.gz
- *   Tafsir: تفسير الشعراوي (Book ID: 18)
+ * Sources:
+ *   1. Primary Dump (Surahs 1–33 with 1991 Akhbar Al-Yawm print Vol/Page citations):
+ *      https://api.quranpedia.net/dumps/tafsir-book-18.json.gz (Book ID: 18 — 3,593 Ayahs)
+ *   2. Extended Supplemental Dump (Surahs 34–60, Surah 66, plus 13 gap ayahs in Surahs 6, 22, 33):
+ *      https://api.quranpedia.net/dumps/tafsir-book-27803.json.gz (Book ID: 27803 — 1,281 supplementary Ayahs)
+ *
+ * Total Authentic Coverage on Quranpedia:
+ *   3,593 (Book 18) + 1,281 (Book 27803) = 4,874 Ayahs across 61 Surahs (Surahs 1–60 & 66).
+ *   (The remaining 1,362 Ayahs in Surahs 61–65 & 67–114 were unwritten prior to Sheikh Al-Sha'rawi's passing in 1998.)
  *
  * Features:
  * 1. Purges legacy Al-Bouti and synthetic Al-Sha'rawi records when requested (`--purge`).
- * 2. Downloads the official 7.1 MB compressed dataset (`tafsir-book-18.json.gz`) rather than
- *    making thousands of individual API requests.
- * 3. Decompresses and inspects the JSON structure (`license`, `book`, `schema`, `ayahs`).
- * 4. Preserves Sheikh Muhammad Metwalli Al-Sha'rawi's Arabic tafsir text 100% verbatim
+ * 2. Downloads & decompresses the official compressed datasets (`tafsir-book-18.json.gz` and
+ *    `tafsir-book-27803.json.gz`) rather than making thousands of individual API requests.
+ * 3. Preserves Sheikh Muhammad Metwalli Al-Sha'rawi's Arabic tafsir text 100% verbatim
  *    (zero summarization, zero rewriting, zero translation).
- * 5. Associates every record with:
- *    - surah number
- *    - ayah number / verse key (`surah:ayah` + `ayah_id` foreign key)
- *    - tafsir book ID = 18
- *    - Arabic tafsir text
- *    - source/provider = Quranpedia
- *    - source version/date (`license.version`, e.g. `2026-08-10`)
- * 6. Strictly Idempotent:
+ * 4. Keeps Book 18 for all 3,593 ayahs in Surahs 1–33 and imports the 1,281 missing ayahs from Book 27803.
+ * 5. Strictly Idempotent:
  *    - Running the import twice creates ZERO duplicate records.
  *    - Incremental Synchronization (`--sync`): compares SHA-256 content hashes and source version
  *      so if Quranpedia publishes corrections/updates later, only modified or newly added records
  *      are updated without re-importing unchanged records.
- * 7. Unmapped Record Protection:
+ * 6. Unmapped Record Protection:
  *    - If a record cannot be associated with an existing `(surah, ayah)` in the `ayah` table,
  *      it is NEVER guessed; it is recorded in `import_errors` (`import_errors` table & audit log).
  */
@@ -73,15 +72,18 @@ const { supabaseUrl, supabaseKey } = getResolvedSupabaseConfig();
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const QURANPEDIA_DUMP_URL = 'https://api.quranpedia.net/dumps/tafsir-book-18.json.gz';
+export const QURANPEDIA_SUPPLEMENT_DUMP_URL =
+  'https://api.quranpedia.net/dumps/tafsir-book-27803.json.gz';
 export const QURANPEDIA_BOOK_ID = 18;
+export const QURANPEDIA_SUPPLEMENT_BOOK_ID = 27803;
 export const SHAARAWI_SCHOLAR_NAME = "Al-Sha'rawi";
 
 export interface QuranpediaContentPage {
   text: string;
-  part?: string | number;
-  page?: number;
-  image?: string;
-  ayahs?: string;
+  part?: string | number | null;
+  page?: number | null;
+  image?: string | null;
+  ayahs?: string | null;
 }
 
 export interface QuranpediaAyahEntry {
@@ -100,18 +102,18 @@ export interface QuranpediaDumpSchema {
   book: {
     id: number;
     name: string;
-    short_name: string;
-    parts?: string;
-    publish_year?: string;
-    nasher?: string;
+    short_name?: string | null;
+    parts?: string | number | null;
+    publish_year?: string | null;
+    nasher?: string | null;
     author?: {
       id: number;
       ar_name: string;
-      full_name: string;
+      full_name?: string | null;
     };
     language?: {
       code: string;
-    };
+    } | null;
   };
   schema: string;
   ayahs: QuranpediaAyahEntry[];
@@ -119,10 +121,15 @@ export interface QuranpediaDumpSchema {
 
 export interface ImportStats {
   sourceProvider: string;
-  bookId: number;
+  primaryBookId: number;
+  supplementBookId: number;
   bookName: string;
   sourceVersion: string;
-  recordsDownloaded: number;
+  totalCanonicalQuranAyahs: number;
+  book18RecordsDownloaded: number;
+  book27803SupplementRecordsSelected: number;
+  totalShaarawiCoverageAyahs: number;
+  unwrittenHistoricalAyahsCount: number;
   recordsImported: number;
   recordsUpdated: number;
   recordsSkippedExisting: number;
@@ -159,9 +166,11 @@ export function extractVerbatimArabicFromContent(contentPages: QuranpediaContent
       const raw = typeof c.text === 'string' ? c.text : '';
       return raw
         .replace(/<br\s*\/?>\r?\n?/gi, '\n')
-        .replace(/<\/?span[^>]*>/gi, '')
+        .replace(/<\/?(p|div|tr|h[0-9\u0660-\u0669]+|hr)[^>]*>/gi, '\n')
+        .replace(/<\/?[a-zA-Z0-9\u0660-\u0669]+[^>]*>/g, '')
         .replace(/\r\n/g, '\n')
         .replace(/\r/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
         .trim();
     })
     .filter(Boolean);
@@ -177,7 +186,7 @@ export function extractVerbatimArabicFromContent(contentPages: QuranpediaContent
  * Step 0: Remove all legacy Al-Bouti and Al-Sha'rawi records from `tafsir` and `cached_reflection`.
  */
 export async function purgeLegacyBoutiAndShaarawiRecords(): Promise<number> {
-  console.log('\n[Purge] Removing all legacy Al-Bouti and previous Al-Sha\'rawi records...');
+  console.log("\n[Purge] Removing all legacy Al-Bouti and previous Al-Sha'rawi records...");
   let totalPurged = 0;
 
   // 1. Delete from `tafsir` table
@@ -217,13 +226,15 @@ export async function purgeLegacyBoutiAndShaarawiRecords(): Promise<number> {
 }
 
 /**
- * Downloads and decompresses `tafsir-book-18.json.gz` from Quranpedia (or uses local cached `/tmp` copy if fresh).
+ * Downloads and decompresses a Quranpedia `.json.gz` dump (or uses local cached `/tmp` copy if fresh).
  */
-export async function downloadAndInspectQuranpediaDump(options?: {
-  forceDownload?: boolean;
-}): Promise<QuranpediaDumpSchema> {
-  const localCachePath = path.join('/tmp', 'tafsir-book-18.json.gz');
-  let gzBuffer: Buffer;
+export async function downloadAndInspectDumpById(
+  bookId: number,
+  dumpUrl: string,
+  options?: { forceDownload?: boolean }
+): Promise<QuranpediaDumpSchema> {
+  const localCachePath = path.join('/tmp', `tafsir-book-${bookId}.json.gz`);
+  let gzBuffer: Buffer = Buffer.alloc(0);
 
   if (!options?.forceDownload && fs.existsSync(localCachePath)) {
     const stat = fs.statSync(localCachePath);
@@ -235,16 +246,12 @@ export async function downloadAndInspectQuranpediaDump(options?: {
         ).toFixed(2)} MB)`
       );
       gzBuffer = fs.readFileSync(localCachePath);
-    } else {
-      gzBuffer = Buffer.alloc(0);
     }
-  } else {
-    gzBuffer = Buffer.alloc(0);
   }
 
   if (gzBuffer.length === 0) {
-    console.log(`[Download] Fetching official dump from ${QURANPEDIA_DUMP_URL}...`);
-    const response = await fetch(QURANPEDIA_DUMP_URL, {
+    console.log(`[Download] Fetching official dump from ${dumpUrl}...`);
+    const response = await fetch(dumpUrl, {
       headers: {
         'User-Agent': 'Hidaya-Quranic-Guidance/1.0 (https://quranpedia.net)',
         Accept: 'application/gzip, application/octet-stream',
@@ -253,7 +260,7 @@ export async function downloadAndInspectQuranpediaDump(options?: {
 
     if (!response.ok) {
       throw new Error(
-        `Failed to download Quranpedia dump: HTTP ${response.status} ${response.statusText}`
+        `Failed to download Quranpedia dump (${dumpUrl}): HTTP ${response.status} ${response.statusText}`
       );
     }
 
@@ -269,7 +276,7 @@ export async function downloadAndInspectQuranpediaDump(options?: {
     );
   }
 
-  console.log('[Decompress] Decompressing gzip archive in memory...');
+  console.log(`[Decompress] Decompressing tafsir-book-${bookId}.json.gz in memory...`);
   const decompressedBuffer = zlib.gunzipSync(gzBuffer);
   const rawJsonString = decompressedBuffer.toString('utf8');
   console.log(
@@ -280,20 +287,15 @@ export async function downloadAndInspectQuranpediaDump(options?: {
 
   const parsed = JSON.parse(rawJsonString) as QuranpediaDumpSchema;
 
-  // Step 3: Inspect JSON structure before importing
   if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.ayahs)) {
-    throw new Error('Invalid Quranpedia dump structure: missing `ayahs` array.');
+    throw new Error(`Invalid Quranpedia dump structure for book ${bookId}: missing \`ayahs\` array.`);
   }
-  if (!parsed.book || parsed.book.id !== QURANPEDIA_BOOK_ID) {
-    throw new Error(
-      `Unexpected book ID in dump: expected ${QURANPEDIA_BOOK_ID}, got ${parsed.book?.id}`
-    );
+  if (!parsed.book || parsed.book.id !== bookId) {
+    throw new Error(`Unexpected book ID in dump: expected ${bookId}, got ${parsed.book?.id}`);
   }
 
-  console.log('[Inspect] Dump Structure Verified:');
-  console.log(`  - Book ID:        ${parsed.book.id}`);
-  console.log(`  - Book Name:      ${parsed.book.name} (${parsed.book.author?.full_name || 'الشعراوي'})`);
-  console.log(`  - Publisher:      ${parsed.book.nasher || 'مطابع أخبار اليوم'} (${parsed.book.publish_year || '1991'})`);
+  console.log(`[Inspect] Dump Structure Verified (Book #${bookId}):`);
+  console.log(`  - Book Name:      ${parsed.book.name} (${parsed.book.author?.full_name || parsed.book.author?.ar_name || 'الشعراوي'})`);
   console.log(`  - Source:         ${parsed.license?.source || 'https://quranpedia.net'}`);
   console.log(`  - Source Version: ${parsed.license?.version || 'unknown'}`);
   console.log(`  - API Schema:     ${parsed.schema}`);
@@ -316,7 +318,6 @@ async function logImportError(errorEntry: {
   try {
     const { error } = await supabase.from('import_errors').insert(errorEntry);
     if (error) {
-      // Fallback: append to cached_reflection import_errors log if DDL table isn't created yet
       await supabase.from('cached_reflection').upsert(
         {
           query_hash: `import_error:book_${errorEntry.tafsir_book_id}:${errorEntry.verse_key}:${Date.now()}`,
@@ -331,14 +332,17 @@ async function logImportError(errorEntry: {
 }
 
 /**
- * Main Idempotent Import & Synchronization Function for Quranpedia Book 18 (Tafsir Al-Sha'rawi).
+ * Main Idempotent Dual-Dump Import & Synchronization Function for Quranpedia Tafsir Al-Sha'rawi:
+ * - Keeps Book 18 (`tafsir-book-18.json.gz`, 3,593 ayahs in Surahs 1–33 with Vol/Page print citations).
+ * - Imports the 1,281 missing ayahs from Book 27803 (`tafsir-book-27803.json.gz`, covering Surahs 34–60,
+ *   Surah 66, plus 13 gap ayahs in Surahs 6, 22, and 33).
  */
 export async function importAndSyncShaarawiTafsir(options?: {
   purgeFirst?: boolean;
   forceDownload?: boolean;
 }): Promise<ImportStats> {
   console.log('========================================================================');
-  console.log('  QURANPEDIA OFFICIAL TAFSIR AL-SHAARAWI (BOOK 18) IMPORTER & SYNC');
+  console.log('  QURANPEDIA OFFICIAL TAFSIR AL-SHAARAWI (BOOK 18 + BOOK 27803) SYNC');
   console.log('========================================================================');
 
   let purgedLegacyCount = 0;
@@ -346,15 +350,23 @@ export async function importAndSyncShaarawiTafsir(options?: {
     purgedLegacyCount = await purgeLegacyBoutiAndShaarawiRecords();
   }
 
-  // 1-3. Download, decompress, and inspect the official dump
-  const dump = await downloadAndInspectQuranpediaDump({
-    forceDownload: options?.forceDownload,
-  });
+  // 1. Download, decompress, and inspect Primary Dump (Book 18: Surahs 1–33)
+  const dump18 = await downloadAndInspectDumpById(
+    QURANPEDIA_BOOK_ID,
+    QURANPEDIA_DUMP_URL,
+    { forceDownload: options?.forceDownload }
+  );
 
-  const sourceVersion = dump.license?.version || new Date().toISOString().slice(0, 10);
-  const workTitle = `${dump.book.name} — ${dump.book.author?.full_name || 'محمد متولي الشعراوي'} (Quranpedia Book #${QURANPEDIA_BOOK_ID})`;
+  // 2. Download, decompress, and inspect Supplemental Dump (Book 27803: Surahs 34–60, 66 + 13 missing in 1–33)
+  const dump27803 = await downloadAndInspectDumpById(
+    QURANPEDIA_SUPPLEMENT_BOOK_ID,
+    QURANPEDIA_SUPPLEMENT_DUMP_URL,
+    { forceDownload: options?.forceDownload }
+  );
 
-  // 4. Load all 114 Surahs and 6,236 Ayahs from Supabase to map `(surah, ayah)` -> `ayah_id` accurately
+  const sourceVersion = dump18.license?.version || dump27803.license?.version || '2026-08-10';
+
+  // 3. Load all 114 Surahs and 6,236 Ayahs from Supabase to map `(surah, ayah)` -> `ayah_id` accurately
   console.log('\n[Mapping] Loading canonical Surahs and Ayahs from Hidaya database...');
   const { data: surahs, error: surahErr } = await supabase.from('surah').select('id, number');
   if (surahErr || !surahs) {
@@ -366,7 +378,6 @@ export async function importAndSyncShaarawiTafsir(options?: {
   }
 
   const verseKeyToAyahId = new Map<string, string>();
-  const ayahIdToVerseKey = new Map<string, string>();
   let offset = 0;
   const pageSize = 1000;
   while (true) {
@@ -385,7 +396,6 @@ export async function importAndSyncShaarawiTafsir(options?: {
       if (sNum) {
         const key = `${sNum}:${a.ayah_number}`;
         verseKeyToAyahId.set(key, a.id);
-        ayahIdToVerseKey.set(a.id, key);
       }
     }
 
@@ -395,8 +405,60 @@ export async function importAndSyncShaarawiTafsir(options?: {
 
   console.log(`  ✓ Mapped ${verseKeyToAyahId.size} canonical Ayahs across 114 Surahs.`);
 
-  // 5. Load existing Book 18 / Al-Sha'rawi records from `tafsir` for idempotency & incremental sync
-  console.log('[Idempotency Check] Loading existing Al-Sha\'rawi (Book 18) records from `tafsir`...');
+  // 4. Build unified target records list:
+  //    - All 3,593 records from Book 18 take priority (for Surahs 1–33 with Vol/Page print citations)
+  //    - The 1,281 missing `(surah, ayah)` records from Book 27803 fill the gaps (13 in Surahs 6/22/33 + 1,268 in Surahs 34–60 & 66)
+  const book18Keys = new Set<string>();
+  const combinedSourceRecords: {
+    bookId: number;
+    workTitle: string;
+    entry: QuranpediaAyahEntry;
+  }[] = [];
+
+  const workTitle18 = `${dump18.book.name} — ${
+    dump18.book.author?.full_name || 'محمد متولي الشعراوي'
+  } (Quranpedia Book #${QURANPEDIA_BOOK_ID})`;
+
+  const workTitle27803 = `${dump27803.book.name} — محمد متولي الشعراوي (Quranpedia Book #${QURANPEDIA_SUPPLEMENT_BOOK_ID})`;
+
+  for (const entry of dump18.ayahs) {
+    const vk = `${entry.surah}:${entry.ayah}`;
+    if (!book18Keys.has(vk)) {
+      book18Keys.add(vk);
+      combinedSourceRecords.push({
+        bookId: QURANPEDIA_BOOK_ID,
+        workTitle: workTitle18,
+        entry,
+      });
+    }
+  }
+
+  let book27803SupplementCount = 0;
+  for (const entry of dump27803.ayahs) {
+    const vk = `${entry.surah}:${entry.ayah}`;
+    if (!book18Keys.has(vk)) {
+      book18Keys.add(vk);
+      book27803SupplementCount++;
+      combinedSourceRecords.push({
+        bookId: QURANPEDIA_SUPPLEMENT_BOOK_ID,
+        workTitle: workTitle27803,
+        entry,
+      });
+    }
+  }
+
+  console.log(`\n[Audit] Coverage Analysis Across ${verseKeyToAyahId.size} Canonical Quran Ayahs:`);
+  console.log(`  - Book 18 Primary Ayahs (Surahs 1–33):               ${dump18.ayahs.length}`);
+  console.log(`  - Book 27803 Missing Gap Ayahs (Surahs 6,22,33–60,66): ${book27803SupplementCount}`);
+  console.log(`  - Total Combined Authentic Shaarawi Ayahs:           ${combinedSourceRecords.length}`);
+  console.log(
+    `  - Historically Unwritten Ayahs (Surahs 61–65, 67–114): ${
+      verseKeyToAyahId.size - combinedSourceRecords.length
+    }`
+  );
+
+  // 5. Load existing Al-Sha'rawi records from `tafsir` for idempotency & incremental sync
+  console.log("\n[Idempotency Check] Loading existing Al-Sha'rawi records from `tafsir`...");
   const existingByAyahId = new Map<
     string,
     { id: string; text: string; source_reference: string | null }
@@ -416,7 +478,6 @@ export async function importAndSyncShaarawiTafsir(options?: {
     if (!existingPage || existingPage.length === 0) break;
 
     for (const row of existingPage) {
-      // If duplicate existed from an interrupted run, keep the first and delete extra
       if (existingByAyahId.has(row.ayah_id)) {
         await supabase.from('tafsir').delete().eq('id', row.id);
       } else {
@@ -444,8 +505,7 @@ export async function importAndSyncShaarawiTafsir(options?: {
     hasExtendedColumns = true;
   }
 
-  // 6. Process all records in the dump
-  let recordsDownloaded = dump.ayahs.length;
+  // 6. Process all 4,874 combined records
   let recordsImported = 0;
   let recordsUpdated = 0;
   let recordsSkippedExisting = 0;
@@ -453,11 +513,10 @@ export async function importAndSyncShaarawiTafsir(options?: {
 
   const toInsertBatch: Record<string, unknown>[] = [];
   const toUpdateBatch: { id: string; payload: Record<string, unknown> }[] = [];
-  const seenVerseKeysInDump = new Set<string>();
 
-  for (const item of dump.ayahs) {
-    const surahNum = Number(item.surah);
-    const ayahNum = Number(item.ayah);
+  for (const { bookId, workTitle, entry } of combinedSourceRecords) {
+    const surahNum = Number(entry.surah);
+    const ayahNum = Number(entry.ayah);
     const verseKey = `${surahNum}:${ayahNum}`;
 
     // Rule 10: If a record cannot be associated with an ayah, do NOT guess. Put it in import_errors.
@@ -468,46 +527,39 @@ export async function importAndSyncShaarawiTafsir(options?: {
     ) {
       recordsErrors++;
       await logImportError({
-        tafsir_book_id: QURANPEDIA_BOOK_ID,
+        tafsir_book_id: bookId,
         surah_number: Number.isInteger(surahNum) ? surahNum : null,
         ayah_number: Number.isInteger(ayahNum) ? ayahNum : null,
         verse_key: verseKey,
         error_reason: 'Cannot associate record with a canonical (surah, ayah) in `ayah` table.',
-        raw_payload: item,
+        raw_payload: entry,
       });
       continue;
     }
 
-    // Prevent intra-dump duplicate keys
-    if (seenVerseKeysInDump.has(verseKey)) {
-      recordsSkippedExisting++;
-      continue;
-    }
-    seenVerseKeysInDump.add(verseKey);
-
-    if (!Array.isArray(item.content) || item.content.length === 0) {
+    if (!Array.isArray(entry.content) || entry.content.length === 0) {
       recordsErrors++;
       await logImportError({
-        tafsir_book_id: QURANPEDIA_BOOK_ID,
+        tafsir_book_id: bookId,
         surah_number: surahNum,
         ayah_number: ayahNum,
         verse_key: verseKey,
         error_reason: 'Empty content array in Quranpedia dump record.',
-        raw_payload: item,
+        raw_payload: entry,
       });
       continue;
     }
 
-    const { verbatimText, parts, pages } = extractVerbatimArabicFromContent(item.content);
+    const { verbatimText, parts, pages } = extractVerbatimArabicFromContent(entry.content);
     if (!verbatimText) {
       recordsErrors++;
       await logImportError({
-        tafsir_book_id: QURANPEDIA_BOOK_ID,
+        tafsir_book_id: bookId,
         surah_number: surahNum,
         ayah_number: ayahNum,
         verse_key: verseKey,
         error_reason: 'Extracted Arabic tafsir text is empty.',
-        raw_payload: item,
+        raw_payload: entry,
       });
       continue;
     }
@@ -522,7 +574,7 @@ export async function importAndSyncShaarawiTafsir(options?: {
         : '';
     const partLabel = parts.length > 0 ? `Vol. ${parts.join(', ')}` : '';
     const sourceReference = [
-      `Quranpedia (book_id=${QURANPEDIA_BOOK_ID})`,
+      `Quranpedia (book_id=${bookId})`,
       `verse_key=${verseKey}`,
       partLabel,
       pageRange,
@@ -544,7 +596,7 @@ export async function importAndSyncShaarawiTafsir(options?: {
       verification_status: 'verified_canonical',
       ...(hasExtendedColumns
         ? {
-            tafsir_book_id: QURANPEDIA_BOOK_ID,
+            tafsir_book_id: bookId,
             surah_number: surahNum,
             ayah_number: ayahNum,
             source_provider: 'Quranpedia',
@@ -556,7 +608,6 @@ export async function importAndSyncShaarawiTafsir(options?: {
 
     const existing = existingByAyahId.get(ayahId);
     if (existing) {
-      // Idempotency & Incremental Sync check: if verbatim text is identical, skip!
       if (existing.text === verbatimText) {
         recordsSkippedExisting++;
       } else {
@@ -567,7 +618,7 @@ export async function importAndSyncShaarawiTafsir(options?: {
     }
   }
 
-  // 7. Execute Batch Inserts (in chunks of 150 to respect payload limits)
+  // 7. Execute Batch Inserts (in chunks of 150)
   if (toInsertBatch.length > 0) {
     console.log(`\n[Import] Inserting ${toInsertBatch.length} new Tafsir Al-Sha'rawi records...`);
     const chunkSize = 150;
@@ -582,7 +633,7 @@ export async function importAndSyncShaarawiTafsir(options?: {
         recordsErrors += chunk.length;
       } else {
         recordsImported += chunk.length;
-        if ((i / chunkSize) % 5 === 0 || i + chunkSize >= toInsertBatch.length) {
+        if ((i / chunkSize) % 3 === 0 || i + chunkSize >= toInsertBatch.length) {
           console.log(
             `  ✓ Progress: ${Math.min(i + chunk.length, toInsertBatch.length)} / ${
               toInsertBatch.length
@@ -613,10 +664,15 @@ export async function importAndSyncShaarawiTafsir(options?: {
 
   const stats: ImportStats = {
     sourceProvider: 'Quranpedia (https://quranpedia.net)',
-    bookId: QURANPEDIA_BOOK_ID,
-    bookName: dump.book.name,
+    primaryBookId: QURANPEDIA_BOOK_ID,
+    supplementBookId: QURANPEDIA_SUPPLEMENT_BOOK_ID,
+    bookName: dump18.book.name,
     sourceVersion,
-    recordsDownloaded,
+    totalCanonicalQuranAyahs: verseKeyToAyahId.size,
+    book18RecordsDownloaded: dump18.ayahs.length,
+    book27803SupplementRecordsSelected: book27803SupplementCount,
+    totalShaarawiCoverageAyahs: combinedSourceRecords.length,
+    unwrittenHistoricalAyahsCount: verseKeyToAyahId.size - combinedSourceRecords.length,
     recordsImported,
     recordsUpdated,
     recordsSkippedExisting,
@@ -624,14 +680,14 @@ export async function importAndSyncShaarawiTafsir(options?: {
     purgedLegacyCount,
   };
 
-  // Store sync metadata in `cached_reflection` so synchronization state is auditable
+  // Store sync metadata in `cached_reflection`
   await supabase.from('cached_reflection').upsert(
     {
       query_hash: `quranpedia_sync:book_${QURANPEDIA_BOOK_ID}`,
       response_json: {
         ...stats,
         lastSyncedAt: new Date().toISOString(),
-        dumpUrl: QURANPEDIA_DUMP_URL,
+        dumpUrls: [QURANPEDIA_DUMP_URL, QURANPEDIA_SUPPLEMENT_DUMP_URL],
       },
     },
     { onConflict: 'query_hash' }
@@ -640,24 +696,29 @@ export async function importAndSyncShaarawiTafsir(options?: {
   console.log('\n========================================================================');
   console.log('                 QURANPEDIA IMPORT & SYNC SUMMARY                       ');
   console.log('========================================================================');
-  console.log(`- Provider:                  ${stats.sourceProvider}`);
-  console.log(`- Book:                      ${stats.bookName} (Book ID: ${stats.bookId})`);
-  console.log(`- Source Version / Date:     ${stats.sourceVersion}`);
+  console.log(`- Provider:                        ${stats.sourceProvider}`);
+  console.log(
+    `- Books:                           ${stats.bookName} (Book #${stats.primaryBookId} + Book #${stats.supplementBookId})`
+  );
+  console.log(`- Source Version / Date:           ${stats.sourceVersion}`);
   if (options?.purgeFirst) {
-    console.log(`- Legacy Records Purged:     ${stats.purgedLegacyCount}`);
+    console.log(`- Legacy Records Purged:           ${stats.purgedLegacyCount}`);
   }
-  console.log(`- Records Downloaded:        ${stats.recordsDownloaded}`);
-  console.log(`- Records Imported (New):    ${stats.recordsImported}`);
-  console.log(`- Records Updated (Synced):  ${stats.recordsUpdated}`);
-  console.log(`- Records Skipped (Existing):${stats.recordsSkippedExisting}`);
-  console.log(`- Records Errors (Unmapped): ${stats.recordsErrors}`);
+  console.log(`- Book 18 Primary Records:         ${stats.book18RecordsDownloaded}`);
+  console.log(`- Book 27803 Supplement Records:   ${stats.book27803SupplementRecordsSelected}`);
+  console.log(`- Total Shaarawi Coverage (Ayahs): ${stats.totalShaarawiCoverageAyahs} / ${stats.totalCanonicalQuranAyahs}`);
+  console.log(`- Unwritten Surahs (61-65,67-114): ${stats.unwrittenHistoricalAyahsCount}`);
+  console.log(`- Records Imported (New):          ${stats.recordsImported}`);
+  console.log(`- Records Updated (Synced):        ${stats.recordsUpdated}`);
+  console.log(`- Records Skipped (Existing):      ${stats.recordsSkippedExisting}`);
+  console.log(`- Records Errors (Unmapped):       ${stats.recordsErrors}`);
   console.log('========================================================================\n');
 
   return stats;
 }
 
 /**
- * Server-side function to retrieve Sheikh Al-Sha'rawi's authentic Tafsir (Book 18)
+ * Server-side function to retrieve Sheikh Al-Sha'rawi's authentic Tafsir (Book 18 or Book 27803)
  * by Surah and Ayah number directly from the Hidaya database.
  */
 export async function getShaarawiTafsirBySurahAyah(
@@ -706,12 +767,13 @@ export async function getShaarawiTafsirBySurahAyah(
   const row = tafsirRows[0];
   const ref = row.source_reference || '';
   const versionMatch = ref.match(/version=([^|\s]+)/);
+  const bookMatch = ref.match(/book_id=(\d+)/);
 
   return {
     surah: surahNumber,
     ayah: ayahNumber,
     verseKey: `${surahNumber}:${ayahNumber}`,
-    bookId: QURANPEDIA_BOOK_ID,
+    bookId: bookMatch ? Number(bookMatch[1]) : QURANPEDIA_BOOK_ID,
     scholarName: row.scholar_name,
     workTitle: row.work_title,
     sourceProvider: 'Quranpedia',
@@ -722,7 +784,8 @@ export async function getShaarawiTafsirBySurahAyah(
 }
 
 /**
- * Verifies that key ayat (1:1, 2:255, 7:199, 3:134, 13:28, 17:23, 2:286) can be retrieved cleanly.
+ * Verifies that key ayat across both Book 18 (Surahs 1–33) and Book 27803 (Surahs 34–60, 66, plus gap ayahs)
+ * can be retrieved cleanly from the database.
  */
 export async function verifyShaarawiRetrieval() {
   const testCases = [
@@ -730,13 +793,20 @@ export async function verifyShaarawiRetrieval() {
     { surah: 2, ayah: 255 },
     { surah: 7, ayah: 199 },
     { surah: 3, ayah: 134 },
-    { surah: 13, ayah: 28 },
-    { surah: 17, ayah: 23 },
-    { surah: 2, ayah: 286 },
+    { surah: 6, ayah: 56 },
+    { surah: 22, ayah: 34 },
+    { surah: 33, ayah: 64 },
+    { surah: 36, ayah: 1 },
+    { surah: 39, ayah: 53 },
+    { surah: 41, ayah: 34 },
+    { surah: 42, ayah: 38 },
+    { surah: 49, ayah: 12 },
+    { surah: 57, ayah: 20 },
+    { surah: 66, ayah: 1 },
   ];
 
   console.log('========================================================================');
-  console.log('       VERIFYING TAFSIR AL-SHAARAWI (BOOK 18) RETRIEVAL                 ');
+  console.log('   VERIFYING TAFSIR AL-SHAARAWI (BOOK 18 + BOOK 27803) RETRIEVAL        ');
   console.log('========================================================================');
 
   for (const tc of testCases) {
@@ -744,9 +814,9 @@ export async function verifyShaarawiRetrieval() {
     if (!result) {
       console.error(`  ✗ FAILED to retrieve ${tc.surah}:${tc.ayah}`);
     } else {
-      const preview = result.arabicTafsirText.replace(/\s+/g, ' ').slice(0, 110);
+      const preview = result.arabicTafsirText.replace(/\s+/g, ' ').slice(0, 95);
       console.log(
-        `  ✓ [${result.verseKey}] (${result.arabicTafsirText.length} chars | ${result.sourceReference})`
+        `  ✓ [${result.verseKey}] (Book #${result.bookId} | ${result.arabicTafsirText.length} chars | ${result.sourceReference})`
       );
       console.log(`    "${preview}..."`);
     }

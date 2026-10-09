@@ -47,6 +47,7 @@ import {
   ReflectionMood,
   PreferredScholar,
   UserReflection,
+  TafsirCitation,
 } from '../types';
 import { AudioPlayer } from './AudioPlayer';
 import { StorageService } from '../services/storage';
@@ -338,6 +339,9 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   // Preferred scholar & provenance modal state
   const [selectedScholar, setSelectedScholar] = useState<string>(preferredScholar);
   const [provenanceModalOpen, setProvenanceModalOpen] = useState(false);
+  const [dynamicShaarawiCitation, setDynamicShaarawiCitation] = useState<TafsirCitation | null>(
+    null
+  );
 
   useEffect(() => {
     if (preferredScholar) {
@@ -386,7 +390,72 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       : `${effectiveStartVerse}-${effectiveEndVerse}`;
 
   const effectiveVerseId = `${verse.surahNumber}:${effectiveVerseNumberStr}`;
-  const availableCitations = localizedDetails.tafsirCitations;
+
+  // Dynamically hydrate Al-Sha'rawi's authentic Tafsir from `/api/tafsir/shaarawi` if the verse is in Surahs 1–60 or 66
+  // and was loaded from a dynamic or cached source without Al-Sha'rawi pre-attached
+  useEffect(() => {
+    setDynamicShaarawiCitation(null);
+    const hasShaarawi = localizedDetails.tafsirCitations.some(
+      (c) =>
+        (c.scholar === "Al-Sha'rawi" || c.scholar === 'الشعراوي') &&
+        c.text &&
+        c.text.trim().length > 0
+    );
+    if (hasShaarawi) return;
+
+    const sNum = verse.surahNumber;
+    const aNum = baseRangeBounds.start;
+    if (!sNum || !aNum || (sNum > 60 && sNum !== 66)) return;
+
+    let cancelled = false;
+    fetch(`/api/tafsir/shaarawi?surah=${sNum}&ayah=${aNum}`)
+      .then((res) =>
+        res.ok
+          ? (res.json() as Promise<{
+              found?: boolean;
+              bookId?: number;
+              workTitle?: string;
+              sourceReference?: string;
+              arabicTafsirText?: string;
+            }>)
+          : null
+      )
+      .then((data) => {
+        if (!cancelled && data?.found && data?.arabicTafsirText) {
+          setDynamicShaarawiCitation({
+            scholar: "Al-Sha'rawi",
+            century: 'Contemporary (1911–1998 CE)',
+            sourceBook:
+              data.workTitle || `تفسير الشعراوي (Quranpedia Book #${data.bookId || 18})`,
+            text: data.arabicTafsirText,
+            sourceType: 'classical_book',
+            sourceReference: data.sourceReference,
+            originalArabicRaw: data.arabicTafsirText,
+            verificationStatus: 'verified_canonical',
+          });
+        }
+      })
+      .catch(() => {
+        // Ignore network errors when offline
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [verse.id, verse.surahNumber, baseRangeBounds.start, localizedDetails.tafsirCitations]);
+
+  const availableCitations = useMemo(() => {
+    const base = localizedDetails.tafsirCitations.filter((c) =>
+      Boolean(c.text && c.text.trim().length > 0)
+    );
+    if (
+      dynamicShaarawiCitation &&
+      !base.some((c) => c.scholar === "Al-Sha'rawi" || c.scholar === 'الشعراوي')
+    ) {
+      return [...base, dynamicShaarawiCitation];
+    }
+    return base;
+  }, [localizedDetails.tafsirCitations, dynamicShaarawiCitation]);
 
   // Level 2 Human Translation object: Strictly distinct from Tafsir to prevent duplicate text
   const baseTranslationObj = useMemo(() => {

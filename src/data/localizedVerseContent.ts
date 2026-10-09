@@ -625,46 +625,80 @@ export function getLocalizedVerseDetails(
       : verse.whyThisVerse.mappingExplanation);
 
   const localizedTranslationText =
-    verse.translations[language]?.text || verse.translations.en.text;
+    verse.translations[language]?.text || '';
 
-  const tafsirCitations: TafsirCitation[] = verse.tafsirCitations.map((cit) => {
-    const customText = override?.tafsir?.[cit.scholar]?.[language];
-    if (customText) {
-      return {
-        ...cit,
-        text: customText,
-      };
-    }
+  const isMostlyArabicScript = (val?: string): boolean => {
+    if (!val) return false;
+    const arabicChars = (val.match(/[\u0600-\u06FF]/g) || []).length;
+    const latinChars = (val.match(/[A-Za-z\u00C0-\u017F]/g) || []).length;
+    return arabicChars > 10 && arabicChars > latinChars * 2;
+  };
 
-    // In Arabic mode, use authentic original Arabic commentary if available
-    if (language === 'ar') {
-      const arCommentary = cit.originalArabicRaw || cit.text;
-      if (arCommentary && arCommentary.trim() !== verse.arabicText.trim()) {
+  const tafsirCitations: TafsirCitation[] = verse.tafsirCitations
+    .map((cit): TafsirCitation | null => {
+      // 1. Check explicit per-language override in VERSE_OVERRIDES
+      const customText = override?.tafsir?.[cit.scholar]?.[language];
+      if (customText && customText.trim()) {
         return {
           ...cit,
-          text: arCommentary,
+          text: customText.trim(),
+          languageCode: language,
         };
       }
-    }
 
-    // Preserve authentic scholar tafsir text from database or fixtures without synthesizing or injecting translation
-    const isSyntheticPlaceholder =
-      !cit.text ||
-      cit.text.trim() === verse.arabicText.trim() ||
-      (localizedTranslationText && cit.text.trim() === localizedTranslationText.trim()) ||
-      cit.text.startsWith('Classical commentary on Surah') ||
-      cit.text.includes('Förklarar innebörden av "') ||
-      cit.text.includes('Explique le sens profond de «');
+      const explicitLang = cit.languageCode?.toLowerCase();
 
-    if (isSyntheticPlaceholder) {
+      // 2. In Arabic mode, use explicit Arabic commentary or originalArabicRaw
+      if (language === 'ar') {
+        const arCommentary =
+          explicitLang === 'ar'
+            ? cit.text
+            : cit.originalArabicRaw || (isMostlyArabicScript(cit.text) ? cit.text : '');
+        if (arCommentary && arCommentary.trim() && arCommentary.trim() !== verse.arabicText.trim()) {
+          return {
+            ...cit,
+            text: arCommentary.trim(),
+            languageCode: 'ar',
+          };
+        }
+        return null;
+      }
+
+      // 3. For non-Arabic languages (en, sv, fr):
+      // If citation has an explicit languageCode, it MUST match the selected language
+      if (explicitLang) {
+        if (explicitLang !== language) {
+          return null;
+        }
+      } else {
+        // Static fixture citations without explicit languageCode are authored in English
+        // (except Al-Sha'rawi which is Arabic in quranFixtures.ts)
+        if (language !== 'en' || isMostlyArabicScript(cit.text)) {
+          return null;
+        }
+      }
+
+      // Reject synthetic placeholders or Arabic text masquerading as non-Arabic
+      const isSyntheticPlaceholder =
+        !cit.text ||
+        !cit.text.trim() ||
+        isMostlyArabicScript(cit.text) ||
+        cit.text.trim() === verse.arabicText.trim() ||
+        (localizedTranslationText && cit.text.trim() === localizedTranslationText.trim()) ||
+        cit.text.startsWith('Classical commentary on Surah') ||
+        cit.text.includes('Förklarar innebörden av "') ||
+        cit.text.includes('Explique le sens profond de «');
+
+      if (isSyntheticPlaceholder) {
+        return null;
+      }
+
       return {
         ...cit,
-        text: '', // Honest: empty rather than fake/duplicated translation
+        languageCode: language,
       };
-    }
-
-    return cit;
-  });
+    })
+    .filter((cit): cit is TafsirCitation => cit !== null && Boolean(cit.text && cit.text.trim()));
 
   return {
     surahPrefix,

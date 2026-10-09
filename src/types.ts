@@ -39,6 +39,7 @@ export interface TafsirCitation {
   century?: string;
   sourceBook: string;
   text: string;
+  languageCode?: Language | string;
   // Provenance & Transparency Fields (AGENTS.md strict attribution):
   sourceType?: TafsirSourceType;
   sourceReference?: string;

@@ -103,6 +103,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
               scholar: "Al-Sha'rawi",
               sourceBook: shaarawiDb.work_title,
               text: shaarawiDb.text,
+              languageCode: shaarawiDb.language_code || 'ar',
               sourceType: (shaarawiDb.source_type as any) || 'classical_book',
               sourceReference: shaarawiDb.source_reference,
               originalArabicRaw: shaarawiDb.original_arabic_raw || shaarawiDb.text,
@@ -133,7 +134,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
     match.translations?.find((t) => t.language_code === 'en') ||
     (match.selectedTranslation?.language_code === 'en' ? match.selectedTranslation : undefined) || {
       text: '',
-      source: 'Saheeh International',
+      source: '',
     };
   let svTrans =
     match.translations?.find((t) => t.language_code === 'sv') ||
@@ -194,7 +195,8 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
     return {
       scholar: scholarKey,
       sourceBook: found?.work_title || defaultBook,
-      text: found?.text || '', // Honest: empty if no authentic tafsir in DB, never synthesize with translation
+      text: found?.text || '',
+      languageCode: found?.language_code,
       sourceType: (found?.source_type as any) || 'classical_book',
       sourceReference: found?.source_reference,
       originalArabicRaw: found?.original_arabic_raw,
@@ -208,6 +210,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
           scholar: t.scholar_name,
           sourceBook: t.work_title,
           text: t.text,
+          languageCode: t.language_code,
           sourceType: (t.source_type as any) || 'classical_book',
           sourceReference: t.source_reference,
           originalArabicRaw: t.original_arabic_raw,
@@ -882,7 +885,8 @@ export const GuidanceService = {
   async searchGuidance(
     queryText: string,
     language: Language = 'en',
-    _mode?: EntryMode
+    _mode?: EntryMode,
+    signal?: AbortSignal
   ): Promise<{
     analysisResult: QueryAnalysisResponse;
     passages: QuranVerseFixture[];
@@ -906,6 +910,7 @@ export const GuidanceService = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: queryText, language, lang: language }),
+        signal,
       });
 
       if (!response.ok) {

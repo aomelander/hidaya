@@ -108,47 +108,45 @@ export interface RetrievedAyahMatch {
 }
 
 /**
- * Extracts and prioritizes the translation record for the requested language,
- * falling back gracefully to English ('en') or first available.
+ * Extracts the translation record strictly matching the requested language.
+ * Never substitutes another language when content is unavailable.
  */
 function resolveTranslation(
   translations: RetrievedTranslation[] = [],
   preferredLanguage: LanguageCode = 'en'
 ): { selected: RetrievedTranslation; orderedList: RetrievedTranslation[] } {
-  if (!translations || translations.length === 0) {
-    const fallback: RetrievedTranslation = {
-      language_code: 'en',
-      text: '',
-      source: 'Saheeh International',
-    };
-    return { selected: fallback, orderedList: [fallback] };
-  }
+  const exactMatch = (translations || []).find(
+    (t) => t && t.language_code?.toLowerCase() === preferredLanguage && t.text && t.text.trim().length > 0
+  );
 
-  const exactMatch = translations.find((t) => t.language_code === preferredLanguage);
-  const englishFallback = translations.find((t) => t.language_code === 'en');
-  const selected = exactMatch || englishFallback || translations[0];
+  const selected: RetrievedTranslation = exactMatch || {
+    language_code: preferredLanguage,
+    text: '',
+    source: '',
+  };
 
-  // Re-order so selected translation appears first
-  const orderedList = [
-    selected,
-    ...translations.filter((t) => t !== selected),
-  ];
+  const orderedList = exactMatch
+    ? [exactMatch, ...(translations || []).filter((t) => t !== exactMatch)]
+    : translations || [];
 
   return { selected, orderedList };
 }
 
 /**
- * Prioritizes tafsir records matching the requested language_code (e.g., 'ar' for Tafsir Al-Muyassar / Ibn Kathir).
+ * Returns only tafsir records strictly matching the requested language_code.
  */
 function resolveTafsirs(
   tafsirs: RetrievedTafsir[] = [],
   preferredLanguage: LanguageCode = 'en'
 ): RetrievedTafsir[] {
   if (!tafsirs || tafsirs.length === 0) return [];
-  const valid = tafsirs.filter((t) => t && t.text && t.text.trim().length > 0);
-  const exactMatches = valid.filter((t) => t.language_code === preferredLanguage);
-  const otherMatches = valid.filter((t) => t.language_code !== preferredLanguage);
-  return [...exactMatches, ...otherMatches];
+  return tafsirs.filter(
+    (t) =>
+      t &&
+      t.text &&
+      t.text.trim().length > 0 &&
+      t.language_code?.toLowerCase() === preferredLanguage
+  );
 }
 
 /**

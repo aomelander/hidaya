@@ -53,7 +53,7 @@ export const AyahCartouche: React.FC<AyahCartoucheProps> = ({
       : undefined;
 
   return (
-    <div
+    <span
       style={customStyle}
       className={`inline-flex items-center justify-center shrink-0 transition-transform ${sizeClasses} ${className}`}
       aria-hidden="true"
@@ -156,6 +156,6 @@ export const AyahCartouche: React.FC<AyahCartoucheProps> = ({
           {numStr}
         </text>
       </svg>
-    </div>
+    </span>
   );
 };

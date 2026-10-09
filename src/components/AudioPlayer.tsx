@@ -3,10 +3,11 @@
 /**
  * @file src/components/AudioPlayer.tsx
  * @description Fully localized verse audio player supporting:
- * 1. Verified Quran Recitation (EveryAyah CDN across 5 reciters)
- * 2. Stored Neural Translation Audio (via server /api/ayah-audio/[id])
- * 3. Stored Classical Tafsir Audio (via server /api/ayah-audio/[id])
- * with offline Service Worker caching in `hidaya-audio-v2` and SpeechService fallback.
+ * 1. Verified Quran Recitation (EveryAyah CDN across 5 reciters, always in Arabic)
+ * 2. Stored Neural Translation Audio (via server /api/ayah-audio/[id], strictly matching selected language)
+ * 3. Stored Classical Tafsir Audio (via server /api/ayah-audio/[id], strictly matching selected language)
+ * Hides unavailable translation/tafsir audio controls, cancels in-flight metadata on language change,
+ * and never falls back to browser speech synthesis.
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
@@ -25,7 +26,6 @@ import {
   Check,
   Loader2,
   AlertCircle,
-  Clock,
 } from 'lucide-react';
 import { ReciterId, Language } from '../types';
 import { AVAILABLE_RECITERS, getAudioUrlsForVerseRange } from '../services/audioReciters';
@@ -35,7 +35,6 @@ import { OfflineCacheService } from '../services/offlineCacheService';
 import {
   fetchAyahAudioMetadata,
   StoredAudioMetadata,
-  StoredAudioType,
 } from '../lib/audio/audioResolverService';
 
 export type AudioStreamMode = 'recitation' | 'translation' | 'tafsir';
@@ -64,8 +63,6 @@ const PLAYER_STRINGS: Record<
     recitationTab: string;
     translationTab: string;
     tafsirTab: string;
-    speakingTranslation: string;
-    addTranslationFallback: string;
     saveAudio: string;
     savedOffline: string;
     loopTooltip: string;
@@ -74,19 +71,17 @@ const PLAYER_STRINGS: Record<
     pauseLabel: string;
     muteLabel: string;
     unmuteLabel: string;
-    processingLabel: string;
-    unavailableLabel: string;
     errorLabel: string;
-    loadingMetadata: string;
+    seekLabel: string;
+    speedLabel: string;
+    selectReciterLabel: string;
   }
 > = {
   en: {
     verseLabel: 'Ayah',
-    recitationTab: 'Recitation',
+    recitationTab: 'Recitation (AR)',
     translationTab: 'Translation',
     tafsirTab: 'Tafsir',
-    speakingTranslation: 'Speaking Translation...',
-    addTranslationFallback: '+ Voiceover',
     saveAudio: 'Save Audio',
     savedOffline: 'Offline Audio',
     loopTooltip: 'Loop verse',
@@ -95,18 +90,16 @@ const PLAYER_STRINGS: Record<
     pauseLabel: 'Pause',
     muteLabel: 'Mute',
     unmuteLabel: 'Unmute',
-    processingLabel: 'Audio in production',
-    unavailableLabel: 'Audio unavailable',
     errorLabel: 'Stream error',
-    loadingMetadata: 'Checking stream...',
+    seekLabel: 'Seek playback timeline',
+    speedLabel: 'Playback speed',
+    selectReciterLabel: 'Select Quran reciter',
   },
   sv: {
     verseLabel: 'Vers',
-    recitationTab: 'Recitation',
+    recitationTab: 'Recitation (AR)',
     translationTab: 'Översättning',
     tafsirTab: 'Tafsir',
-    speakingTranslation: 'Läser översättning...',
-    addTranslationFallback: '+ Talsyntes',
     saveAudio: 'Spara ljud',
     savedOffline: 'Sparad offline',
     loopTooltip: 'Upprepa vers',
@@ -115,18 +108,16 @@ const PLAYER_STRINGS: Record<
     pauseLabel: 'Pausa',
     muteLabel: 'Ljud av',
     unmuteLabel: 'Ljud på',
-    processingLabel: 'Ljud produceras',
-    unavailableLabel: 'Ljud ej tillgängligt',
     errorLabel: 'Strömningsfel',
-    loadingMetadata: 'Kontrollerar ljud...',
+    seekLabel: 'Spola i uppspelning',
+    speedLabel: 'Uppspelningshastighet',
+    selectReciterLabel: 'Välj recitatör',
   },
   fr: {
     verseLabel: 'Verset',
-    recitationTab: 'Récitation',
+    recitationTab: 'Récitation (AR)',
     translationTab: 'Traduction',
     tafsirTab: 'Tafsir',
-    speakingTranslation: 'Lecture traduction...',
-    addTranslationFallback: '+ Synthèse',
     saveAudio: 'Audio hors-ligne',
     savedOffline: 'Audio enregistré',
     loopTooltip: 'Répéter le verset',
@@ -135,18 +126,16 @@ const PLAYER_STRINGS: Record<
     pauseLabel: 'Mettre en pause',
     muteLabel: 'Couper le son',
     unmuteLabel: 'Activer le son',
-    processingLabel: 'Audio en production',
-    unavailableLabel: 'Audio indisponible',
     errorLabel: 'Erreur de lecture',
-    loadingMetadata: 'Vérification...',
+    seekLabel: 'Parcourir la piste audio',
+    speedLabel: 'Vitesse de lecture',
+    selectReciterLabel: 'Choisir le récitateur',
   },
   ar: {
     verseLabel: 'الآية',
-    recitationTab: 'تلاوة',
+    recitationTab: 'تلاوة قرآنية',
     translationTab: 'ترجمة صوتية',
     tafsirTab: 'تفسير صوتي',
-    speakingTranslation: 'جاري قراءة الترجمة...',
-    addTranslationFallback: '+ صوت ناطق',
     saveAudio: 'حفظ التلاوة',
     savedOffline: 'محفوظة بدون إنترنت',
     loopTooltip: 'تكرار الآية',
@@ -155,10 +144,10 @@ const PLAYER_STRINGS: Record<
     pauseLabel: 'إيقاف مؤقت',
     muteLabel: 'كتم الصوت',
     unmuteLabel: 'تشغيل الصوت',
-    processingLabel: 'الصوت قيد الإنتاج',
-    unavailableLabel: 'الصوت غير متوفر',
     errorLabel: 'خطأ في التدفق',
-    loadingMetadata: 'جاري التحقق...',
+    seekLabel: 'شريط تقدم التلاوة',
+    speedLabel: 'سرعة التلاوة',
+    selectReciterLabel: 'اختيار القارئ',
   },
 };
 
@@ -169,8 +158,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   ayahId,
   audioUrl,
   initialAudioUrl,
-  translationText,
-  tafsirText,
+  translationText = '',
+  tafsirText = '',
   language = 'en',
   onPlaybackProgress,
 }) => {
@@ -189,15 +178,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   // Stored neural audio states
   const [translationMetadata, setTranslationMetadata] = useState<StoredAudioMetadata | null>(null);
   const [tafsirMetadata, setTafsirMetadata] = useState<StoredAudioMetadata | null>(null);
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
-
-  // Client speech synthesis fallback
-  const [isSpeakingFallback, setIsSpeakingFallback] = useState(false);
 
   const [isAudioCached, setIsAudioCached] = useState(false);
   const [isCachingAudio, setIsCachingAudio] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const metadataRequestIdRef = useRef(0);
   const p = PLAYER_STRINGS[language] || PLAYER_STRINGS.en;
 
   const { resolvedSurah, resolvedVerse } = useMemo(() => {
@@ -211,7 +197,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return { resolvedSurah: surahNumber || 3, resolvedVerse: verseNumber || '134' };
   }, [surahNumber, verseNumber, surahVerseId]);
 
-  // Recitation URLs for Arabic Quran
+  // Recitation URLs for Arabic Quran (always available in Arabic across all app languages)
   const recitationUrls = useMemo(() => {
     if (resolvedSurah && resolvedVerse) {
       return getAudioUrlsForVerseRange(resolvedSurah, resolvedVerse, reciterId);
@@ -220,92 +206,119 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return single ? [single] : [];
   }, [resolvedSurah, resolvedVerse, reciterId, audioUrl, initialAudioUrl]);
 
-  // Fetch neural translation and tafsir metadata from server API
+  const hasTranslationText = Boolean(language !== 'ar' && translationText && translationText.trim().length > 0);
+  const hasTafsirText = Boolean(tafsirText && tafsirText.trim().length > 0);
+
+  // Strict language and availability check for translation and tafsir audio
+  const isTranslationAudioAvailable = Boolean(
+    hasTranslationText &&
+      translationMetadata?.status === 'available' &&
+      translationMetadata?.record?.audioUrl &&
+      translationMetadata?.record?.languageCode?.toLowerCase() === language.toLowerCase()
+  );
+
+  const isTafsirAudioAvailable = Boolean(
+    hasTafsirText &&
+      tafsirMetadata?.status === 'available' &&
+      tafsirMetadata?.record?.audioUrl &&
+      tafsirMetadata?.record?.languageCode?.toLowerCase() === language.toLowerCase()
+  );
+
+  // Stop previous audio and fetch neural translation/tafsir metadata when verse or language changes
   useEffect(() => {
-    let isCancelled = false;
-    setIsLoadingMetadata(true);
+    const currentRequestId = ++metadataRequestIdRef.current;
+    const controller = new AbortController();
+
+    // Immediately stop any active audio or speech and clear stale metadata on language/verse change
+    SpeechService.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+    setCurrentTrackIndex(0);
+    setCurrentTime(0);
+    setHasPlaybackError(false);
+    setTranslationMetadata(null);
+    setTafsirMetadata(null);
+    onPlaybackProgress?.(0, false, 'idle');
 
     const loadMetadata = async () => {
       try {
         const [transMeta, tafMeta] = await Promise.all([
-          fetchAyahAudioMetadata({
-            surahNumber: resolvedSurah,
-            ayahNumber: resolvedVerse,
-            language,
-            type: 'translation',
-            ayahId,
-          }),
-          fetchAyahAudioMetadata({
-            surahNumber: resolvedSurah,
-            ayahNumber: resolvedVerse,
-            language,
-            type: 'tafsir',
-            ayahId,
-          }),
+          !hasTranslationText
+            ? Promise.resolve<StoredAudioMetadata>({ status: 'unavailable' })
+            : fetchAyahAudioMetadata({
+                surahNumber: resolvedSurah,
+                ayahNumber: resolvedVerse,
+                language,
+                type: 'translation',
+                ayahId,
+                signal: controller.signal,
+              }),
+          !hasTafsirText
+            ? Promise.resolve<StoredAudioMetadata>({ status: 'unavailable' })
+            : fetchAyahAudioMetadata({
+                surahNumber: resolvedSurah,
+                ayahNumber: resolvedVerse,
+                language,
+                type: 'tafsir',
+                ayahId,
+                signal: controller.signal,
+              }),
         ]);
 
-        if (!isCancelled) {
-          setTranslationMetadata(transMeta);
-          setTafsirMetadata(tafMeta);
+        // Ignore late responses from a previous language or verse selection
+        if (currentRequestId !== metadataRequestIdRef.current || controller.signal.aborted) {
+          return;
         }
-      } catch (err) {
-        if (!isCancelled) {
-          console.warn('Error fetching audio stream metadata:', err);
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingMetadata(false);
-        }
+
+        setTranslationMetadata(transMeta);
+        setTafsirMetadata(tafMeta);
+      } catch {
+        // Ignore aborted requests
       }
     };
 
-    loadMetadata();
+    void loadMetadata();
 
     return () => {
-      isCancelled = true;
+      controller.abort();
     };
-  }, [resolvedSurah, resolvedVerse, language, ayahId]);
+  }, [resolvedSurah, resolvedVerse, language, ayahId, hasTranslationText, hasTafsirText]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If the currently selected stream mode is not available in the selected language, switch back to recitation
+  useEffect(() => {
+    if (streamMode === 'translation' && !isTranslationAudioAvailable) {
+      setStreamMode('recitation');
+    } else if (streamMode === 'tafsir' && !isTafsirAudioAvailable) {
+      setStreamMode('recitation');
+    }
+  }, [streamMode, isTranslationAudioAvailable, isTafsirAudioAvailable]);
 
   // Determine active MP3 audio URL based on stream mode
   const effectiveActiveUrl = useMemo(() => {
     if (streamMode === 'recitation') {
       return recitationUrls[currentTrackIndex] || recitationUrls[0] || '';
     }
-    if (streamMode === 'translation') {
-      return translationMetadata?.status === 'available'
-        ? translationMetadata.record?.audioUrl || ''
-        : '';
+    if (streamMode === 'translation' && isTranslationAudioAvailable) {
+      return translationMetadata?.record?.audioUrl || '';
     }
-    if (streamMode === 'tafsir') {
-      return tafsirMetadata?.status === 'available'
-        ? tafsirMetadata.record?.audioUrl || ''
-        : '';
+    if (streamMode === 'tafsir' && isTafsirAudioAvailable) {
+      return tafsirMetadata?.record?.audioUrl || '';
     }
     return '';
-  }, [streamMode, recitationUrls, currentTrackIndex, translationMetadata, tafsirMetadata]);
+  }, [
+    streamMode,
+    recitationUrls,
+    currentTrackIndex,
+    isTranslationAudioAvailable,
+    isTafsirAudioAvailable,
+    translationMetadata,
+    tafsirMetadata,
+  ]);
 
   const totalTracks = streamMode === 'recitation' ? Math.max(1, recitationUrls.length) : 1;
-
-  // Active status for the current mode
-  const currentModeStatus = useMemo(() => {
-    if (streamMode === 'recitation') {
-      return { status: 'available' as const };
-    }
-    if (streamMode === 'translation') {
-      return {
-        status: translationMetadata?.status || ('unavailable' as const),
-        message: translationMetadata?.message,
-        voice: translationMetadata?.record?.voice,
-        attribution: translationMetadata?.record?.attribution,
-      };
-    }
-    return {
-      status: tafsirMetadata?.status || ('unavailable' as const),
-      message: tafsirMetadata?.message,
-      voice: tafsirMetadata?.record?.voice,
-      attribution: tafsirMetadata?.record?.attribution,
-    };
-  }, [streamMode, translationMetadata, tafsirMetadata]);
 
   // Reset audio playback on verse, reciter, or streamMode change
   useEffect(() => {
@@ -313,7 +326,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setCurrentTrackIndex(0);
     setCurrentTime(0);
     setHasPlaybackError(false);
-    setIsSpeakingFallback(false);
     SpeechService.cancel();
     onPlaybackProgress?.(0, false, 'idle');
 
@@ -375,14 +387,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   );
 
   const togglePlay = () => {
-    if (isSpeakingFallback) {
-      SpeechService.cancel();
-      setIsSpeakingFallback(false);
-      setIsPlaying(false);
-      onPlaybackProgress?.(0, false, 'idle');
-      return;
-    }
-
     if (!audioRef.current || !effectiveActiveUrl) {
       return;
     }
@@ -415,40 +419,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           onPlaybackProgress?.(0, false, 'idle');
         });
     }
-  };
-
-  // Client speech synthesis fallback when stored translation audio is not available
-  const handlePlaySpeechFallback = () => {
-    if (!translationText || language === 'ar') return;
-
-    if (isSpeakingFallback) {
-      SpeechService.cancel();
-      setIsSpeakingFallback(false);
-      setIsPlaying(false);
-      onPlaybackProgress?.(0, false, 'idle');
-      return;
-    }
-
-    SpeechService.cancel();
-    if (audioRef.current) audioRef.current.pause();
-    setIsPlaying(true);
-    setIsSpeakingFallback(true);
-    onPlaybackProgress?.(0, true, 'translation');
-
-    SpeechService.speak(translationText, language, {
-      rate: playbackRate * 0.92,
-      onProgress: (ratio) => onPlaybackProgress?.(ratio, true, 'translation'),
-      onEnd: () => {
-        setIsSpeakingFallback(false);
-        setIsPlaying(false);
-        onPlaybackProgress?.(0, false, 'idle');
-      },
-      onError: () => {
-        setIsSpeakingFallback(false);
-        setIsPlaying(false);
-        onPlaybackProgress?.(0, false, 'idle');
-      },
-    });
   };
 
   const handleTimeUpdate = () => {
@@ -525,10 +495,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const restart = () => {
-    if (isSpeakingFallback) {
-      handlePlaySpeechFallback();
-      return;
-    }
     setCurrentTrackIndex(0);
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
@@ -553,14 +519,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const currentReciter =
     AVAILABLE_RECITERS.find((r) => r.id === reciterId) || AVAILABLE_RECITERS[0];
 
-  const isPlayDisabled =
-    currentModeStatus.status !== 'available' || !effectiveActiveUrl || hasPlaybackError;
+  const isPlayDisabled = !effectiveActiveUrl || hasPlaybackError;
 
   return (
     <div
       className="p-3.5 bg-emerald-950/5 dark:bg-emerald-900/20 border border-emerald-800/15 dark:border-emerald-700/30 rounded-2xl space-y-2.5 transition-colors"
       role="region"
-      aria-label={`Calm audio player for verse ${surahVerseId}`}
+      aria-label={`Audio player for verse ${surahVerseId}`}
     >
       <audio
         ref={audioRef}
@@ -572,14 +537,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         onError={() => setHasPlaybackError(true)}
       />
 
-      {/* Top Header: Stream Type Mode Switcher (Recitation · Translation · Tafsir) & Offline Save */}
+      {/* Top Header: Stream Type Mode Switcher (Only shows available streams in selected language) & Offline Save */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-900/10 dark:border-emerald-800/30 pb-2">
-        {/* Stream Mode Segmented Control */}
-        <div className="flex items-center gap-1 p-0.5 rounded-xl bg-white dark:bg-[#071913] border border-emerald-900/15 dark:border-emerald-700/40 text-xs">
+        <div
+          className="flex items-center gap-1 p-0.5 rounded-xl bg-white dark:bg-[#071913] border border-emerald-900/15 dark:border-emerald-700/40 text-xs"
+          role="group"
+          aria-label="Audio stream type"
+        >
           <button
             type="button"
             onClick={() => setStreamMode('recitation')}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+            aria-pressed={streamMode === 'recitation'}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
               streamMode === 'recitation'
                 ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs font-bold'
                 : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
@@ -589,42 +558,53 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             <span>{p.recitationTab}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setStreamMode('translation')}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-              streamMode === 'translation'
-                ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs font-bold'
-                : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
-            }`}
-          >
-            <Languages className="w-3.5 h-3.5 text-amber-500" />
-            <span>{p.translationTab}</span>
-          </button>
+          {isTranslationAudioAvailable && (
+            <button
+              type="button"
+              onClick={() => setStreamMode('translation')}
+              aria-pressed={streamMode === 'translation'}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                streamMode === 'translation'
+                  ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs font-bold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
+              }`}
+            >
+              <Languages className="w-3.5 h-3.5 text-amber-500" />
+              <span>
+                {p.translationTab} ({language.toUpperCase()})
+              </span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setStreamMode('tafsir')}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-              streamMode === 'tafsir'
-                ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs font-bold'
-                : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{p.tafsirTab}</span>
-          </button>
+          {isTafsirAudioAvailable && (
+            <button
+              type="button"
+              onClick={() => setStreamMode('tafsir')}
+              aria-pressed={streamMode === 'tafsir'}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                streamMode === 'tafsir'
+                  ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs font-bold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+              <span>
+                {p.tafsirTab} ({language.toUpperCase()})
+              </span>
+            </button>
+          )}
         </div>
 
-        {/* Action Controls: Reciter selector (Recitation mode) or Voice Badge + Offline Save + Loop */}
+        {/* Action Controls: Reciter selector (Recitation mode) + Offline Save + Loop */}
         <div className="flex items-center gap-1.5 text-xs">
-          {streamMode === 'recitation' ? (
+          {streamMode === 'recitation' && (
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowRecitersList(!showRecitersList)}
-                className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-[#071913] border border-emerald-900/15 dark:border-emerald-700/40 text-emerald-900 dark:text-emerald-200 hover:border-emerald-600 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-[#071913] border border-emerald-900/15 dark:border-emerald-700/40 text-emerald-900 dark:text-emerald-200 hover:border-emerald-600 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                 aria-expanded={showRecitersList}
+                aria-label={`${p.selectReciterLabel}: ${currentReciter.name}`}
               >
                 <span className="truncate max-w-[100px] sm:max-w-[130px]">{currentReciter.name}</span>
                 <ChevronDown className="w-3 h-3 text-slate-400" />
@@ -637,7 +617,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                       key={r.id}
                       type="button"
                       onClick={() => handleReciterChange(r.id)}
-                      className={`w-full text-start p-2 rounded-lg text-xs transition-colors flex flex-col cursor-pointer ${
+                      aria-pressed={r.id === reciterId}
+                      className={`w-full text-start p-2 rounded-lg text-xs transition-colors flex flex-col cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                         r.id === reciterId
                           ? 'bg-emerald-800/15 dark:bg-emerald-800/30 text-emerald-900 dark:text-emerald-200 font-bold'
                           : 'hover:bg-slate-100 dark:hover:bg-emerald-900/20 text-slate-700 dark:text-slate-300'
@@ -652,12 +633,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 </div>
               )}
             </div>
-          ) : (
-            currentModeStatus.voice && (
-              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono text-emerald-800 dark:text-emerald-300 bg-emerald-900/10 dark:bg-emerald-900/30 border border-emerald-800/20">
-                {currentModeStatus.voice.split('-').slice(-2).join('-')}
-              </span>
-            )
           )}
 
           {/* Offline Save Toggle */}
@@ -665,12 +640,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             type="button"
             onClick={handleToggleOfflineAudio}
             disabled={isCachingAudio || !effectiveActiveUrl}
-            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
               isAudioCached
                 ? 'bg-emerald-800/15 border-emerald-700/40 text-emerald-900 dark:text-emerald-200'
                 : 'bg-white/60 dark:bg-emerald-950/40 border-slate-200 dark:border-emerald-800/40 text-slate-600 dark:text-slate-400 hover:border-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed'
             }`}
             title={isAudioCached ? p.savedOffline : p.saveAudio}
+            aria-label={isAudioCached ? p.savedOffline : p.saveAudio}
             aria-pressed={isAudioCached}
           >
             {isCachingAudio ? (
@@ -680,14 +656,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             ) : (
               <Download className="w-3 h-3 text-slate-500" />
             )}
-            <span className="hidden sm:inline">{isCachingAudio ? '...' : isAudioCached ? p.savedOffline : p.saveAudio}</span>
+            <span className="hidden sm:inline">
+              {isCachingAudio ? '...' : isAudioCached ? p.savedOffline : p.saveAudio}
+            </span>
           </button>
 
           {/* Loop toggle */}
           <button
             type="button"
             onClick={() => setIsLooping(!isLooping)}
-            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+            className={`p-1.5 rounded-lg border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
               isLooping
                 ? 'bg-emerald-800/20 border-emerald-800/40 text-emerald-900 dark:text-emerald-200 font-bold'
                 : 'bg-white/60 dark:bg-emerald-950/40 border-slate-200 dark:border-emerald-800/40 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -700,43 +678,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Secondary Notification Bar if in-production or unavailable */}
-      {streamMode !== 'recitation' && currentModeStatus.status !== 'available' && (
-        <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-900 dark:text-amber-200">
-          <div className="flex items-center gap-1.5 truncate">
-            {isLoadingMetadata ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-amber-600" />
-            ) : currentModeStatus.status === 'processing' ? (
-              <Clock className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-            ) : (
-              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-            )}
-            <span className="truncate">
-              {isLoadingMetadata
-                ? p.loadingMetadata
-                : currentModeStatus.status === 'processing'
-                ? p.processingLabel
-                : p.unavailableLabel}
-            </span>
-          </div>
-
-          {/* Optional Speech fallback button for translation when audio is unavailable */}
-          {streamMode === 'translation' && translationText && language !== 'ar' && (
-            <button
-              type="button"
-              onClick={handlePlaySpeechFallback}
-              className={`px-2 py-0.5 rounded-md font-semibold text-[11px] border transition-colors cursor-pointer shrink-0 ${
-                isSpeakingFallback
-                  ? 'bg-amber-600 text-white border-amber-700'
-                  : 'bg-white dark:bg-emerald-950 border-amber-600/40 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20'
-              }`}
-            >
-              {isSpeakingFallback ? p.pauseLabel : p.addTranslationFallback}
-            </button>
-          )}
-        </div>
-      )}
 
       {hasPlaybackError && (
         <div className="flex items-center gap-1.5 p-2 rounded-xl bg-red-500/10 border border-red-500/25 text-xs text-red-800 dark:text-red-300">
@@ -751,15 +692,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           <button
             type="button"
             onClick={togglePlay}
-            disabled={isPlayDisabled && !isSpeakingFallback}
-            className={`flex items-center justify-center w-10 h-10 rounded-full text-white shadow-sm transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-              isSpeakingFallback
-                ? 'bg-amber-600 hover:bg-amber-700'
-                : 'bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600'
-            }`}
+            disabled={isPlayDisabled}
+            className="flex items-center justify-center w-10 h-10 rounded-full text-white shadow-sm transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600"
             aria-label={isPlaying ? p.pauseLabel : p.playLabel}
           >
-            {isPlaying || isSpeakingFallback ? (
+            {isPlaying ? (
               <Pause className="w-5 h-5 fill-current" />
             ) : (
               <Play className="w-5 h-5 fill-current ms-0.5" />
@@ -769,8 +706,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           <button
             type="button"
             onClick={restart}
-            disabled={isPlayDisabled && !isSpeakingFallback}
-            className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-400 rounded-lg hover:bg-emerald-900/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            disabled={isPlayDisabled}
+            className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-400 rounded-lg hover:bg-emerald-900/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             title={p.restartTooltip}
             aria-label={p.restartTooltip}
           >
@@ -778,14 +715,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </button>
 
           <div className="flex flex-col text-start">
-            <span className="text-xs font-semibold text-emerald-950 dark:text-emerald-200 tracking-wide truncate max-w-[120px] sm:max-w-[160px]">
-              {isSpeakingFallback
-                ? p.speakingTranslation
-                : streamMode === 'recitation'
+            <span className="text-xs font-semibold text-emerald-950 dark:text-emerald-200 tracking-wide truncate max-w-[140px] sm:max-w-[180px]">
+              {streamMode === 'recitation'
                 ? `${p.verseLabel} ${resolvedVerse}`
                 : streamMode === 'translation'
                 ? `${p.translationTab} (${language.toUpperCase()})`
-                : `${p.tafsirTab}`}
+                : `${p.tafsirTab} (${language.toUpperCase()})`}
             </span>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 tabular-nums">
               {formatTime(currentTime)} / {formatTime(duration)}
@@ -801,9 +736,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             max={duration || 100}
             value={currentTime}
             onChange={handleSeek}
-            disabled={isPlayDisabled && !isSpeakingFallback}
-            aria-label="Seek playback timeline"
-            className="w-full h-1.5 bg-emerald-200 dark:bg-emerald-950 rounded-lg appearance-none cursor-pointer accent-emerald-700 dark:accent-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed"
+            disabled={isPlayDisabled}
+            aria-label={p.seekLabel}
+            className="w-full h-1.5 bg-emerald-200 dark:bg-emerald-950 rounded-lg appearance-none cursor-pointer accent-emerald-700 dark:accent-emerald-500 disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           />
         </div>
 
@@ -812,7 +747,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           <button
             type="button"
             onClick={cycleSpeed}
-            className="px-2 py-1 text-[11px] font-semibold rounded border border-emerald-700/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-800/10 cursor-pointer tabular-nums"
+            aria-label={`${p.speedLabel}: ${playbackRate}x`}
+            className="px-2 py-1 text-[11px] font-semibold rounded border border-emerald-700/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-800/10 cursor-pointer tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
             {playbackRate}x
           </button>
@@ -820,7 +756,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           <button
             type="button"
             onClick={toggleMute}
-            className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-400 cursor-pointer"
+            aria-pressed={isMuted}
+            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-400 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             title={isMuted ? p.unmuteLabel : p.muteLabel}
             aria-label={isMuted ? p.unmuteLabel : p.muteLabel}
           >

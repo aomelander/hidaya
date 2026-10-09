@@ -130,6 +130,26 @@ export async function resolveAyahId(
   }
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUuid(value?: string | null): value is string {
+  return Boolean(value && UUID_REGEX.test(value.trim()));
+}
+
+/**
+ * Parses a composite ayah reference like "3:134" or "94:5-6" into surahNumber and primary ayahNumber.
+ */
+export function parseCompositeAyahKey(raw?: string | null): { surahNumber: number; ayahNumber: number } | null {
+  if (!raw || typeof raw !== 'string' || !raw.includes(':')) return null;
+  const [surahPart, versePart] = raw.trim().split(':');
+  const surahNumber = parseInt(surahPart, 10);
+  const firstVerse = parseInt((versePart || '').split('-')[0].trim(), 10);
+  if (!isNaN(surahNumber) && surahNumber >= 1 && surahNumber <= 114 && !isNaN(firstVerse) && firstVerse >= 1) {
+    return { surahNumber, ayahNumber: firstVerse };
+  }
+  return null;
+}
+
 /**
  * Looks up safe audio metadata for an Ayah, language, and stream type.
  * Returns only minimum safe public fields without exposing internal archive parameters.
@@ -142,10 +162,21 @@ export async function lookupAyahAudio(params: {
   audioType: AudioStreamType;
 }): Promise<AyahAudioLookupResult> {
   const { languageCode, audioType } = params;
-  let ayahId = params.ayahId;
+  const rawAyahId = params.ayahId?.trim();
+  let ayahId = isValidUuid(rawAyahId) ? rawAyahId : undefined;
+  let surahNumber = params.surahNumber;
+  let ayahNumber = params.ayahNumber;
 
-  if (!ayahId && params.surahNumber && params.ayahNumber) {
-    ayahId = (await resolveAyahId(params.surahNumber, params.ayahNumber)) || undefined;
+  if (!ayahId && rawAyahId) {
+    const parsed = parseCompositeAyahKey(rawAyahId);
+    if (parsed) {
+      surahNumber = surahNumber ?? parsed.surahNumber;
+      ayahNumber = ayahNumber ?? parsed.ayahNumber;
+    }
+  }
+
+  if (!ayahId && surahNumber && ayahNumber) {
+    ayahId = (await resolveAyahId(surahNumber, ayahNumber)) || undefined;
   }
 
   if (!ayahId) {
@@ -225,6 +256,7 @@ export async function lookupAyahAudio(params: {
  * Only callable by the server route /api/ayah-audio/[id].
  */
 export async function getInternalAyahAudioRecord(id: string): Promise<InternalAyahAudioRecord | null> {
+  if (!isValidUuid(id)) return null;
   const supabase = getServerSupabaseClient();
   if (!supabase) return null;
 
