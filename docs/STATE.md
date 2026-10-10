@@ -68,7 +68,7 @@
 - [x] Milestone 42: Streamlined Voice Input to Pure Browser Recognition & Typed Search Fallback — (1) Removed the Gemini speech-to-text API fallback route (`/api/speech-to-text`); (2) Retained pure browser-supported Web Speech recognition (`SpeechRecognition` / `webkitSpeechRecognition`) across Arabic (`ar-SA`), Swedish (`sv-SE`), French (`fr-FR`), and English (`en-US`); (3) Implemented seamless typed search offering in `GuidanceSearchBar` and `VoiceSearchButton` when voice input is unsupported or denied; (4) Fully preserved HTTP Range MP3 audio streaming for GitHub release recordings and verified all 9 integration tests pass.
 
 **Live Production URL:** https://hidaya.hidaya.workers.dev
-**Cloudflare Worker:** hidaya (Version c531f23b-3413-40d1-9b44-d3ccc6ad0f97)
+**Cloudflare Worker:** hidaya (Version 9543ffab-03f4-4ca9-afa3-2a9cb1e22c40)
 **GEMINI_API_KEY:** Configured as Cloudflare secret ✓
 
 
@@ -93,3 +93,7 @@ Completed the partial fixes without rebuilding or changing dependencies:
 4. Hardened Safari playback denial handling on both players: if Safari blocks programmatic playback, the recording is retained with active playback phase and source ready, presenting a clear localized tap-to-resume notice ("Tap Play to continue the recording.") that resumes immediately upon a user tap.
 5. Guaranteed missing recordings never trigger browser speech synthesis: unavailable tracks fail closed or skip cleanly without synthetic speech fallback.
 6. Verified with `npm test` (all 9 integration tests and audit regression suites passing), `npm run typecheck`, `npm run lint`, and `compile_applet` passing with 0 errors. Untracked files, Kaggle pipelines, audio generation, production database, release archives, and secrets preserved unchanged without push or deploy.
+
+## 2026-10-10 — Authorized Cloudflare production deployment
+
+User authorized deployment after reviewing pushed commit `55e8237`. Executed production build (`npm run build`) and deployment (`vinext-cloudflare deploy`). Successfully deployed Cloudflare Worker version `9543ffab-03f4-4ca9-afa3-2a9cb1e22c40` to live production at `https://hidaya.hidaya.workers.dev`. Live checks returned HTTP/2 200 on root and healthy status on `/api/health`.
