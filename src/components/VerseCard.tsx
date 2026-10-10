@@ -58,7 +58,11 @@ import { getAgeAdaptiveContent } from '../data/ageAdaptiveContent';
 import { ScholarProvenanceModal } from './ScholarProvenanceModal';
 import { AyahCartouche } from './AyahCartouche';
 
+import { expandPassage, PassageSelection, visibleVerseNumbers } from '../services/passageSelection';
+
 interface VerseCardProps {
+  selection?: PassageSelection;
+  onSelectionChange?: (selection: PassageSelection) => void;
   verse: QuranVerseFixture;
   language: Language;
   arabicScale: number;
@@ -310,6 +314,8 @@ const UI_TEXT: Record<
 
 export const VerseCard: React.FC<VerseCardProps> = ({
   verse,
+  selection = {},
+  onSelectionChange,
   language,
   arabicScale,
   readingScale = 1.0,
@@ -328,8 +334,9 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const [isSaved, setIsSaved] = useState(false);
 
   // Optional inclusion of adjacent preceding/following single verse when needed for context
-  const [includeBefore, setIncludeBefore] = useState(false);
-  const [includeAfter, setIncludeAfter] = useState(false);
+  const includeBefore = Boolean(selection.before);
+  const includeAfter = Boolean(selection.after);
+  const expandedPassage = useMemo(() => expandPassage(verse, selection), [verse, selection]);
 
   // Word-by-word recitation & translation sync state
   const [playbackRatio, setPlaybackRatio] = useState(0);
@@ -363,7 +370,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const baseRangeBounds = useMemo(() => {
     const parts = verse.verseNumber.split('-').map((s) => parseInt(s.trim(), 10));
     const start = !isNaN(parts[0]) ? parts[0] : 1;
-    const end = parts.length > 1 && !isNaN(parts[1]) ? Math.min(parts[1], start + 2) : start;
+    const end = parts.length > 1 && !isNaN(parts[1]) ? parts[1] : start;
     return { start, end, count: end - start + 1 };
   }, [verse.verseNumber]);
 
@@ -375,21 +382,8 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     return Boolean(verse.surroundingVerses?.after);
   }, [verse.surroundingVerses]);
 
-  const effectiveStartVerse =
-    includeBefore && canAddBefore && verse.surroundingVerses?.before
-      ? verse.surroundingVerses.before.verseNumber
-      : String(baseRangeBounds.start);
-  const effectiveEndVerse =
-    includeAfter && canAddAfter && verse.surroundingVerses?.after
-      ? verse.surroundingVerses.after.verseNumber
-      : String(baseRangeBounds.end);
-
-  const effectiveVerseNumberStr =
-    effectiveStartVerse === effectiveEndVerse
-      ? String(effectiveStartVerse)
-      : `${effectiveStartVerse}-${effectiveEndVerse}`;
-
-  const effectiveVerseId = `${verse.surahNumber}:${effectiveVerseNumberStr}`;
+  const effectiveVerseNumberStr = expandedPassage.verseNumber;
+  const effectiveVerseId = expandedPassage.id;
 
   // Dynamically hydrate Al-Sha'rawi's authentic Tafsir from `/api/tafsir/shaarawi` if the verse is in Surahs 1–60 or 66
   // and was loaded from a dynamic or cached source without Al-Sha'rawi pre-attached
@@ -616,8 +610,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   }, [isReciting, playbackPhase, playbackRatio, translationWords.length]);
 
   useEffect(() => {
-    setIncludeBefore(false);
-    setIncludeAfter(false);
     const saved = StorageService.getReflection(verse.id);
     if (saved) {
       const combined = [saved.reflectNotes, saved.applyNotes, saved.liveNotes]
@@ -928,7 +920,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             {canAddBefore && (
               <button
                 type="button"
-                onClick={() => setIncludeBefore((prev) => !prev)}
+                onClick={() => onSelectionChange?.({ ...selection, before: !includeBefore })}
                 title={
                   includeBefore
                     ? `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — Click to remove`
@@ -970,7 +962,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             {(canAddAfter || includeAfter) && (
               <button
                 type="button"
-                onClick={() => setIncludeAfter((prev) => !prev)}
+                onClick={() => onSelectionChange?.({ ...selection, after: !includeAfter })}
                 title={
                   includeAfter
                     ? `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — Click to remove`
@@ -1150,6 +1142,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         <div className="pt-1">
           <AudioPlayer
             audioUrl={verse.audioUrl}
+            verseNumbers={visibleVerseNumbers(expandedPassage)}
             surahNumber={verse.surahNumber}
             verseNumber={effectiveVerseNumberStr}
             surahVerseId={effectiveVerseId}

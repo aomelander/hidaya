@@ -58,28 +58,15 @@ export function getAudioUrlsForVerseRange(
   const reciter =
     AVAILABLE_RECITERS.find((r) => r.id === reciterId) || AVAILABLE_RECITERS[0];
 
-  const surahPadded = (isNaN(surahNumber) ? 3 : surahNumber).toString().padStart(3, '0');
-  const trimmed = (verseNumberStr || '').trim();
-
-  if (trimmed.includes('-')) {
-    const [startRaw, endRaw] = trimmed.split('-').map((s) => parseInt(s.trim(), 10));
-    if (!isNaN(startRaw) && !isNaN(endRaw) && endRaw >= startRaw) {
-      // Strictly cap at 3 consecutive verses maximum
-      const cappedEnd = Math.min(endRaw, startRaw + 2);
-      const urls: string[] = [];
-      for (let v = startRaw; v <= cappedEnd; v++) {
-        urls.push(`${reciter.baseUrl}/${surahPadded}${v.toString().padStart(3, '0')}.mp3`);
-      }
-      return urls;
-    }
-  }
-
-  const singleAyah = parseInt(trimmed, 10);
-  if (isNaN(singleAyah)) {
-    return [`${reciter.baseUrl}/003134.mp3`];
-  }
-
-  return [`${reciter.baseUrl}/${surahPadded}${singleAyah.toString().padStart(3, '0')}.mp3`];
+  if (!Number.isInteger(surahNumber) || surahNumber < 1 || surahNumber > 114) return [];
+  const match = /^(\d+)(?:-(\d+))?$/.exec((verseNumberStr || '').trim());
+  if (!match) return [];
+  const start = Number(match[1]);
+  const end = Number(match[2] || match[1]);
+  if (start < 1 || end < start || end > 286) return [];
+  return Array.from({ length: end - start + 1 }, (_, index) =>
+    `${reciter.baseUrl}/${String(surahNumber).padStart(3, '0')}${String(start + index).padStart(3, '0')}.mp3`
+  );
 }
 
 /**

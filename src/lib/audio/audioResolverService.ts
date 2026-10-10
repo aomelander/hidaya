@@ -11,6 +11,7 @@ export type AudioStreamStatus = 'available' | 'processing' | 'unavailable';
 
 export interface StoredAudioMetadata {
   status: AudioStreamStatus;
+  audioUrls?: string[];
   record?: {
     id: string;
     audioUrl: string; // Internal stream endpoint: /api/ayah-audio/[id]
@@ -144,4 +145,17 @@ export async function removeAudioUrlFromServiceWorker(audioUrl: string): Promise
   } catch {
     return false;
   }
+}
+
+/** Resolve every visible ayah independently; never substitute a first-ayah recording for a range. */
+export async function fetchAyahAudioPlaylist(params: Parameters<typeof fetchAyahAudioMetadata>[0] & { verseNumbers: number[] }): Promise<StoredAudioMetadata> {
+  if (!params.verseNumbers.length || params.verseNumbers.length > 286) return { status: 'unavailable' };
+  const records: StoredAudioMetadata[] = [];
+  for (const ayahNumber of params.verseNumbers) {
+    if (params.signal?.aborted) return { status: 'unavailable' };
+    const metadata = await fetchAyahAudioMetadata({ ...params, ayahNumber, ayahId: undefined });
+    if (metadata.status !== 'available' || !metadata.record) return { status: 'unavailable' };
+    records.push(metadata);
+  }
+  return { ...records[0], audioUrls: records.map(metadata => metadata.record!.audioUrl) };
 }

@@ -79,3 +79,7 @@ See [AUDIT-2026-10-10.md](./AUDIT-2026-10-10.md) for confirmed findings, correct
 ## 2026-10-10 — Authorized production release
 
 User authorized deployment and Git push after reviewing the audit. Re-ran typecheck, lint, offline regressions and production build under Node 22; all passed. Deployed the validated build as Cloudflare version `c531f23b-3413-40d1-9b44-d3ccc6ad0f97`. Live checks: homepage 200, service worker 200 with audio cache v3, unauthenticated admin GET 401, invalid-language metadata 400. No paid test requests, data migrations or production database writes. Existing untracked lockfile and prior stashes preserved.
+
+## 2026-10-10 — Minimal handoff for verse selection and Safari audio
+
+User requested a minimal checkpoint on main for continuation in Google AI Studio, without deployment. Changes lift adjacent-verse selections into shared page state, build expanded Audio passages, remove the three-verse truncation, resolve stored recordings per ayah, and reuse one media element with a tap-to-resume notice for Safari playback rejection. This is a continuation checkpoint, not a completed device-verified fix. Typecheck, lint, regression tests and production build are checked before push. Real iPhone Safari playback, transitions and tab round-trips still need browser validation in AI Studio. Existing untracked package-lock.json remains untouched.

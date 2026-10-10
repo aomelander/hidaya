@@ -87,3 +87,17 @@ globalThis.fetch = async () => new Response('partial', { status: 206, headers: {
 assert.equal(await saveAudio('https://local.test/partial.mp3'), false);
 globalThis.fetch = originalFetch;
 console.log('Audio byte-budget regressions passed: concurrent writes evict oldest files; oversized and partial responses are rejected.');
+
+// Shared selection and visible-range regressions.
+const { expandPassage, visibleVerseNumbers } = await import('../services/passageSelection');
+const { QURAN_FIXTURES } = await import('../data/quranFixtures');
+const { getAudioUrlsForVerseRange } = await import('../services/audioReciters');
+const relief = QURAN_FIXTURES.find(verse => verse.id === '94:5-6')!;
+const expanded = expandPassage(relief, { before: true, after: true });
+assert.equal(expanded.verseNumber, '1-8');
+assert.deepEqual(visibleVerseNumbers(expanded), [1,2,3,4,5,6,7,8]);
+assert.equal(getAudioUrlsForVerseRange(94, expanded.verseNumber).length, 8);
+assert.equal(expandPassage(relief, {}).verseNumber, '5-6');
+assert.deepEqual(visibleVerseNumbers({ verseNumber: '5-6', arabicText: relief.arabicText.split('۝')[0] }), []);
+assert.deepEqual(getAudioUrlsForVerseRange(94, '1-4-6'), []);
+console.log('Shared selection tests passed: expanded ranges match visible text and audio; malformed ranges are rejected.');

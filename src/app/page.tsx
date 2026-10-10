@@ -9,7 +9,7 @@
  * inside each verse card.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Language,
   QuranVerseFixture,
@@ -33,6 +33,7 @@ import { GuidanceSearchBar } from '../components/GuidanceSearchBar';
 import { QuickChoicePills } from '../components/QuickChoicePills';
 import { OffTopicBanner } from '../components/OffTopicBanner';
 import { ContinuousSessionAudioPlayer } from '../components/ContinuousSessionAudioPlayer';
+import { expandPassage, PassageSelection } from '../services/passageSelection';
 import { VerseCard } from '../components/VerseCard';
 import { CustomizationSheet } from '../components/CustomizationSheet';
 import { JournalDrawer } from '../components/JournalDrawer';
@@ -40,6 +41,7 @@ import { BottomNav, BottomNavTab } from '../components/BottomNav';
 import { Footer } from '../components/Footer';
 
 export default function App() {
+  const [passageSelections, setPassageSelections] = useState<Record<string, PassageSelection>>({});
   const [mounted, setMounted] = useState(false);
   const [activeNavTab, setActiveNavTab] = useState<BottomNavTab>('guidance');
 
@@ -85,6 +87,8 @@ export default function App() {
     handleQuickPillSelect,
     handleSelectSpecificVerse,
   } = useGuidanceSearch(language);
+
+  const audioPassages = useMemo(() => (displayedPassages.length ? displayedPassages : selectedPassages).map(verse => expandPassage(verse, passageSelections[verse.id])), [displayedPassages, selectedPassages, passageSelections]);
 
   // Web Speech Recognition Hook (ar-SA, sv-SE, fr-FR, en-US)
   const { isListening, toggleVoiceInput, speechError } = useSpeechRecognition({
@@ -311,6 +315,8 @@ export default function App() {
                     }
                   >
                     <VerseCard
+                      selection={passageSelections[verse.id]}
+                      onSelectionChange={(selection) => setPassageSelections(previous => ({ ...previous, [verse.id]: selection }))}
                       verse={verse}
                       language={language}
                       arabicScale={arabicScale}
@@ -337,7 +343,7 @@ export default function App() {
         {activeNavTab === 'audio' && (
           <ContinuousSessionAudioPlayer
             inlinePage
-            verses={displayedPassages.length > 0 ? displayedPassages : selectedPassages}
+            verses={audioPassages}
             language={language}
             onActiveVerseChange={(verseId) => setActiveAudioVerseId(verseId)}
           />

@@ -7,6 +7,7 @@
  * verses for Recitation, Translation, and Classical Tafsir.
  */
 
+import { visibleVerseNumbers } from '../services/passageSelection';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Play,
@@ -34,7 +35,7 @@ import { StorageService } from '../services/storage';
 import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
 import { AyahCartouche } from './AyahCartouche';
-import { fetchAyahAudioMetadata } from '../lib/audio/audioResolverService';
+import { fetchAyahAudioPlaylist } from '../lib/audio/audioResolverService';
 
 interface ContinuousSessionAudioPlayerProps {
   verses: QuranVerseFixture[];
@@ -139,6 +140,8 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   const [isMuted, setIsMuted] = useState(false);
   const [playbackPhase, setPlaybackPhase] = useState<PlaybackPhase>('idle');
   const [filterQuery, setFilterQuery] = useState('');
+  const [playbackNotice, setPlaybackNotice] = useState<'blocked' | 'missing' | null>(null);
+  const phaseRef = useRef<PlaybackPhase>('idle');
 
   // Multi-verse track progression for consecutive verses (up to 3 consecutive verses)
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
@@ -148,7 +151,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const secondaryCleanupRef = useRef<(() => void) | null>(null);
-  const secondaryAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const t = AUDIO_UI[language] || AUDIO_UI.en;
 
   // Resilient verses pool: use passed verses or fall back to verified fixtures so audio section is NEVER blank
@@ -182,7 +185,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   // Consecutive verses audio tracks (handles single ayah "134" or ranges "5-6" / "133-135")
   const rangeAudioUrls = useMemo(() => {
     if (!currentVerse) return [];
-    return getAudioUrlsForVerseRange(currentVerse.surahNumber, currentVerse.verseNumber, reciterId);
+    return visibleVerseNumbers(currentVerse).flatMap(number => getAudioUrlsForVerseRange(currentVerse.surahNumber, String(number), reciterId));
   }, [currentVerse, reciterId]);
 
   const activeAudioUrl = rangeAudioUrls[currentTrackIndex] || rangeAudioUrls[0] || '';
@@ -310,10 +313,8 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     playRequestIdRef.current += 1;
     audioRef.current?.pause();
     secondaryCleanupRef.current?.();
-    if (secondaryAudioRef.current) {
-      secondaryAudioRef.current.pause();
-      secondaryAudioRef.current.currentTime = 0;
-    }
+    secondaryCleanupRef.current = null;
+    phaseRef.current = 'idle';
   }, []);
 
   useEffect(() => {
@@ -378,7 +379,9 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       audioRef.current.currentTime = 0;
     }
     setIsPlaying(false);
+    setPlaybackNotice(null);
     setPlaybackPhase('idle');
+    setCurrentTrackIndex(0);
     setRecitationRatio(0);
     setTranslationRatio(0);
     setTafsirRatio(0);
@@ -402,7 +405,8 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       }
 
       try {
-        const meta = await fetchAyahAudioMetadata({
+        const meta = await fetchAyahAudioPlaylist({
+          verseNumbers: visibleVerseNumbers(currentVerse),
           surahNumber: currentVerse.surahNumber,
           ayahNumber: currentVerse.verseNumber,
           language: targetLang,
@@ -419,16 +423,19 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           meta.status === 'available' &&
           meta.record?.audioUrl &&
           meta.record?.languageCode?.toLowerCase() === targetLang.toLowerCase() &&
-          secondaryAudioRef.current
+          audioRef.current
         ) {
-          const sec = secondaryAudioRef.current;
-          sec.src = meta.record.audioUrl;
+          const sec = audioRef.current;
+          phaseRef.current = type;
+          let index = 0;
+          const urls = meta.audioUrls || [meta.record.audioUrl];
+          sec.src = urls[index];
           sec.playbackRate = playbackRate;
           sec.muted = isMuted;
 
           const onTimeUpdate = () => {
             if (sec.duration > 0) {
-              onProgress(Math.min(1, sec.currentTime / sec.duration));
+              onProgress((index + Math.min(1, sec.currentTime / sec.duration)) / urls.length);
             }
           };
 
@@ -438,45 +445,61 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
             sec.removeEventListener('error', onError);
           };
 
+          const playCurrent = async () => {
+            try { await sec.play(); }
+            catch (error) {
+              if (reqId !== playRequestIdRef.current) return;
+              if ((error as DOMException)?.name === 'NotAllowedError') {
+                setIsPlaying(false);
+                setPlaybackNotice('blocked');
+                return;
+              }
+              cleanup();
+              setPlaybackNotice('missing');
+              onComplete();
+            }
+          };
           const onEnded = () => {
-            cleanup();
             if (reqId !== playRequestIdRef.current) return;
+            index += 1;
+            if (index < urls.length) {
+              sec.src = urls[index];
+              void playCurrent();
+              return;
+            }
+            cleanup();
             onProgress(1);
             onComplete();
           };
-
           const onError = () => {
             cleanup();
             if (reqId !== playRequestIdRef.current) return;
+            setPlaybackNotice('missing');
             onComplete();
           };
-
           secondaryCleanupRef.current = cleanup;
           sec.addEventListener('timeupdate', onTimeUpdate);
           sec.addEventListener('ended', onEnded);
           sec.addEventListener('error', onError);
-
-          try {
-            await sec.play();
-            return;
-          } catch {
-            cleanup();
-            if (reqId === playRequestIdRef.current) onComplete();
-            return;
-          }
+          await playCurrent();
+          return;
         }
       } catch (err) {
         console.warn(`Error resolving stored ${type} audio:`, err);
       }
 
-      if (reqId === playRequestIdRef.current) onComplete();
+      if (reqId === playRequestIdRef.current) { setPlaybackNotice('missing'); onComplete(); }
     },
     [currentVerse, language, playbackRate, isMuted, currentTafsirCitation]
   );
 
   const startRecitation = useCallback(() => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || !rangeAudioUrls[0]) return;
     stopAllSpeech();
+    setPlaybackNotice(null);
+    phaseRef.current = 'recitation';
+    setCurrentTrackIndex(0);
+    audioRef.current.src = rangeAudioUrls[0];
     const request = playRequestIdRef.current;
     window.dispatchEvent(new CustomEvent('hidaya-playback-owner', { detail: audioRef.current }));
     setPlaybackPhase('recitation');
@@ -485,25 +508,18 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       .play()
       .then(() => { if (request === playRequestIdRef.current) setIsPlaying(true); })
       .catch(() => { if (request === playRequestIdRef.current) { setIsPlaying(false); setPlaybackPhase('idle'); } });
-  }, [playbackRate, stopAllSpeech]);
-
-  // Auto-play consecutive track in range
-  useEffect(() => {
-    if (isPlaying && currentTrackIndex > 0 && audioRef.current) {
-      audioRef.current.playbackRate = playbackRate;
-      audioRef.current
-        .play()
-        .then(() => setPlaybackPhase('recitation'))
-        .catch(() => { setIsPlaying(false); setPlaybackPhase('idle'); });
-    }
-  }, [currentTrackIndex, isPlaying, playbackRate]);
+  }, [playbackRate, stopAllSpeech, rangeAudioUrls]);
 
   const handleAudioEnded = useCallback(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || phaseRef.current !== 'recitation') return;
 
     // Advance to next verse in consecutive range (e.g. Ayah 5 -> Ayah 6)
     if (currentTrackIndex < totalTracks - 1) {
       setCurrentTrackIndex((prev) => prev + 1);
+      if (audioRef.current) {
+        audioRef.current.src = rangeAudioUrls[currentTrackIndex + 1];
+        void audioRef.current.play().catch(() => { setIsPlaying(false); setPlaybackNotice('blocked'); });
+      }
       return;
     }
 
@@ -573,6 +589,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     isPlaying,
     currentTrackIndex,
     totalTracks,
+    rangeAudioUrls,
     playbackMode,
     translationText,
     tafsirText,
@@ -581,6 +598,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   ]);
 
   const handleTimeUpdate = () => {
+    if (phaseRef.current !== 'recitation') return;
     if (audioRef.current) {
       const cur = audioRef.current.currentTime;
       const dur = audioRef.current.duration || 0;
@@ -600,19 +618,19 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
 
   const togglePlay = () => {
     if (isPlaying) {
-      setIsPlaying(false);
-      setPlaybackPhase('idle');
-      stopAllSpeech();
       audioRef.current?.pause();
-      secondaryAudioRef.current?.pause();
-    } else {
-      setIsPlaying(true);
-      // Pre-warm secondary audio element within the user gesture to satisfy browser autoplay policies
-      if (secondaryAudioRef.current) {
-        secondaryAudioRef.current.load();
-      }
-      startRecitation();
+      setIsPlaying(false);
+      return;
     }
+    // Resume on the same element directly in the user gesture, including Safari denial.
+    if (phaseRef.current !== 'idle' && audioRef.current?.src) {
+      setIsPlaying(true);
+      setPlaybackNotice(null);
+      void audioRef.current.play().catch(() => { setIsPlaying(false); setPlaybackNotice('blocked'); });
+      return;
+    }
+    setIsPlaying(true);
+    startRecitation();
   };
 
   const handleSelectReciter = (id: ReciterId) => {
@@ -626,7 +644,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     setPlaybackRate(nextSpeed);
     if (audioRef.current) {
       audioRef.current.playbackRate = nextSpeed;
-      if (secondaryAudioRef.current) secondaryAudioRef.current.playbackRate = nextSpeed;
+
     }
   };
 
@@ -642,18 +660,16 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     >
       <audio
         ref={audioRef}
-        src={activeAudioUrl}
         preload="metadata"
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleAudioEnded}
-        onError={() => { stopAllSpeech(); setIsPlaying(false); setPlaybackPhase('idle'); }}
-      />
-      <audio
-        ref={secondaryAudioRef}
-        preload="none"
+        onError={() => { if (phaseRef.current !== 'recitation') return; stopAllSpeech(); setIsPlaying(false); setPlaybackPhase('idle'); setPlaybackNotice('missing'); }}
       />
 
       <p className="text-xs text-slate-500" role="note">{({ en: 'Highlighting is approximate, based on playback duration; word timestamps are unavailable.', sv: 'Markeringen är ungefärlig och baseras på ljudets längd; tidsstämplar för ord saknas.', fr: 'Le surlignage est approximatif, basé sur la durée audio ; les horodatages des mots ne sont pas disponibles.', ar: 'تمييز الكلمات تقريبي حسب مدة التسجيل؛ لا تتوفر توقيتات الكلمات.' })[language]}</p>
+      {playbackNotice && <p role="status" className="text-sm text-amber-700">{playbackNotice === 'blocked'
+        ? ({ en: 'Tap Play to continue the recording.', sv: 'Tryck på Spela för att fortsätta inspelningen.', fr: 'Appuyez sur Lire pour continuer l’enregistrement.', ar: 'اضغط تشغيل لمتابعة التسجيل.' })[language]
+        : ({ en: 'No playable recording for this passage in the selected language. Missing recordings are skipped.', sv: 'Ingen spelbar inspelning för detta avsnitt på det valda språket. Saknade inspelningar hoppas över.', fr: 'Aucun enregistrement disponible pour ce passage dans la langue choisie. Les enregistrements manquants sont ignorés.', ar: 'لا يتوفر تسجيل قابل للتشغيل لهذا المقطع باللغة المختارة. يتم تجاوز التسجيلات المفقودة.' })[language]}</p>}
       {/* Main Audio Sanctuary Card */}
       <div className="p-5 sm:p-7 rounded-3xl bg-white dark:bg-[#0A1E17] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-emerald-900/30 pb-4">
@@ -954,7 +970,6 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
               const nextMute = !isMuted;
               setIsMuted(nextMute);
               if (audioRef.current) audioRef.current.muted = nextMute;
-              if (secondaryAudioRef.current) secondaryAudioRef.current.muted = nextMute;
             }}
             className="min-h-[42px] min-w-[42px] p-2 rounded-xl border border-slate-200 dark:border-emerald-800/40 flex items-center justify-center text-slate-700 dark:text-slate-300 cursor-pointer hover:border-emerald-600 transition-colors"
             aria-label={isMuted ? 'Unmute' : 'Mute'}

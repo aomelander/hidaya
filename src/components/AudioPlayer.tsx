@@ -35,7 +35,7 @@ import { StorageService } from '../services/storage';
 
 import { OfflineCacheService } from '../services/offlineCacheService';
 import {
-  fetchAyahAudioMetadata,
+  fetchAyahAudioPlaylist,
   StoredAudioMetadata,
 } from '../lib/audio/audioResolverService';
 
@@ -44,6 +44,7 @@ export type ActivePhase = 'idle' | 'recitation' | 'translation' | 'tafsir';
 
 interface AudioPlayerProps {
   surahVerseId: string;
+  verseNumbers?: number[];
   surahNumber?: number;
   verseNumber?: string;
   ayahId?: string;
@@ -208,6 +209,7 @@ const PLAYER_STRINGS: Record<
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   surahVerseId,
+  verseNumbers,
   surahNumber,
   verseNumber,
   ayahId,
@@ -250,6 +252,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const metadataRequestIdRef = useRef(0);
   const playSeqRef = useRef(0);
+  const storedTrackIndex = useRef(0);
   const p = PLAYER_STRINGS[language] || PLAYER_STRINGS.en;
 
   const { resolvedSurah, resolvedVerse } = useMemo(() => {
@@ -266,11 +269,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   // Recitation URLs for Arabic Quran (always available in Arabic across all app languages)
   const recitationUrls = useMemo(() => {
     if (resolvedSurah && resolvedVerse) {
-      return getAudioUrlsForVerseRange(resolvedSurah, resolvedVerse, reciterId);
+      return verseNumbers ? verseNumbers.flatMap(number => getAudioUrlsForVerseRange(resolvedSurah, String(number), reciterId)) : getAudioUrlsForVerseRange(resolvedSurah, resolvedVerse, reciterId);
     }
     const single = audioUrl || initialAudioUrl || '';
     return single ? [single] : [];
-  }, [resolvedSurah, resolvedVerse, reciterId, audioUrl, initialAudioUrl]);
+  }, [resolvedSurah, resolvedVerse, reciterId, audioUrl, initialAudioUrl, verseNumbers?.join(',')]);
 
   // Sync includeTranslation when language changes
   useEffect(() => {
@@ -302,7 +305,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         const [transMeta, tafMeta] = await Promise.all([
           !hasTranslationText
             ? Promise.resolve<StoredAudioMetadata>({ status: 'unavailable' })
-            : fetchAyahAudioMetadata({
+            : fetchAyahAudioPlaylist({
+                verseNumbers: verseNumbers || [Number(resolvedVerse)],
                 surahNumber: resolvedSurah,
                 ayahNumber: resolvedVerse,
                 language,
@@ -313,7 +317,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               }),
           !hasTafsirText
             ? Promise.resolve<StoredAudioMetadata>({ status: 'unavailable' })
-            : fetchAyahAudioMetadata({
+            : fetchAyahAudioPlaylist({
+                verseNumbers: verseNumbers || [Number(resolvedVerse)],
                 surahNumber: resolvedSurah,
                 ayahNumber: resolvedVerse,
                 language,
@@ -451,21 +456,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setActivePhase(phase);
     setIsPlaying(true);
     setHasPlaybackError(false);
-    void audio.play().catch(() => {
+    void audio.play().catch((error) => {
       if (request !== playSeqRef.current) return;
       setHasPlaybackError(true);
+      if (error?.name === 'NotAllowedError') { setIsPlaying(false); return; }
       stopPlayback();
     });
   };
 
   const playTafsirStep = () => {
     if (tafsirMetadata?.status === 'available' && tafsirMetadata.record) {
+      storedTrackIndex.current = 0;
       playUrl(tafsirMetadata.record.audioUrl, 'tafsir');
     } else stopPlayback();
   };
 
   const playTranslationStep = () => {
     if (translationMetadata?.status === 'available' && translationMetadata.record) {
+      storedTrackIndex.current = 0;
       playUrl(translationMetadata.record.audioUrl, 'translation');
     } else if (includeTafsirInRead) playTafsirStep();
     else stopPlayback();
@@ -509,6 +517,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const handleEnded = () => {
+    if (activePhase === 'translation' || activePhase === 'tafsir') {
+      const urls = (activePhase === 'translation' ? translationMetadata : tafsirMetadata)?.audioUrls || [];
+      if (storedTrackIndex.current + 1 < urls.length) {
+        storedTrackIndex.current += 1;
+        playUrl(urls[storedTrackIndex.current], activePhase);
+        return;
+      }
+    }
     // 1. Advance consecutive track in recitation multi-ayah range (e.g. 5 -> 6)
     if (activePhase === 'recitation' && currentTrackIndex < totalTracks - 1) {
       setCurrentTrackIndex((prev) => prev + 1);
