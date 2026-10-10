@@ -379,7 +379,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
 
     const controller = new AbortController();
     const transSource = currentVerse.translations[language]?.translator;
-    const tafsirSource = currentTafsirCitation?.scholar;
+    const tafsirSource = currentTafsirCitation?.scholar || currentTafsirCitation?.sourceBook || preferredScholar || 'Ibn Kathir';
 
     if (translationText && transSource) {
       const cacheKey = `${currentVerse.id}_${language}_translation_${transSource}`;
@@ -401,8 +401,8 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       }
     }
 
-    if (tafsirText && tafsirSource) {
-      const cacheKey = `${currentVerse.id}_${language}_tafsir_${tafsirSource}`;
+    if (tafsirText) {
+      const cacheKey = `${currentVerse.id}_${language}_tafsir_${tafsirSource || 'any'}`;
       if (!cachedPlaylistMetaRef.current[cacheKey]) {
         void fetchAyahAudioPlaylist({
           verseNumbers: vNumbers,
@@ -462,8 +462,10 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       }
 
       try {
-        const source = type === 'tafsir' ? currentTafsirCitation?.scholar : currentVerse.translations[targetLang]?.translator;
-        const cacheKey = `${currentVerse.id}_${targetLang}_${type}_${source || ''}`;
+        const source = type === 'tafsir'
+          ? (currentTafsirCitation?.scholar || currentTafsirCitation?.sourceBook || preferredScholar || 'Ibn Kathir')
+          : currentVerse.translations[targetLang]?.translator;
+        const cacheKey = `${currentVerse.id}_${targetLang}_${type}_${source || 'any'}`;
         const meta = cachedPlaylistMetaRef.current[cacheKey] || await fetchAyahAudioPlaylist({
           verseNumbers: visibleVerseNumbers(currentVerse),
           surahNumber: currentVerse.surahNumber,

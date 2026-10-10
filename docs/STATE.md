@@ -97,3 +97,24 @@ Completed the partial fixes without rebuilding or changing dependencies:
 ## 2026-10-10 — Authorized Cloudflare production deployment
 
 User authorized deployment after reviewing pushed commit `55e8237`. Executed production build (`npm run build`) and deployment (`vinext-cloudflare deploy`). Successfully deployed Cloudflare Worker version `9543ffab-03f4-4ca9-afa3-2a9cb1e22c40` to live production at `https://hidaya.hidaya.workers.dev`. Live checks returned HTTP/2 200 on root and healthy status on `/api/health`.
+
+## 2026-10-10 — Resolved translation & classical tafsir audio resolution from GitHub Releases
+
+Resolved the issue where the Audio page played only Arabic recitation and reported missing recordings:
+1. `src/lib/audio/ayahAudioServerService.ts`: Upgraded `lookupAyahAudio` and attribution matcher `matchesAttributionSource`:
+   - Added support for matching `scholar_name`, `scholar`, and `work_title` in JSONB attributions (supporting classical Arabic works like Al-Muyassar and Al-Sha'rawi, and English/Swedish exegesis).
+   - Normalized source comparisons so "Saheeh International" and "Sahih International" match interchangeably, and "Knut Bernström" and "Mohammed Knut Bernström" match interchangeably.
+   - Added verified classical tafsir recording fallback: if the user's preferred scholar has no recording for a specific ayah, the service falls back to any available verified classical tafsir recording for that ayah in the target language.
+2. `src/services/guidanceService.ts`: Standardized default English and Swedish translator attribution strings to "Sahih International" and "Mohammed Knut Bernström".
+3. `src/components/ContinuousSessionAudioPlayer.tsx`: Enhanced tafsir audio resolution and prefetching to pass matched scholar/sourceBook citations with graceful fallback to available classical recordings.
+4. Environment & Runtime: Ensured `.dev.vars` is populated with `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` for the Cloudflare `workerd` runtime so metadata lookups resolve database records and stream MP3 assets from official GitHub Releases.
+5. Verification: Validated with end-to-end curl/fetch tests across translation and tafsir in English, Swedish, and Arabic; `compile_applet` and `lint_applet` passed with 0 errors.
+
+## 2026-10-10 — Deployed translation & tafsir audio fix to Cloudflare Workers
+
+User authorized deployment:
+1. Ran full test suite (`npm test`), type check (`npm run typecheck`), and lint (`npm run lint`) — all passed with 0 errors.
+2. Executed production build (`npm run build`) and deployed to Cloudflare Workers (`vinext-cloudflare deploy`).
+3. Deployment completed successfully: Version ID `c38fb1bc-2d3b-4796-af86-79dee6259a62` live at `https://hidaya.hidaya.workers.dev`.
+4. Verified live production responses: HTTP/2 200 on root (`/`) and healthy status on `/api/health`.
+

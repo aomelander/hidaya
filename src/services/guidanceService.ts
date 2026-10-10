@@ -239,10 +239,19 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
     arabicText: match.ayah.text_uthmani,
     transliteration: '',
     translations: {
-      en: { text: enTrans.text, translator: enTrans.source || 'Saheeh International' },
+      en: {
+        text: enTrans.text,
+        translator:
+          !enTrans.source || enTrans.source === 'Saheeh International'
+            ? 'Sahih International'
+            : enTrans.source,
+      },
       sv: {
         text: svTrans?.text || '',
-        translator: svTrans?.source || (svTrans?.text ? 'Mohammed Knut Bernström' : ''),
+        translator:
+          !svTrans?.source || svTrans.source === 'Knut Bernström'
+            ? (svTrans?.text ? 'Mohammed Knut Bernström' : '')
+            : svTrans.source,
       },
       fr: {
         text: frTrans?.text || '',
