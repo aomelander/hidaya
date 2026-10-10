@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 
-const apiKey = process.env.GEMINI_API_KEY;
-const ai = apiKey && apiKey !== 'mock_key'
-  ? new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
+function getAI() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'mock_key') return null;
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
       },
-    })
-  : null;
+    },
+  });
+}
 
 /**
  * Server-side Text-to-Speech API using gemini-3.8-flash-lite-tts.
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Text is required for TTS synthesis' }, { status: 400 });
     }
 
+    const ai = getAI();
     // If Gemini API is not configured or in mock mode, signal client fallback
     if (!ai) {
       return NextResponse.json({

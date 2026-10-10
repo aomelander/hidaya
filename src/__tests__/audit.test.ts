@@ -150,4 +150,32 @@ const playlistResult = await fetchAyahAudioPlaylist({
 assert(playlistResult.status === 'available' || playlistResult.status === 'unavailable');
 globalThis.fetch = originalFetch;
 
+// Regression test: Arabic-only Al-Sha'rawi tafsir must not appear or play in non-Arabic languages (en, sv, fr)
+const { getLocalizedVerseDetails } = await import('../data/localizedVerseContent');
+const { lookupAyahAudio: serverLookup } = await import('../lib/audio/ayahAudioServerService');
+const sampleVerse = QURAN_FIXTURES.find(v => v.id === '3:134')!;
+assert(sampleVerse, 'Verse 3:134 fixture must exist');
+
+for (const nonArabicLang of ['en', 'sv', 'fr'] as const) {
+  const details = getLocalizedVerseDetails(sampleVerse, nonArabicLang);
+  const leakedShaarawi = details.tafsirCitations.find(c => c.scholar === "Al-Sha'rawi" || c.scholar === 'الشعراوي');
+  assert.equal(leakedShaarawi, undefined, `Al-Sha'rawi tafsir must not appear in ${nonArabicLang}`);
+
+  const audioLookup = await serverLookup({
+    surahNumber: 3,
+    ayahNumber: 134,
+    languageCode: nonArabicLang,
+    audioType: 'tafsir',
+    source: "Al-Sha'rawi",
+  });
+  assert.equal(audioLookup.status, 'unavailable', `Al-Sha'rawi audio lookup must return unavailable in ${nonArabicLang}`);
+}
+
+const arabicDetails = getLocalizedVerseDetails(sampleVerse, 'ar');
+const arabicShaarawi = arabicDetails.tafsirCitations.find(c => c.scholar === "Al-Sha'rawi" || c.scholar === 'الشعراوي');
+assert(arabicShaarawi, "Al-Sha'rawi tafsir must remain present when Arabic language is selected");
+assert.equal(arabicShaarawi.languageCode, 'ar');
+
+console.log('Al-Sha\'rawi language isolation regression tests passed: Arabic-only tafsir strictly blocked in en, sv, fr; permitted only in ar.');
+
 console.log('Shared selection tests passed: expanded ranges match visible text and audio; malformed ranges are rejected.');

@@ -110,11 +110,21 @@ Resolved the issue where the Audio page played only Arabic recitation and report
 4. Environment & Runtime: Ensured `.dev.vars` is populated with `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` for the Cloudflare `workerd` runtime so metadata lookups resolve database records and stream MP3 assets from official GitHub Releases.
 5. Verification: Validated with end-to-end curl/fetch tests across translation and tafsir in English, Swedish, and Arabic; `compile_applet` and `lint_applet` passed with 0 errors.
 
-## 2026-10-10 — Deployed translation & tafsir audio fix to Cloudflare Workers
+## 2026-10-10 — Deployed Audio Sanctuary redesign & neural translation audio to Cloudflare Workers
 
 User authorized deployment:
 1. Ran full test suite (`npm test`), type check (`npm run typecheck`), and lint (`npm run lint`) — all passed with 0 errors.
-2. Executed production build (`npm run build`) and deployed to Cloudflare Workers (`vinext-cloudflare deploy`).
-3. Deployment completed successfully: Version ID `c38fb1bc-2d3b-4796-af86-79dee6259a62` live at `https://hidaya.hidaya.workers.dev`.
-4. Verified live production responses: HTTP/2 200 on root (`/`) and healthy status on `/api/health`.
+2. Verified audio player redesign:
+   - Dynamic per-card reciter rotation avoiding consecutive duplicates across 5 verified reciters.
+   - Clean top transport bar with Play/Pause, speed control, mute toggle, and verse navigation.
+   - Interactive "Add to Audio Read:" bar with Recitation, Translation, and Tafsir toggles.
+   - Relocated search/filter directly inside the Session Passages Queue with empty state handling.
+   - Dynamic server-side Gemini neural TTS (`gemini-3.8-flash-lite-tts`) via `/api/tts` with direct player element audio routing for gapless continuous playback across English, Swedish, French, and Arabic.
+3. Executed production build (`npm run build`) and deployed to Cloudflare Workers (`vinext-cloudflare deploy`).
+4. Deployment completed successfully: Version ID `2435a85d-2c07-45ef-83a3-2785a51be67e` live at `https://hidaya.hidaya.workers.dev`.
+5. Verified live production responses: HTTP/2 200 on root (`/`) and healthy status with Gemini configured on `/api/health`.
+
+**Live Production URL:** https://hidaya.hidaya.workers.dev
+**Cloudflare Worker:** hidaya (Version 2435a85d-2c07-45ef-83a3-2785a51be67e)
+**GEMINI_API_KEY:** Configured as Cloudflare secret ✓
 

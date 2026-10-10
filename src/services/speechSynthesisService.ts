@@ -12,6 +12,7 @@ export interface SpeakOptions {
   rate?: number;
   pitch?: number;
   volume?: number;
+  targetAudioElement?: HTMLAudioElement | null;
   onStart?: () => void;
   onProgress?: (ratio: number) => void;
   onEnd?: () => void;
@@ -194,38 +195,59 @@ class SpeechSynthesisEngine {
       }
     }
 
-    // If server audio was successfully retrieved, play it through HTMLAudioElement
+    // If server audio was successfully retrieved, play it through the provided element or HTMLAudioElement
     if (audioDataUrl && this.isSpeakingActive) {
       try {
-        const audio = new Audio(audioDataUrl);
+        const audio = options.targetAudioElement || new Audio(audioDataUrl);
         this.currentAudioElement = audio;
 
-        audio.onplay = () => {
+        if (audio.src !== audioDataUrl) {
+          audio.src = audioDataUrl;
+        }
+        if (options.rate) {
+          audio.playbackRate = options.rate;
+        }
+
+        const handlePlay = () => {
           options.onStart?.();
           options.onProgress?.(0);
         };
 
-        audio.ontimeupdate = () => {
+        const handleTimeUpdate = () => {
           if (audio.duration && audio.duration > 0) {
             const ratio = Math.min(1, Math.max(0, audio.currentTime / audio.duration));
             options.onProgress?.(ratio);
           }
         };
 
-        audio.onended = () => {
+        const cleanup = () => {
+          audio.removeEventListener('play', handlePlay);
+          audio.removeEventListener('timeupdate', handleTimeUpdate);
+          audio.removeEventListener('ended', handleEnded);
+          audio.removeEventListener('error', handleError);
+        };
+
+        const handleEnded = () => {
+          cleanup();
           options.onProgress?.(1);
           this.isSpeakingActive = false;
           this.currentAudioElement = null;
           options.onEnd?.();
         };
 
-        audio.onerror = (e) => {
+        const handleError = (e: Event) => {
+          cleanup();
           console.warn('[SpeechService] HTML5 Audio playback error:', e);
           this.isSpeakingActive = false;
           this.currentAudioElement = null;
           // Fall back to browser utterance
           this.speakWithBrowserUtterance(text, language, options);
         };
+
+        audio.addEventListener('play', handlePlay);
+        audio.addEventListener('timeupdate', handleTimeUpdate);
+        audio.addEventListener('ended', handleEnded);
+        audio.addEventListener('error', handleError);
 
         await audio.play();
         return;
@@ -399,3 +421,4 @@ class SpeechSynthesisEngine {
 }
 
 export const SpeechService = new SpeechSynthesisEngine();
+export const SpeechSynthesisService = SpeechService;
