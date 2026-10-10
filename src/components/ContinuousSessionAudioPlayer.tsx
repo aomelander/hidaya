@@ -35,7 +35,7 @@ import { StorageService } from '../services/storage';
 import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
 import { AyahCartouche } from './AyahCartouche';
-import { fetchAyahAudioPlaylist } from '../lib/audio/audioResolverService';
+import { fetchAyahAudioPlaylist, StoredAudioMetadata } from '../lib/audio/audioResolverService';
 
 interface ContinuousSessionAudioPlayerProps {
   verses: QuranVerseFixture[];
@@ -368,6 +368,63 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
 
   const activeLanguageRef = useRef(language);
   const playRequestIdRef = useRef(0);
+  const cachedPlaylistMetaRef = useRef<Record<string, StoredAudioMetadata>>({});
+
+  // Prefetch stored audio playlist metadata while verse is active/reciting
+  // so that when recitation finishes, metadata is already in-memory and Safari can transition without async delay.
+  useEffect(() => {
+    if (!currentVerse) return;
+    const vNumbers = visibleVerseNumbers(currentVerse);
+    if (!vNumbers.length) return;
+
+    const controller = new AbortController();
+    const transSource = currentVerse.translations[language]?.translator;
+    const tafsirSource = currentTafsirCitation?.scholar;
+
+    if (translationText && transSource) {
+      const cacheKey = `${currentVerse.id}_${language}_translation_${transSource}`;
+      if (!cachedPlaylistMetaRef.current[cacheKey]) {
+        void fetchAyahAudioPlaylist({
+          verseNumbers: vNumbers,
+          surahNumber: currentVerse.surahNumber,
+          ayahNumber: currentVerse.verseNumber,
+          language,
+          type: 'translation',
+          source: transSource,
+          ayahId: currentVerse.id,
+          signal: controller.signal,
+        }).then((meta) => {
+          if (!controller.signal.aborted && meta.status === 'available') {
+            cachedPlaylistMetaRef.current[cacheKey] = meta;
+          }
+        });
+      }
+    }
+
+    if (tafsirText && tafsirSource) {
+      const cacheKey = `${currentVerse.id}_${language}_tafsir_${tafsirSource}`;
+      if (!cachedPlaylistMetaRef.current[cacheKey]) {
+        void fetchAyahAudioPlaylist({
+          verseNumbers: vNumbers,
+          surahNumber: currentVerse.surahNumber,
+          ayahNumber: currentVerse.verseNumber,
+          language,
+          type: 'tafsir',
+          source: tafsirSource,
+          ayahId: currentVerse.id,
+          signal: controller.signal,
+        }).then((meta) => {
+          if (!controller.signal.aborted && meta.status === 'available') {
+            cachedPlaylistMetaRef.current[cacheKey] = meta;
+          }
+        });
+      }
+    }
+
+    return () => {
+      controller.abort();
+    };
+  }, [currentVerse, language, translationText, tafsirText, currentTafsirCitation]);
 
   // On language change, stop previous audio, clear stale content, and ignore late responses
   useEffect(() => {
@@ -405,13 +462,15 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       }
 
       try {
-        const meta = await fetchAyahAudioPlaylist({
+        const source = type === 'tafsir' ? currentTafsirCitation?.scholar : currentVerse.translations[targetLang]?.translator;
+        const cacheKey = `${currentVerse.id}_${targetLang}_${type}_${source || ''}`;
+        const meta = cachedPlaylistMetaRef.current[cacheKey] || await fetchAyahAudioPlaylist({
           verseNumbers: visibleVerseNumbers(currentVerse),
           surahNumber: currentVerse.surahNumber,
           ayahNumber: currentVerse.verseNumber,
           language: targetLang,
           type,
-          source: type === 'tafsir' ? currentTafsirCitation?.scholar : currentVerse.translations[language]?.translator,
+          source,
           ayahId: currentVerse.id,
         });
 

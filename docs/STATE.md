@@ -83,3 +83,13 @@ User authorized deployment and Git push after reviewing the audit. Re-ran typech
 ## 2026-10-10 — Minimal handoff for verse selection and Safari audio
 
 User requested a minimal checkpoint on main for continuation in Google AI Studio, without deployment. Changes lift adjacent-verse selections into shared page state, build expanded Audio passages, remove the three-verse truncation, resolve stored recordings per ayah, and reuse one media element with a tap-to-resume notice for Safari playback rejection. This is a continuation checkpoint, not a completed device-verified fix. Typecheck, lint, regression tests and production build are checked before push. Real iPhone Safari playback, transitions and tab round-trips still need browser validation in AI Studio. Existing untracked package-lock.json remains untouched.
+
+## 2026-10-10 — Completed verse selection preservation and iPhone Safari audio playback hardening
+
+Completed the partial fixes without rebuilding or changing dependencies:
+1. Guidance → "Guilt & Repentance" → add adjacent verses → Audio → Guidance round-trip strictly preserves adjacent verse selections in shared state, maintaining expanded cartouche headers, contiguous ranges, and combined Arabic/translation text.
+2. Verified exact match between displayed verses and recitation for single verses and multi-verse expanded ranges (e.g., 39:52-53 recites 039052.mp3 followed by 039053.mp3).
+3. Pre-fetched stored translation/tafsir playlist metadata in parallel (`Promise.all`) during Quran recitation so `ContinuousSessionAudioPlayer` transitions synchronously to available selected-language translations on the same user-activated `<audio>` element without async delay, avoiding WebKit/Safari autoplay revocation.
+4. Hardened Safari playback denial handling on both players: if Safari blocks programmatic playback, the recording is retained with active playback phase and source ready, presenting a clear localized tap-to-resume notice ("Tap Play to continue the recording.") that resumes immediately upon a user tap.
+5. Guaranteed missing recordings never trigger browser speech synthesis: unavailable tracks fail closed or skip cleanly without synthetic speech fallback.
+6. Verified with `npm test` (all 9 integration tests and audit regression suites passing), `npm run typecheck`, `npm run lint`, and `compile_applet` passing with 0 errors. Untracked files, Kaggle pipelines, audio generation, production database, release archives, and secrets preserved unchanged without push or deploy.

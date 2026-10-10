@@ -234,6 +234,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [isLooping, setIsLooping] = useState(false);
   const [showRecitersList, setShowRecitersList] = useState(false);
   const [hasPlaybackError, setHasPlaybackError] = useState(false);
+  const [playbackNotice, setPlaybackNotice] = useState<'blocked' | null>(null);
 
   // Stored neural audio states
   const [translationMetadata, setTranslationMetadata] = useState<StoredAudioMetadata | null>(null);
@@ -295,6 +296,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setCurrentTrackIndex(0);
     setCurrentTime(0);
     setHasPlaybackError(false);
+    setPlaybackNotice(null);
     setStreamMode('recitation');
     setTranslationMetadata(null);
     setTafsirMetadata(null);
@@ -441,6 +443,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     audioRef.current?.pause();
     setIsPlaying(false);
     setActivePhase('idle');
+    setPlaybackNotice(null);
     onPlaybackProgress?.(0, false, 'idle');
   };
 
@@ -456,10 +459,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setActivePhase(phase);
     setIsPlaying(true);
     setHasPlaybackError(false);
+    setPlaybackNotice(null);
     void audio.play().catch((error) => {
       if (request !== playSeqRef.current) return;
+      if (error?.name === 'NotAllowedError') {
+        setIsPlaying(false);
+        setPlaybackNotice('blocked');
+        return;
+      }
       setHasPlaybackError(true);
-      if (error?.name === 'NotAllowedError') { setIsPlaying(false); return; }
       stopPlayback();
     });
   };
@@ -480,6 +488,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const togglePlay = () => {
+    setPlaybackNotice(null);
     if (isPlaying) {
       playSeqRef.current += 1;
       audioRef.current?.pause();
@@ -556,6 +565,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     onPlaybackProgress?.(1, false, 'idle');
     if (isLooping) {
       setCurrentTrackIndex(0);
+      storedTrackIndex.current = 0;
       if (audioRef.current) audioRef.current.currentTime = 0;
       playUrl(recitationUrls[0], 'recitation');
     } else {
@@ -597,6 +607,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const restart = () => {
+    setPlaybackNotice(null);
     if (audioRef.current) audioRef.current.currentTime = 0;
     setCurrentTrackIndex(0);
     setCurrentTime(0);
@@ -879,6 +890,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-600" />
           <span>{p.errorLabel}</span>
         </div>
+      )}
+
+      {playbackNotice === 'blocked' && (
+        <p role="status" className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+          {({
+            en: 'Tap Play to continue the recording.',
+            sv: 'Tryck på Spela för att fortsätta inspelningen.',
+            fr: 'Appuyez sur Lire pour continuer l’enregistrement.',
+            ar: 'اضغط تشغيل لمتابعة التسجيل.',
+          })[language]}
+        </p>
       )}
 
       {/* Main Playback Row: Play button + Title/Time + Timeline Scrubber + Speed + Volume */}

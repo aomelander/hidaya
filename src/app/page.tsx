@@ -309,7 +309,7 @@ export default function App() {
                     key={verse.id}
                     id={`verse-${verse.id}`}
                     className={
-                      activeAudioVerseId === verse.id
+                      (activeAudioVerseId === verse.id || activeAudioVerseId === expandPassage(verse, passageSelections[verse.id])?.id)
                         ? 'ring-2 ring-amber-500/80 rounded-3xl transition-all'
                         : ''
                     }

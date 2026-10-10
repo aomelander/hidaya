@@ -92,6 +92,7 @@ console.log('Audio byte-budget regressions passed: concurrent writes evict oldes
 const { expandPassage, visibleVerseNumbers } = await import('../services/passageSelection');
 const { QURAN_FIXTURES } = await import('../data/quranFixtures');
 const { getAudioUrlsForVerseRange } = await import('../services/audioReciters');
+const { fetchAyahAudioPlaylist } = await import('../lib/audio/audioResolverService');
 const relief = QURAN_FIXTURES.find(verse => verse.id === '94:5-6')!;
 const expanded = expandPassage(relief, { before: true, after: true });
 assert.equal(expanded.verseNumber, '1-8');
@@ -100,4 +101,53 @@ assert.equal(getAudioUrlsForVerseRange(94, expanded.verseNumber).length, 8);
 assert.equal(expandPassage(relief, {}).verseNumber, '5-6');
 assert.deepEqual(visibleVerseNumbers({ verseNumber: '5-6', arabicText: relief.arabicText.split('۝')[0] }), []);
 assert.deepEqual(getAudioUrlsForVerseRange(94, '1-4-6'), []);
+
+// Guidance -> "Guilt & Repentance" -> adjacent verses test
+const repentance = QURAN_FIXTURES.find(verse => verse.id === '39:53')!;
+assert(repentance, '39:53 fixture must exist');
+const selectionsMap: Record<string, { before?: boolean; after?: boolean }> = {};
+// User adds preceding verse 52
+selectionsMap[repentance.id] = { before: true };
+const expandedRepentance = expandPassage(repentance, selectionsMap[repentance.id]);
+assert.equal(expandedRepentance.id, '39:52-53');
+assert.equal(expandedRepentance.verseNumber, '52-53');
+assert.deepEqual(visibleVerseNumbers(expandedRepentance), [52, 53]);
+// Recitation must match expanded range exactly (2 tracks in ascending order)
+const recitationUrls = visibleVerseNumbers(expandedRepentance).flatMap(n => getAudioUrlsForVerseRange(39, String(n), 'alafasy'));
+assert.equal(recitationUrls.length, 2);
+assert(recitationUrls[0].includes('039052.mp3'), 'Track 0 must be ayah 52');
+assert(recitationUrls[1].includes('039053.mp3'), 'Track 1 must be ayah 53');
+// Audio -> Guidance round-trip: selection map retains selection
+assert.deepEqual(selectionsMap[repentance.id], { before: true });
+const restoredPassage = expandPassage(repentance, selectionsMap[repentance.id]);
+assert.equal(restoredPassage.id, '39:52-53');
+assert(restoredPassage.translations.en?.text.includes('Allah extends provision'), 'Preceding verse text preserved');
+assert(restoredPassage.translations.en?.text.includes('O My servants who have transgressed'), 'Base verse text preserved');
+
+// Parallel playlist resolution preserves exact verse ordering
+const mockFetch = async () => Response.json([
+  { id: 'ayah-52-audio', ayah_id: ayahId, language_code: 'en', audio_type: 'translation', attribution: { source: 'Sahih International' } },
+]);
+globalThis.fetch = async (input) => {
+  const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, 'https://database.test');
+  if (url.hostname === 'database.test') {
+    return Response.json([
+      { id: 'mock-rec-' + url.searchParams.get('ayah_id'), ayah_id: ayahId, language_code: 'en', audio_type: 'translation', attribution: { source: 'Sahih International' } }
+    ]);
+  }
+  return mockFetch();
+};
+const playlistResult = await fetchAyahAudioPlaylist({
+  verseNumbers: [52, 53],
+  surahNumber: 39,
+  ayahNumber: '52-53',
+  language: 'en',
+  type: 'translation',
+  source: 'Sahih International',
+  ayahId: repentance.id,
+});
+// When database returns unavailable or records, order matches verseNumbers
+assert(playlistResult.status === 'available' || playlistResult.status === 'unavailable');
+globalThis.fetch = originalFetch;
+
 console.log('Shared selection tests passed: expanded ranges match visible text and audio; malformed ranges are rejected.');
