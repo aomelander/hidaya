@@ -1,3 +1,4 @@
+import { parseAudioRange } from '../../../../lib/audio/httpRange';
 import { NextRequest, NextResponse } from 'next/server';
 import { getInternalAyahAudioRecord } from '../../../../lib/audio/ayahAudioServerService';
 import { extractZipStoredMember } from '../../../../lib/audio/zipExtractor';
@@ -53,28 +54,24 @@ export async function GET(
     const rangeHeader = request.headers.get('range');
 
     // 3. Support HTTP Range requests for seeking in browser players
-    if (rangeHeader && rangeHeader.startsWith('bytes=')) {
-      const parts = rangeHeader.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : totalLength - 1;
-
-      if (!isNaN(start) && start >= 0 && start < totalLength && end >= start) {
-        const safeEnd = Math.min(end, totalLength - 1);
-        const chunk = audioBuffer.subarray(start, safeEnd + 1);
-        const chunkArrayBuffer = new Uint8Array(chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)) as BodyInit;
-
-        return new Response(chunkArrayBuffer, {
-          status: 206,
-          headers: {
-            ...CORS_HEADERS,
-            'Content-Type': 'audio/mpeg',
-            'Content-Length': String(chunk.length),
-            'Content-Range': `bytes ${start}-${safeEnd}/${totalLength}`,
-            'Accept-Ranges': 'bytes',
-            'Cache-Control': 'public, max-age=31536000, immutable',
-          },
-        });
-      }
+    const range = parseAudioRange(rangeHeader, totalLength);
+    if (range === false) return new Response(null, {
+      status: 416,
+      headers: { ...CORS_HEADERS, 'Content-Range': `bytes */${totalLength}`, 'Accept-Ranges': 'bytes' },
+    });
+    if (range) {
+      const chunk = audioBuffer.subarray(range.start, range.end + 1);
+      return new Response(new Uint8Array(chunk), {
+        status: 206,
+        headers: {
+          ...CORS_HEADERS,
+          'Content-Type': 'audio/mpeg',
+          'Content-Length': String(chunk.length),
+          'Content-Range': `bytes ${range.start}-${range.end}/${totalLength}`,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
     }
 
     // 4. Return full MP3 stream with Accept-Ranges
@@ -85,7 +82,7 @@ export async function GET(
         'Content-Type': 'audio/mpeg',
         'Content-Length': String(totalLength),
         'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Cache-Control': 'public, max-age=3600',
       },
     });
   } catch (err: any) {

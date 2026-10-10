@@ -747,11 +747,12 @@ async function getOrFetchCentralDirectory(
   };
 
   if (fetchImpl === fetch) {
-    if (CD_CACHE.size >= MAX_CACHED_CD_ARCHIVES) {
+    while (CD_CACHE.size >= MAX_CACHED_CD_ARCHIVES || [...CD_CACHE.values()].reduce((sum, item) => sum + JSON.stringify([...item.members]).length * 2, 0) + JSON.stringify([...members]).length * 2 > 16 * 1024 * 1024) {
+      if (!CD_CACHE.size) break;
       const oldestKey = CD_CACHE.keys().next().value;
       if (oldestKey) CD_CACHE.delete(oldestKey);
     }
-    CD_CACHE.set(archiveUrl, entry);
+    if (JSON.stringify([...members]).length * 2 <= 16 * 1024 * 1024) CD_CACHE.set(archiveUrl, entry);
   }
 
   return entry;
@@ -873,6 +874,8 @@ export async function extractZipStoredMember(
 
   // 5. Cache bounded individual MP3 buffer
   if (!customFetch) {
+    const previous = MP3_CACHE.get(cacheKey);
+    if (previous) { currentMp3CacheBytes -= previous.byteSize; MP3_CACHE.delete(cacheKey); }
     while (
       (MP3_CACHE.size >= MAX_CACHED_MP3_ENTRIES ||
         currentMp3CacheBytes + memberBuffer.length > MAX_CACHED_MP3_TOTAL_BYTES) &&

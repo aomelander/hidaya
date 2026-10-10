@@ -1,7 +1,10 @@
+import { requireAdmin } from '../../../lib/adminAuth';
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
   const apiKey = process.env.GEMINI_API_KEY;
   const keyLoaded = !!(apiKey && apiKey !== 'mock_key' && apiKey.length > 10);
 

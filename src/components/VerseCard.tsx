@@ -401,7 +401,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         c.text &&
         c.text.trim().length > 0
     );
-    if (hasShaarawi) return;
+    if (hasShaarawi || language !== 'ar') return;
 
     const sNum = verse.surahNumber;
     const aNum = baseRangeBounds.start;
@@ -442,7 +442,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [verse.id, verse.surahNumber, baseRangeBounds.start, localizedDetails.tafsirCitations]);
+  }, [verse.id, verse.surahNumber, baseRangeBounds.start, localizedDetails.tafsirCitations, language]);
 
   const availableCitations = useMemo(() => {
     const base = localizedDetails.tafsirCitations.filter((c) =>
@@ -798,7 +798,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
   const notSayingText =
     verse.notSaying?.[language] ||
-    verse.notSaying?.en ||
     (language === 'sv'
       ? 'Denna vers bör läsas i sitt historiska och tematiska sammanhang och inte ryckas lös ur sin kontext.'
       : language === 'fr'
@@ -1155,6 +1154,9 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             verseNumber={effectiveVerseNumberStr}
             surahVerseId={effectiveVerseId}
             ayahId={verse.id}
+            translationSource={translationObj?.translator}
+            tafsirSource={currentCitation?.scholar}
+            key={`${effectiveVerseId}:${language}:${currentCitation?.scholar}`}
             translationText={translationObj?.text || ''}
             tafsirText={currentCitation?.text || ''}
             language={language}

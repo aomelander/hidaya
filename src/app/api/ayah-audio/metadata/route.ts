@@ -22,9 +22,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  if (!['en', 'sv', 'fr', 'ar'].includes(lang) || !['translation', 'tafsir'].includes(typeStr) || (verseStr && !/^\d+$/.test(verseStr)) || (surahStr && !/^\d+$/.test(surahStr))) {
+    return NextResponse.json({ status: 'unavailable' }, { status: 400 });
+  }
+
   const audioType: AudioStreamType = typeStr === 'tafsir' ? 'tafsir' : 'translation';
 
   const result = await lookupAyahAudio({
+    source: searchParams.get('source') || undefined,
     ayahId,
     surahNumber,
     ayahNumber,
@@ -35,7 +40,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(result, {
     status: 200,
     headers: {
-      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+      'Cache-Control': 'no-store',
     },
   });
 }

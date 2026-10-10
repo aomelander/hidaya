@@ -1,3 +1,4 @@
+import { requireAdmin } from '../../../../lib/adminAuth';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   translateScholarCommentary,
@@ -8,7 +9,9 @@ import {
 } from '../../../../services/scholarIngestionService';
 import { ScholarIngestionPayload } from '../../../../types';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
   try {
     const queue = await listPendingScholarTranscriptions();
     return NextResponse.json({
@@ -26,6 +29,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
   try {
     const body = (await req.json()) as Record<string, any>;
     const { action } = body;

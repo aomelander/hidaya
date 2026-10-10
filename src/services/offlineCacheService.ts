@@ -1,3 +1,4 @@
+import { saveAudio } from '../lib/audio/boundedAudioCache';
 /**
  * @file src/services/offlineCacheService.ts
  * @description Client-side Offline Cache & Service Worker synchronization service.
@@ -10,8 +11,8 @@
 import { QuranVerseFixture } from '../types';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
 
-export const PASSAGES_CACHE_NAME = 'hidaya-passages-v2';
-export const AUDIO_CACHE_NAME = 'hidaya-audio-v2';
+export const PASSAGES_CACHE_NAME = 'hidaya-passages-v3';
+export const AUDIO_CACHE_NAME = 'hidaya-audio-v3';
 const LOCAL_CACHED_PASSAGES_KEY = 'hidaya_offline_passages_v2';
 const LOCAL_CACHED_AUDIO_KEY = 'hidaya_offline_audio_urls_v2';
 
@@ -53,7 +54,7 @@ export const OfflineCacheService = {
 
   /**
    * Stores an array of QuranVerseFixture objects (Arabic, translations, Tafsir)
-   * into both CacheStorage (`hidaya-passages-v2`) and localStorage fallback.
+   * into both CacheStorage (`hidaya-passages-v3`) and localStorage fallback.
    */
   async cachePassages(verses: QuranVerseFixture[]): Promise<void> {
     if (!verses || verses.length === 0 || typeof window === 'undefined') return;
@@ -64,6 +65,7 @@ export const OfflineCacheService = {
       const map = new Map<string, QuranVerseFixture>();
       for (const item of current) map.set(item.id, item);
       for (const item of verses) map.set(item.id, item);
+      while (map.size && new TextEncoder().encode(JSON.stringify([...map.values()])).length > 2 * 1024 * 1024) map.delete(map.keys().next().value!);
       localStorage.setItem(
         LOCAL_CACHED_PASSAGES_KEY,
         JSON.stringify(Array.from(map.values()))
@@ -72,26 +74,8 @@ export const OfflineCacheService = {
       // Ignore quota errors
     }
 
-    // 2. Write each passage record into CacheStorage (`hidaya-passages-v2`)
-    if (isCacheStorageSupported()) {
-      try {
-        const cache = await window.caches.open(PASSAGES_CACHE_NAME);
-        await Promise.all(
-          verses.map((verse) => {
-            const url = `/offline-data/verse/${encodeURIComponent(verse.id)}.json`;
-            const response = new Response(JSON.stringify(verse), {
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Hidaya-Cached-At': new Date().toISOString(),
-              },
-            });
-            return cache.put(url, response);
-          })
-        );
-      } catch {
-        // Fallback already stored in localStorage
-      }
-    }
+    // The service worker serializes CacheStorage writes and enforces a byte budget.
+    // localStorage remains the fallback before a worker controls this page.
 
     // 3. Notify active Service Worker if controlling the page
     try {
@@ -131,7 +115,7 @@ export const OfflineCacheService = {
       try {
         const cache = await window.caches.open(AUDIO_CACHE_NAME);
         const match = await cache.match(audioUrl);
-        if (match) return true;
+        return Boolean(match);
       } catch {}
     }
 
@@ -144,23 +128,14 @@ export const OfflineCacheService = {
   },
 
   /**
-   * Caches a verse's audio MP3 file into `hidaya-audio-v2` for offline listening.
+   * Caches a verse's audio MP3 file into `hidaya-audio-v3` for offline listening.
    * Uses CORS fetch first and falls back to no-cors opaque response if needed.
    */
   async cacheVerseAudio(audioUrl: string): Promise<boolean> {
     if (!audioUrl || !isCacheStorageSupported()) return false;
 
     try {
-      const cache = await window.caches.open(AUDIO_CACHE_NAME);
-      let response: Response;
-      try {
-        response = await fetch(audioUrl, { mode: 'cors' });
-      } catch {
-        response = await fetch(audioUrl, { mode: 'no-cors' });
-      }
-
-      if (response && (response.ok || response.type === 'opaque')) {
-        await cache.put(audioUrl, response);
+      if (await saveAudio(audioUrl)) {
         this.trackAudioUrl(audioUrl, true);
         window.dispatchEvent(new CustomEvent('hidaya-offline-cache-updated'));
         return true;
@@ -172,7 +147,7 @@ export const OfflineCacheService = {
   },
 
   /**
-   * Removes a cached verse audio file from `hidaya-audio-v2`.
+   * Removes a cached verse audio file from `hidaya-audio-v3`.
    */
   async removeVerseAudio(audioUrl: string): Promise<boolean> {
     if (!audioUrl || !isCacheStorageSupported()) return false;

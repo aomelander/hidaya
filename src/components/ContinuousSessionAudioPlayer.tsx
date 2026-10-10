@@ -30,7 +30,7 @@ import {
 } from '../types';
 import { AVAILABLE_RECITERS, getAudioUrlsForVerseRange } from '../services/audioReciters';
 import { StorageService } from '../services/storage';
-import { SpeechService } from '../services/speechSynthesisService';
+
 import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
 import { AyahCartouche } from './AyahCartouche';
@@ -147,6 +147,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   const [tafsirRatio, setTafsirRatio] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const secondaryCleanupRef = useRef<(() => void) | null>(null);
   const secondaryAudioRef = useRef<HTMLAudioElement | null>(null);
   const t = AUDIO_UI[language] || AUDIO_UI.en;
 
@@ -176,7 +177,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     });
   }, [activeVerses, filterQuery, language]);
 
-  const currentVerse = displayedVerses[currentIndex] || displayedVerses[0] || activeVerses[0];
+  const currentVerse = displayedVerses[currentIndex] || displayedVerses[0];
 
   // Consecutive verses audio tracks (handles single ayah "134" or ranges "5-6" / "133-135")
   const rangeAudioUrls = useMemo(() => {
@@ -199,9 +200,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       (c) => Boolean(c.text && c.text.trim()) && (c.languageCode === language || (language === 'ar' && c.languageCode === 'ar'))
     );
     if (citations.length === 0) return null;
-    const scholarIdx =
-      preferredScholar === "Al-Sa'di" ? 1 : preferredScholar === 'Al-Muyassar' ? 2 : 0;
-    return citations[scholarIdx] || citations[0] || null;
+    return citations.find((citation) => citation.scholar === preferredScholar) || citations[0] || null;
   }, [localizedDetails, preferredScholar, language]);
 
   // Texts strictly matching the selected language with zero cross-language leaks
@@ -308,7 +307,9 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   }, [currentVerse, onActiveVerseChange]);
 
   const stopAllSpeech = useCallback(() => {
-    SpeechService.cancel();
+    playRequestIdRef.current += 1;
+    audioRef.current?.pause();
+    secondaryCleanupRef.current?.();
     if (secondaryAudioRef.current) {
       secondaryAudioRef.current.pause();
       secondaryAudioRef.current.currentTime = 0;
@@ -319,6 +320,17 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     return () => {
       stopAllSpeech();
     };
+  }, [stopAllSpeech]);
+
+  useEffect(() => {
+    const stop = (event: Event) => {
+      if ((event as CustomEvent).detail === audioRef.current) return;
+      stopAllSpeech();
+      setIsPlaying(false);
+      setPlaybackPhase('idle');
+    };
+    window.addEventListener('hidaya-playback-owner', stop);
+    return () => window.removeEventListener('hidaya-playback-owner', stop);
   }, [stopAllSpeech]);
 
   // Clean reset when changing verse index
@@ -353,33 +365,6 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     }
   }, [currentIndex, stopAllSpeech]);
 
-  const speakWithHighlight = useCallback(
-    (
-      text: string,
-      onProgress: (ratio: number) => void,
-      onComplete: () => void
-    ) => {
-      if (!text || (language === 'ar' && !/[\u0600-\u06FF]/.test(text))) {
-        onComplete();
-        return;
-      }
-      onProgress(0);
-      SpeechService.speak(text, language, {
-        rate: playbackRate * 0.92,
-        onProgress: (r) => onProgress(r),
-        onEnd: () => {
-          onProgress(1);
-          onComplete();
-        },
-        onError: () => {
-          onProgress(0);
-          onComplete();
-        },
-      });
-    },
-    [language, playbackRate]
-  );
-
   const activeLanguageRef = useRef(language);
   const playRequestIdRef = useRef(0);
 
@@ -397,7 +382,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     setRecitationRatio(0);
     setTranslationRatio(0);
     setTafsirRatio(0);
-  }, [language, stopAllSpeech]);
+  }, [language, currentVerse?.id, filterQuery, playbackMode, reciterId, stopAllSpeech]);
 
   // Plays stored neural audio first; skips unavailable segments without automatic browser-speech fallback
   const playStoredAudio = useCallback(
@@ -422,6 +407,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           ayahNumber: currentVerse.verseNumber,
           language: targetLang,
           type,
+          source: type === 'tafsir' ? currentTafsirCitation?.scholar : currentVerse.translations[language]?.translator,
           ayahId: currentVerse.id,
         });
 
@@ -438,6 +424,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           const sec = secondaryAudioRef.current;
           sec.src = meta.record.audioUrl;
           sec.playbackRate = playbackRate;
+          sec.muted = isMuted;
 
           const onTimeUpdate = () => {
             if (sec.duration > 0) {
@@ -453,15 +440,18 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
 
           const onEnded = () => {
             cleanup();
+            if (reqId !== playRequestIdRef.current) return;
             onProgress(1);
             onComplete();
           };
 
           const onError = () => {
             cleanup();
+            if (reqId !== playRequestIdRef.current) return;
             onComplete();
           };
 
+          secondaryCleanupRef.current = cleanup;
           sec.addEventListener('timeupdate', onTimeUpdate);
           sec.addEventListener('ended', onEnded);
           sec.addEventListener('error', onError);
@@ -469,49 +459,9 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           try {
             await sec.play();
             return;
-          } catch (secErr) {
-            console.warn(`[playStoredAudio] sec.play() failed on secondary audio for ${type}, attempting primary audioRef fallback:`, secErr);
+          } catch {
             cleanup();
-            if (audioRef.current) {
-              const pri = audioRef.current;
-              pri.src = meta.record.audioUrl;
-              pri.playbackRate = playbackRate;
-
-              const priTimeUpdate = () => {
-                if (pri.duration > 0) {
-                  onProgress(Math.min(1, pri.currentTime / pri.duration));
-                }
-              };
-              const priCleanup = () => {
-                pri.removeEventListener('timeupdate', priTimeUpdate);
-                pri.removeEventListener('ended', priEnded);
-                pri.removeEventListener('error', priError);
-              };
-              const priEnded = () => {
-                priCleanup();
-                onProgress(1);
-                onComplete();
-              };
-              const priError = () => {
-                priCleanup();
-                onComplete();
-              };
-
-              pri.addEventListener('timeupdate', priTimeUpdate);
-              pri.addEventListener('ended', priEnded);
-              pri.addEventListener('error', priError);
-
-              try {
-                await pri.play();
-                return;
-              } catch (priErr) {
-                console.warn(`[playStoredAudio] Fallback to primary audioRef also failed:`, priErr);
-                priCleanup();
-                onComplete();
-                return;
-              }
-            }
-            onComplete();
+            if (reqId === playRequestIdRef.current) onComplete();
             return;
           }
         }
@@ -519,21 +469,23 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
         console.warn(`Error resolving stored ${type} audio:`, err);
       }
 
-      // Seamless fallback to high-fidelity speech synthesis so user never misses translation or tafsir audio
-      speakWithHighlight(text, onProgress, onComplete);
+      if (reqId === playRequestIdRef.current) onComplete();
     },
-    [currentVerse, language, playbackRate, speakWithHighlight]
+    [currentVerse, language, playbackRate, isMuted, currentTafsirCitation]
   );
 
   const startRecitation = useCallback(() => {
     if (!audioRef.current) return;
+    stopAllSpeech();
+    const request = playRequestIdRef.current;
+    window.dispatchEvent(new CustomEvent('hidaya-playback-owner', { detail: audioRef.current }));
     setPlaybackPhase('recitation');
     audioRef.current.playbackRate = playbackRate;
     audioRef.current
       .play()
-      .then(() => setIsPlaying(true))
-      .catch(() => setIsPlaying(false));
-  }, [playbackRate]);
+      .then(() => { if (request === playRequestIdRef.current) setIsPlaying(true); })
+      .catch(() => { if (request === playRequestIdRef.current) { setIsPlaying(false); setPlaybackPhase('idle'); } });
+  }, [playbackRate, stopAllSpeech]);
 
   // Auto-play consecutive track in range
   useEffect(() => {
@@ -542,7 +494,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
       audioRef.current
         .play()
         .then(() => setPlaybackPhase('recitation'))
-        .catch(() => setIsPlaying(false));
+        .catch(() => { setIsPlaying(false); setPlaybackPhase('idle'); });
     }
   }, [currentTrackIndex, isPlaying, playbackRate]);
 
@@ -559,7 +511,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     setRecitationRatio(1);
 
     if (playbackMode === 'quran_only' || (!translationText && !tafsirText)) {
-      setTimeout(() => handleNext(), 1000);
+      handleNext();
       return;
     }
 
@@ -571,11 +523,11 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           translationText,
           (ratio) => setTranslationRatio(ratio),
           () => {
-            setTimeout(() => handleNext(), 900);
+            handleNext();
           }
         );
       } else {
-        setTimeout(() => handleNext(), 900);
+        handleNext();
       }
       return;
     }
@@ -595,11 +547,11 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                 tafsirText,
                 (ratio) => setTafsirRatio(ratio),
                 () => {
-                  setTimeout(() => handleNext(), 900);
+                  handleNext();
                 }
               );
             } else {
-              setTimeout(() => handleNext(), 900);
+              handleNext();
             }
           }
         );
@@ -610,11 +562,11 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           tafsirText,
           (ratio) => setTafsirRatio(ratio),
           () => {
-            setTimeout(() => handleNext(), 900);
+            handleNext();
           }
         );
       } else {
-        setTimeout(() => handleNext(), 900);
+        handleNext();
       }
     }
   }, [
@@ -644,7 +596,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     if (isPlaying) {
       startRecitation();
     }
-  }, [currentIndex, reciterId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const togglePlay = () => {
     if (isPlaying) {
@@ -674,10 +626,11 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     setPlaybackRate(nextSpeed);
     if (audioRef.current) {
       audioRef.current.playbackRate = nextSpeed;
+      if (secondaryAudioRef.current) secondaryAudioRef.current.playbackRate = nextSpeed;
     }
   };
 
-  if (!currentVerse) return null;
+  if (!currentVerse) return <div><input aria-label={t.searchPlaceholder} value={filterQuery} onChange={(event) => setFilterQuery(event.target.value)} /><p role="status">{({ en: 'No matching passages', sv: 'Inga matchande verser', fr: 'Aucun passage correspondant', ar: 'لا توجد آيات مطابقة' })[language]}</p></div>;
 
   const activeReciter =
     AVAILABLE_RECITERS.find((r) => r.id === reciterId) || AVAILABLE_RECITERS[0];
@@ -693,12 +646,14 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
         preload="metadata"
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleAudioEnded}
+        onError={() => { stopAllSpeech(); setIsPlaying(false); setPlaybackPhase('idle'); }}
       />
       <audio
         ref={secondaryAudioRef}
         preload="none"
       />
 
+      <p className="text-xs text-slate-500" role="note">{({ en: 'Highlighting is approximate, based on playback duration; word timestamps are unavailable.', sv: 'Markeringen är ungefärlig och baseras på ljudets längd; tidsstämplar för ord saknas.', fr: 'Le surlignage est approximatif, basé sur la durée audio ; les horodatages des mots ne sont pas disponibles.', ar: 'تمييز الكلمات تقريبي حسب مدة التسجيل؛ لا تتوفر توقيتات الكلمات.' })[language]}</p>
       {/* Main Audio Sanctuary Card */}
       <div className="p-5 sm:p-7 rounded-3xl bg-white dark:bg-[#0A1E17] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-emerald-900/30 pb-4">
@@ -741,6 +696,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
               setFilterQuery(e.target.value);
               setCurrentIndex(0);
             }}
+            aria-label={t.searchPlaceholder}
             placeholder={t.searchPlaceholder}
             className="w-full py-2.5 ps-10 pe-10 text-xs sm:text-sm rounded-2xl bg-[#FAF8F5] dark:bg-[#071711] border border-emerald-900/15 dark:border-emerald-800/40 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-700 dark:focus:border-emerald-500 transition-colors"
           />
@@ -998,6 +954,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
               const nextMute = !isMuted;
               setIsMuted(nextMute);
               if (audioRef.current) audioRef.current.muted = nextMute;
+              if (secondaryAudioRef.current) secondaryAudioRef.current.muted = nextMute;
             }}
             className="min-h-[42px] min-w-[42px] p-2 rounded-xl border border-slate-200 dark:border-emerald-800/40 flex items-center justify-center text-slate-700 dark:text-slate-300 cursor-pointer hover:border-emerald-600 transition-colors"
             aria-label={isMuted ? 'Unmute' : 'Mute'}

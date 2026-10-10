@@ -68,5 +68,14 @@
 - [x] Milestone 42: Streamlined Voice Input to Pure Browser Recognition & Typed Search Fallback — (1) Removed the Gemini speech-to-text API fallback route (`/api/speech-to-text`); (2) Retained pure browser-supported Web Speech recognition (`SpeechRecognition` / `webkitSpeechRecognition`) across Arabic (`ar-SA`), Swedish (`sv-SE`), French (`fr-FR`), and English (`en-US`); (3) Implemented seamless typed search offering in `GuidanceSearchBar` and `VoiceSearchButton` when voice input is unsupported or denied; (4) Fully preserved HTTP Range MP3 audio streaming for GitHub release recordings and verified all 9 integration tests pass.
 
 **Live Production URL:** https://hidaya.hidaya.workers.dev
-**Cloudflare Worker:** hidaya (Version cf257d4f-8a4b-46f3-af40-098a463336b7)
+**Cloudflare Worker:** hidaya (Version c531f23b-3413-40d1-9b44-d3ccc6ad0f97)
 **GEMINI_API_KEY:** Configured as Cloudflare secret ✓
+
+
+## 2026-10-10 — Targeted local audit and corrections
+
+See [AUDIT-2026-10-10.md](./AUDIT-2026-10-10.md) for confirmed findings, corrections, validation and limits. Removed fabricated audio mappings and silent speech fallback; added source matching, playback cancellation, range responses, bounded caches, strict provenance/language handling and fail-closed admin authentication. Local checks and Node 22 build pass. No deployment or production data changes. Existing lockfile and three stashes preserved.
+
+## 2026-10-10 — Authorized production release
+
+User authorized deployment and Git push after reviewing the audit. Re-ran typecheck, lint, offline regressions and production build under Node 22; all passed. Deployed the validated build as Cloudflare version `c531f23b-3413-40d1-9b44-d3ccc6ad0f97`. Live checks: homepage 200, service worker 200 with audio cache v3, unauthenticated admin GET 401, invalid-language metadata 400. No paid test requests, data migrations or production database writes. Existing untracked lockfile and prior stashes preserved.

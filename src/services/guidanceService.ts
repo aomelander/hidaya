@@ -107,7 +107,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
               sourceType: (shaarawiDb.source_type as any) || 'classical_book',
               sourceReference: shaarawiDb.source_reference,
               originalArabicRaw: shaarawiDb.original_arabic_raw || shaarawiDb.text,
-              verificationStatus: (shaarawiDb.verification_status as any) || 'verified_canonical',
+              verificationStatus: (shaarawiDb.verification_status as any) || 'ai_translated_pending_review',
             },
           ]
         : curated.tafsirCitations;
@@ -175,7 +175,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
 
   // Filter out any tafsir that equals the Quranic verse or duplicates any translation
   const trustedTafsirs = rawTafsirs.filter((t) => {
-    if (!t || !t.text) return false;
+    if (!t || !t.text || !['verified_canonical', 'transcription_verified'].includes(t.verification_status || '')) return false;
     const txt = t.text.trim();
     if (txt.length === 0) return false;
     if (txt === ayah.text_uthmani.trim() || txt === ayah.text_clean.trim()) return false;
@@ -200,7 +200,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
       sourceType: (found?.source_type as any) || 'classical_book',
       sourceReference: found?.source_reference,
       originalArabicRaw: found?.original_arabic_raw,
-      verificationStatus: (found?.verification_status as any) || 'verified_canonical',
+      verificationStatus: (found?.verification_status as any) || 'ai_translated_pending_review',
     };
   };
 
@@ -214,7 +214,7 @@ function hydrateMatchToFixture(match: BackendMatchPayload): QuranVerseFixture | 
           sourceType: (t.source_type as any) || 'classical_book',
           sourceReference: t.source_reference,
           originalArabicRaw: t.original_arabic_raw,
-          verificationStatus: (t.verification_status as any) || 'verified_canonical',
+          verificationStatus: (t.verification_status as any) || 'ai_translated_pending_review',
         }))
       : [
           findScholarTafsir('Ibn Kathir', "Tafsir al-Qur'an al-'Azim"),

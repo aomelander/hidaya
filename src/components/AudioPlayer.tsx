@@ -7,7 +7,7 @@
  * 2. Stored Neural Translation Audio (via server /api/ayah-audio/[id], matching selected language)
  * 3. Stored Classical Tafsir Audio (via server /api/ayah-audio/[id], matching selected language)
  * 4. "Add to Audio Read" continuous multi-phase contemplation (Recitation -> Translation -> Tafsir)
- * 5. Resilient fallback to high-fidelity speech synthesis so audio NEVER fails or blocks the user.
+ * 5. Missing recordings are skipped; no automatic speech synthesis.
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
@@ -32,7 +32,7 @@ import {
 import { ReciterId, Language } from '../types';
 import { AVAILABLE_RECITERS, getAudioUrlsForVerseRange } from '../services/audioReciters';
 import { StorageService } from '../services/storage';
-import { SpeechService } from '../services/speechSynthesisService';
+
 import { OfflineCacheService } from '../services/offlineCacheService';
 import {
   fetchAyahAudioMetadata,
@@ -52,6 +52,8 @@ interface AudioPlayerProps {
   translationText?: string;
   tafsirText?: string;
   language?: Language;
+  translationSource?: string;
+  tafsirSource?: string;
   onPlaybackProgress?: (
     progressRatio: number,
     isPlaying: boolean,
@@ -214,6 +216,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   translationText = '',
   tafsirText = '',
   language = 'en',
+  translationSource,
+  tafsirSource,
   onPlaybackProgress,
 }) => {
   const [streamMode, setStreamMode] = useState<AudioStreamMode>('recitation');
@@ -278,7 +282,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const currentRequestId = ++metadataRequestIdRef.current;
     const controller = new AbortController();
 
-    SpeechService.cancel();
+    playSeqRef.current += 1;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -288,6 +292,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setCurrentTrackIndex(0);
     setCurrentTime(0);
     setHasPlaybackError(false);
+    setStreamMode('recitation');
     setTranslationMetadata(null);
     setTafsirMetadata(null);
     onPlaybackProgress?.(0, false, 'idle');
@@ -302,6 +307,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 ayahNumber: resolvedVerse,
                 language,
                 type: 'translation',
+                source: translationSource,
                 ayahId,
                 signal: controller.signal,
               }),
@@ -312,6 +318,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 ayahNumber: resolvedVerse,
                 language,
                 type: 'tafsir',
+                source: tafsirSource,
                 ayahId,
                 signal: controller.signal,
               }),
@@ -332,8 +339,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
     return () => {
       controller.abort();
+      playSeqRef.current += 1;
     };
-  }, [resolvedSurah, resolvedVerse, language, ayahId, hasTranslationText, hasTafsirText]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [resolvedSurah, resolvedVerse, language, ayahId, hasTranslationText, hasTafsirText, translationSource, tafsirSource]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Determine active MP3 audio URL based on stream mode
   const effectiveActiveUrl = useMemo(() => {
@@ -357,30 +365,42 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const totalTracks = streamMode === 'recitation' ? Math.max(1, recitationUrls.length) : 1;
 
-  // Reset audio playback on verse, reciter, or streamMode change
   useEffect(() => {
+    playSeqRef.current += 1;
+    audioRef.current?.pause();
     setIsPlaying(false);
     setActivePhase('idle');
     setCurrentTrackIndex(0);
     setCurrentTime(0);
-    setHasPlaybackError(false);
-    SpeechService.cancel();
+    setDuration(0);
     onPlaybackProgress?.(0, false, 'idle');
+  }, [resolvedSurah, resolvedVerse, reciterId, streamMode, language, translationSource, tafsirSource]);
 
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      if (effectiveActiveUrl) {
-        audioRef.current.load();
-      }
-    }
+  useEffect(() => {
+    let cancelled = false;
+    OfflineCacheService.isAudioCached(effectiveActiveUrl).then((cached) => {
+      if (!cancelled) setIsAudioCached(cached);
+    });
+    return () => { cancelled = true; };
+  }, [effectiveActiveUrl]);
 
-    if (effectiveActiveUrl) {
-      OfflineCacheService.isAudioCached(effectiveActiveUrl).then(setIsAudioCached);
-    } else {
-      setIsAudioCached(false);
-    }
-  }, [surahVerseId, resolvedSurah, resolvedVerse, reciterId, streamMode, effectiveActiveUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const audio = audioRef.current;
+    const stop = (event: Event) => {
+      if ((event as CustomEvent).detail === audio) return;
+      playSeqRef.current += 1;
+      audio?.pause();
+      setIsPlaying(false);
+      setActivePhase('idle');
+      onPlaybackProgress?.(0, false, 'idle');
+    };
+    window.addEventListener('hidaya-playback-owner', stop);
+    return () => {
+      playSeqRef.current += 1;
+      audio?.pause();
+      window.removeEventListener('hidaya-playback-owner', stop);
+    };
+  }, []);
 
   useEffect(() => {
     const syncCacheStatus = () => {
@@ -411,187 +431,58 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     [totalTracks]
   );
 
-  /**
-   * Helper to play speech with highlighting and auto transition
-   */
-  const speakSection = useCallback(
-    (
-      text: string,
-      phase: 'translation' | 'tafsir',
-      onComplete: () => void
-    ) => {
-      setActivePhase(phase);
-      setIsPlaying(true);
-      SpeechService.speak(text, language, {
-        rate: playbackRate * 0.95,
-        onProgress: (ratio) => {
-          onPlaybackProgress?.(ratio, true, phase);
-        },
-        onEnd: () => {
-          onPlaybackProgress?.(1, true, phase);
-          onComplete();
-        },
-        onError: () => {
-          onComplete();
-        },
-      });
-    },
-    [language, playbackRate, onPlaybackProgress]
-  );
+  const stopPlayback = () => {
+    playSeqRef.current += 1;
+    audioRef.current?.pause();
+    setIsPlaying(false);
+    setActivePhase('idle');
+    onPlaybackProgress?.(0, false, 'idle');
+  };
 
-  /**
-   * Plays the Tafsir commentary phase
-   */
-  const playTafsirStep = useCallback(() => {
-    if (!hasTafsirText || !tafsirText.trim()) {
-      setIsPlaying(false);
-      setActivePhase('idle');
-      onPlaybackProgress?.(0, false, 'idle');
-      return;
-    }
-
-    setActivePhase('tafsir');
+  const playUrl = (url: string, phase: ActivePhase) => {
+    const audio = audioRef.current;
+    if (!audio || !url) { stopPlayback(); return; }
+    const request = ++playSeqRef.current;
+    window.dispatchEvent(new CustomEvent('hidaya-playback-owner', { detail: audio }));
+    audio.pause();
+    if (audio.src !== new URL(url, window.location.href).href) audio.src = url;
+    audio.playbackRate = playbackRate;
+    audio.muted = isMuted;
+    setActivePhase(phase);
     setIsPlaying(true);
-    onPlaybackProgress?.(0, true, 'tafsir');
-
-    // Check if neural MP3 is available
-    if (tafsirMetadata?.status === 'available' && tafsirMetadata.record?.audioUrl && audioRef.current) {
-      const audio = audioRef.current;
-      audio.src = tafsirMetadata.record.audioUrl;
-      audio.playbackRate = playbackRate;
-      audio
-        .play()
-        .catch(() => {
-          // Fallback to SpeechService
-          speakSection(tafsirText, 'tafsir', () => {
-            setIsPlaying(false);
-            setActivePhase('idle');
-            onPlaybackProgress?.(0, false, 'idle');
-          });
-        });
-      return;
-    }
-
-    // Direct speech synthesis read
-    speakSection(tafsirText, 'tafsir', () => {
-      setIsPlaying(false);
-      setActivePhase('idle');
-      onPlaybackProgress?.(0, false, 'idle');
+    setHasPlaybackError(false);
+    void audio.play().catch(() => {
+      if (request !== playSeqRef.current) return;
+      setHasPlaybackError(true);
+      stopPlayback();
     });
-  }, [hasTafsirText, tafsirText, tafsirMetadata, playbackRate, onPlaybackProgress, speakSection]);
+  };
 
-  /**
-   * Plays the Translation reading phase
-   */
-  const playTranslationStep = useCallback(() => {
-    if (!hasTranslationText || !translationText.trim()) {
-      if (includeTafsirInRead && hasTafsirText) {
-        playTafsirStep();
-      } else {
-        setIsPlaying(false);
-        setActivePhase('idle');
-        onPlaybackProgress?.(0, false, 'idle');
-      }
-      return;
-    }
+  const playTafsirStep = () => {
+    if (tafsirMetadata?.status === 'available' && tafsirMetadata.record) {
+      playUrl(tafsirMetadata.record.audioUrl, 'tafsir');
+    } else stopPlayback();
+  };
 
-    setActivePhase('translation');
-    setIsPlaying(true);
-    onPlaybackProgress?.(0, true, 'translation');
-
-    const onTranslationComplete = () => {
-      if (includeTafsirInRead && hasTafsirText) {
-        setTimeout(() => playTafsirStep(), 600);
-      } else {
-        setIsPlaying(false);
-        setActivePhase('idle');
-        onPlaybackProgress?.(0, false, 'idle');
-      }
-    };
-
-    // Check if stored neural MP3 audio is available
-    if (translationMetadata?.status === 'available' && translationMetadata.record?.audioUrl && audioRef.current) {
-      const audio = audioRef.current;
-      audio.src = translationMetadata.record.audioUrl;
-      audio.playbackRate = playbackRate;
-      audio
-        .play()
-        .catch(() => {
-          // Fallback to SpeechService
-          speakSection(translationText, 'translation', onTranslationComplete);
-        });
-      return;
-    }
-
-    // Direct speech synthesis read
-    speakSection(translationText, 'translation', onTranslationComplete);
-  }, [
-    hasTranslationText,
-    translationText,
-    includeTafsirInRead,
-    hasTafsirText,
-    translationMetadata,
-    playbackRate,
-    onPlaybackProgress,
-    speakSection,
-    playTafsirStep,
-  ]);
+  const playTranslationStep = () => {
+    if (translationMetadata?.status === 'available' && translationMetadata.record) {
+      playUrl(translationMetadata.record.audioUrl, 'translation');
+    } else if (includeTafsirInRead) playTafsirStep();
+    else stopPlayback();
+  };
 
   const togglePlay = () => {
-    SpeechService.cancel();
-    playSeqRef.current += 1;
-
-    // If currently playing, pause everything
     if (isPlaying) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      playSeqRef.current += 1;
+      audioRef.current?.pause();
       setIsPlaying(false);
-      setActivePhase('idle');
-      onPlaybackProgress?.(
-        computeCombinedRatio(currentTrackIndex, currentTime, duration),
-        false,
-        'idle'
-      );
+      onPlaybackProgress?.(duration > 0 ? currentTime / duration : 0, false, activePhase);
       return;
     }
-
-    // DIRECT STREAM MODES: Translation or Tafsir standalone
-    if (streamMode === 'translation') {
-      playTranslationStep();
-      return;
-    }
-    if (streamMode === 'tafsir') {
-      playTafsirStep();
-      return;
-    }
-
-    // RECITATION MODE: Start Arabic recitation with EveryAyah stream
-    if (!audioRef.current) return;
-
-    setHasPlaybackError(false);
-    const audio = audioRef.current;
-    audio.src = recitationUrls[currentTrackIndex] || recitationUrls[0];
-    audio.playbackRate = playbackRate;
-
-    setActivePhase('recitation');
-    audio
-      .play()
-      .then(() => {
-        setIsPlaying(true);
-        onPlaybackProgress?.(
-          computeCombinedRatio(currentTrackIndex, currentTime, duration),
-          true,
-          'recitation'
-        );
-      })
-      .catch((err) => {
-        console.warn('Audio recitation playback error:', err);
-        setHasPlaybackError(true);
-        setIsPlaying(false);
-        setActivePhase('idle');
-        onPlaybackProgress?.(0, false, 'idle');
-      });
+    if (activePhase !== 'idle' && audioRef.current?.src) { playUrl(audioRef.current.src, activePhase); return; }
+    if (streamMode === 'translation') { playTranslationStep(); return; }
+    if (streamMode === 'tafsir') { playTafsirStep(); return; }
+    playUrl(recitationUrls[currentTrackIndex] || recitationUrls[0], 'recitation');
   };
 
   const handleTimeUpdate = () => {
@@ -601,7 +492,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setCurrentTime(cur);
       if (dur > 0 && isPlaying) {
         onPlaybackProgress?.(
-          computeCombinedRatio(currentTrackIndex, cur, dur),
+          activePhase === 'recitation' ? computeCombinedRatio(currentTrackIndex, cur, dur) : cur / dur,
           true,
           activePhase === 'idle' ? (streamMode as ActivePhase) : activePhase
         );
@@ -621,6 +512,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     // 1. Advance consecutive track in recitation multi-ayah range (e.g. 5 -> 6)
     if (activePhase === 'recitation' && currentTrackIndex < totalTracks - 1) {
       setCurrentTrackIndex((prev) => prev + 1);
+      playUrl(recitationUrls[currentTrackIndex + 1], 'recitation');
       return;
     }
 
@@ -648,7 +540,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     onPlaybackProgress?.(1, false, 'idle');
     if (isLooping) {
       setCurrentTrackIndex(0);
-      togglePlay();
+      if (audioRef.current) audioRef.current.currentTime = 0;
+      playUrl(recitationUrls[0], 'recitation');
     } else {
       setIsPlaying(false);
       setActivePhase('idle');
@@ -688,13 +581,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const restart = () => {
-    SpeechService.cancel();
+    if (audioRef.current) audioRef.current.currentTime = 0;
     setCurrentTrackIndex(0);
     setCurrentTime(0);
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-    }
-    togglePlay();
+    if (streamMode === 'translation') playTranslationStep();
+    else if (streamMode === 'tafsir') playTafsirStep();
+    else playUrl(recitationUrls[0], 'recitation');
   };
 
   const handleReciterChange = (id: ReciterId) => {
@@ -726,27 +618,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
         onError={() => {
-          // If stored neural MP3 audio has a loading or network error, fallback seamlessly to speech synthesis
-          if (activePhase === 'translation' && translationText) {
-            speakSection(translationText, 'translation', () => {
-              if (includeTafsirInRead && hasTafsirText) {
-                playTafsirStep();
-              } else {
-                setIsPlaying(false);
-                setActivePhase('idle');
-              }
-            });
-          } else if (activePhase === 'tafsir' && tafsirText) {
-            speakSection(tafsirText, 'tafsir', () => {
-              setIsPlaying(false);
-              setActivePhase('idle');
-            });
-          } else {
-            setHasPlaybackError(true);
-          }
+          if (activePhase === 'idle') return;
+          setHasPlaybackError(true);
+          if (activePhase === 'translation' && includeTafsirInRead) playTafsirStep();
+          else stopPlayback();
         }}
       />
 
+      <p className="text-xs text-slate-500" role="note">{({ en: 'Highlighting is approximate, based on playback duration; word timestamps are unavailable.', sv: 'Markeringen är ungefärlig och baseras på ljudets längd; tidsstämplar för ord saknas.', fr: 'Le surlignage est approximatif, basé sur la durée audio ; les horodatages des mots ne sont pas disponibles.', ar: 'تمييز الكلمات تقريبي حسب مدة التسجيل؛ لا تتوفر توقيتات الكلمات.' })[language]}</p>
       {/* Row 1: Direct Stream Mode Switcher + Reciter / Offline / Loop Controls */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-900/10 dark:border-emerald-800/30 pb-2">
         <div
@@ -758,7 +637,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           <button
             type="button"
             onClick={() => {
-              SpeechService.cancel();
+              playSeqRef.current += 1;
               setStreamMode('recitation');
             }}
             aria-pressed={streamMode === 'recitation'}
@@ -773,11 +652,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </button>
 
           {/* 2. Translation Tab (ALWAYS VISIBLE whenever translation text is available) */}
-          {hasTranslationText && (
+          {hasTranslationText && translationMetadata?.status === 'available' && (
             <button
               type="button"
               onClick={() => {
-                SpeechService.cancel();
+                playSeqRef.current += 1;
                 setStreamMode('translation');
               }}
               aria-pressed={streamMode === 'translation'}
@@ -795,11 +674,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           )}
 
           {/* 3. Tafsir Tab (ALWAYS VISIBLE whenever tafsir text is available) */}
-          {hasTafsirText && (
+          {hasTafsirText && tafsirMetadata?.status === 'available' && (
             <button
               type="button"
               onClick={() => {
-                SpeechService.cancel();
+                playSeqRef.current += 1;
                 setStreamMode('tafsir');
               }}
               aria-pressed={streamMode === 'tafsir'}
@@ -902,7 +781,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       </div>
 
       {/* Row 2: "ADD TO AUDIO READ" Continuous Contemplation Options (Visible whenever Translation or Tafsir is available) */}
-      {(hasTranslationText || hasTafsirText) && (
+      {(translationMetadata?.status === 'available' || tafsirMetadata?.status === 'available') && (
         <div className="flex flex-wrap items-center justify-between gap-1.5 pt-0.5 pb-1">
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
             <span className="text-[11px] font-semibold text-emerald-950 dark:text-emerald-200 flex items-center gap-1">
@@ -911,7 +790,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             </span>
 
             {/* Toggle: Add Translation to Audio Read */}
-            {hasTranslationText && (
+            {hasTranslationText && translationMetadata?.status === 'available' && (
               <button
                 type="button"
                 onClick={() => setIncludeTranslationInRead(!includeTranslationInRead)}
@@ -937,7 +816,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             )}
 
             {/* Toggle: Add Tafsir to Audio Read */}
-            {hasTafsirText && (
+            {hasTafsirText && tafsirMetadata?.status === 'available' && (
               <button
                 type="button"
                 onClick={() => setIncludeTafsirInRead(!includeTafsirInRead)}

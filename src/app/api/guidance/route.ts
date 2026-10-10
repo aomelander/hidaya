@@ -34,7 +34,7 @@ async function hashString(str: string) {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
 /**
  * Queries the Supabase `tafsir` table for `language_code = 'ar'` (e.g. Tafsir Al-Muyassar or Ibn Kathir)
@@ -358,10 +358,11 @@ export async function POST(req: NextRequest) {
 
     // Stage 4: Bounded Gemini Synthesis
     try {
+      if (!ai) throw new Error('Synthesis not configured');
       const promptInstruction =
         language === 'ar'
           ? `حلل هذا الاستفسار للتدبر القرآني باللغة العربية الفصحى: "${query}". أجب فقط بصيغة JSON صالحة بهذا الهيكل الدقيق: {"reasoning": "string", "selectedAyahIds": [1, 2], "reflectionPrompt": "string"}`
-          : `Analyze this query for Quranic reflection: "${query}". Respond ONLY with valid JSON in this exact structure: {"reasoning": "string", "selectedAyahIds": [1, 2], "reflectionPrompt": "string"}`;
+          : `Respond entirely in ${language === 'sv' ? 'Swedish' : language === 'fr' ? 'French' : 'English'}. Analyze this query for Quranic reflection: "${query}". Respond ONLY with valid JSON in this exact structure: {"reasoning": "string", "selectedAyahIds": [1, 2], "reflectionPrompt": "string"}`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.8-flash',
@@ -375,8 +376,7 @@ export async function POST(req: NextRequest) {
       const responseText = response.text || '{}';
       const parsedData = JSON.parse(responseText);
 
-      // Cache the generated synthesis
-      await RetrievalService.setCachedReflection(queryHash, parsedData);
+      // Personal synthesis may repeat a private narrative; do not persist it.
 
       return NextResponse.json({
         status: 'matched',
@@ -385,7 +385,7 @@ export async function POST(req: NextRequest) {
         data: parsedData,
       });
     } catch (err) {
-      console.error('Gemini API Error:', err);
+      console.warn('Guidance synthesis unavailable; using retrieval fallback.');
       const fallbackMatches = await RetrievalService.findVectorMatches(query || '', language);
       const enrichedFallback = await enrichMatchesForLanguage(fallbackMatches, language);
       return NextResponse.json({

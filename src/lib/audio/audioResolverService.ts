@@ -1,7 +1,8 @@
+import { saveAudio } from './boundedAudioCache';
 /**
  * @file src/lib/audio/audioResolverService.ts
  * @description Client-safe audio resolver service for stored neural translation & tafsir audio.
- * Interacts with server-side /api/ayah-audio routes and Service Worker cache (`hidaya-audio-v2`).
+ * Interacts with server-side /api/ayah-audio routes and Service Worker cache (`hidaya-audio-v3`).
  * Preserves Quran recitation via src/services/audioReciters.ts.
  */
 
@@ -23,7 +24,7 @@ export interface StoredAudioMetadata {
   message?: string;
 }
 
-export const AUDIO_CACHE_NAME = 'hidaya-audio-v2';
+export const AUDIO_CACHE_NAME = 'hidaya-audio-v3';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -38,8 +39,11 @@ export async function fetchAyahAudioMetadata(params: {
   type: StoredAudioType;
   ayahId?: string;
   signal?: AbortSignal;
+  source?: string;
 }): Promise<StoredAudioMetadata> {
   const { surahNumber, ayahNumber, language, type, ayahId, signal } = params;
+
+  if (String(ayahNumber).includes('-') || !params.source) return { status: 'unavailable' };
 
   // Primary verse number for lookup
   const cleanAyah = String(ayahNumber).split('-')[0].trim();
@@ -49,6 +53,7 @@ export async function fetchAyahAudioMetadata(params: {
     verse: cleanAyah,
     lang: (language || 'en').toLowerCase(),
     type,
+    source: params.source,
   });
 
   if (ayahId && UUID_REGEX.test(ayahId.trim())) {
@@ -67,6 +72,7 @@ export async function fetchAyahAudioMetadata(params: {
     }
 
     const data = (await res.json()) as StoredAudioMetadata;
+    if (data.record && (data.record.languageCode !== language || data.record.audioType !== type)) return { status: 'unavailable' };
     return data;
   } catch (err) {
     console.warn('Network error resolving audio metadata:', err);
@@ -78,7 +84,7 @@ export async function fetchAyahAudioMetadata(params: {
 }
 
 /**
- * Verifies whether an audio URL is saved in the Service Worker hidaya-audio-v2 cache.
+ * Verifies whether an audio URL is saved in the Service Worker hidaya-audio-v3 cache.
  */
 export async function isAudioUrlCached(audioUrl: string): Promise<boolean> {
   if (typeof window === 'undefined' || !('caches' in window) || !audioUrl) {
@@ -95,7 +101,7 @@ export async function isAudioUrlCached(audioUrl: string): Promise<boolean> {
 }
 
 /**
- * Caches an audio stream URL directly into the Service Worker hidaya-audio-v2 cache.
+ * Caches an audio stream URL directly into the Service Worker hidaya-audio-v3 cache.
  */
 export async function cacheAudioUrlInServiceWorker(audioUrl: string): Promise<boolean> {
   if (typeof window === 'undefined' || !('caches' in window) || !audioUrl) {
@@ -103,16 +109,7 @@ export async function cacheAudioUrlInServiceWorker(audioUrl: string): Promise<bo
   }
 
   try {
-    const cache = await window.caches.open(AUDIO_CACHE_NAME);
-    let response: Response;
-    try {
-      response = await fetch(audioUrl, { mode: 'cors' });
-    } catch {
-      response = await fetch(audioUrl, { mode: 'no-cors' });
-    }
-
-    if (response && (response.ok || response.type === 'opaque')) {
-      await cache.put(audioUrl, response);
+    if (await saveAudio(audioUrl)) {
       window.dispatchEvent(
         new CustomEvent('hidaya-offline-cache-updated', {
           detail: { audioUrl, cached: true },
@@ -128,7 +125,7 @@ export async function cacheAudioUrlInServiceWorker(audioUrl: string): Promise<bo
 }
 
 /**
- * Removes an audio stream URL from the Service Worker hidaya-audio-v2 cache.
+ * Removes an audio stream URL from the Service Worker hidaya-audio-v3 cache.
  */
 export async function removeAudioUrlFromServiceWorker(audioUrl: string): Promise<boolean> {
   if (typeof window === 'undefined' || !('caches' in window) || !audioUrl) {

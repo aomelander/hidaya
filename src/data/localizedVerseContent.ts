@@ -636,6 +636,7 @@ export function getLocalizedVerseDetails(
 
   const tafsirCitations: TafsirCitation[] = verse.tafsirCitations
     .map((cit): TafsirCitation | null => {
+      if (cit.verificationStatus === 'ai_translated_pending_review' || cit.verificationStatus === 'ai_synthesized') return null;
       // 1. Check explicit per-language override in VERSE_OVERRIDES
       const customText = override?.tafsir?.[cit.scholar]?.[language];
       if (customText && customText.trim()) {
