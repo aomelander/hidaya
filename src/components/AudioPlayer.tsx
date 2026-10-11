@@ -64,8 +64,21 @@ interface AudioPlayerProps {
     phase?: ActivePhase
   ) => void;
   autoPlayOnAdvance?: boolean;
+  defaultLoop?: boolean;
+  defaultIncludeRecitation?: boolean;
+  defaultIncludeTranslation?: boolean;
+  defaultIncludeTafsir?: boolean;
+  surahTitle?: string;
+  onLoopChange?: (loop: boolean) => void;
+  onPhaseTogglesChange?: (phases: {
+    recitation: boolean;
+    translation: boolean;
+    tafsir: boolean;
+  }) => void;
   onPlayingStateChange?: (isPlaying: boolean) => void;
   onPlaybackComplete?: () => void;
+  onPreviousVerse?: () => void;
+  onNextVerse?: () => void;
   onAudioSourcesResolved?: (sources: {
     translation: AudioSourceTier | null;
     tafsir: AudioSourceTier | null;
@@ -233,8 +246,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   tafsirLanguage,
   onPlaybackProgress,
   autoPlayOnAdvance = false,
+  defaultLoop,
+  defaultIncludeRecitation,
+  defaultIncludeTranslation,
+  defaultIncludeTafsir,
+  surahTitle = 'Hidaya Quran',
+  onLoopChange,
+  onPhaseTogglesChange,
   onPlayingStateChange,
   onPlaybackComplete,
+  onPreviousVerse,
+  onNextVerse,
   onAudioSourcesResolved,
 }) => {
   const effectiveTafsirLang: Language = tafsirLanguage || language;
@@ -247,7 +269,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [isLooping, setIsLooping] = useState(false);
+  const [isLooping, setIsLooping] = useState<boolean>(() =>
+    defaultLoop !== undefined ? defaultLoop : StorageService.getCardPreferences().loopVerse
+  );
   const [showRecitersList, setShowRecitersList] = useState(false);
   const [hasPlaybackError, setHasPlaybackError] = useState(false);
   const [playbackNotice, setPlaybackNotice] = useState<'blocked' | null>(null);
@@ -262,14 +286,28 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const hasTranslationText = Boolean(language !== 'ar' && translationText && translationText.trim().length > 0);
   const hasTafsirText = Boolean(tafsirText && tafsirText.trim().length > 0);
 
-  const [includeRecitationInRead, setIncludeRecitationInRead] = useState<boolean>(true);
-  const [includeTranslationInRead, setIncludeTranslationInRead] = useState<boolean>(() => hasTranslationText);
-  const [includeTafsirInRead, setIncludeTafsirInRead] = useState<boolean>(false);
+  const [includeRecitationInRead, setIncludeRecitationInRead] = useState<boolean>(() =>
+    defaultIncludeRecitation !== undefined
+      ? defaultIncludeRecitation
+      : StorageService.getCardPreferences().includeRecitationByDefault
+  );
+  const [includeTranslationInRead, setIncludeTranslationInRead] = useState<boolean>(() =>
+    defaultIncludeTranslation !== undefined
+      ? defaultIncludeTranslation && hasTranslationText
+      : StorageService.getCardPreferences().includeTranslationByDefault && hasTranslationText
+  );
+  const [includeTafsirInRead, setIncludeTafsirInRead] = useState<boolean>(() =>
+    defaultIncludeTafsir !== undefined
+      ? defaultIncludeTafsir
+      : StorageService.getCardPreferences().includeTafsirByDefault
+  );
 
   const [isAudioCached, setIsAudioCached] = useState(false);
   const [isCachingAudio, setIsCachingAudio] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlCacheRef = useRef<Map<string, string>>(new Map());
+  const wakeLockRef = useRef<{ release?: () => Promise<void> } | null>(null);
   const metadataRequestIdRef = useRef(0);
   const playSeqRef = useRef(0);
   const storedTrackIndex = useRef(0);
@@ -548,14 +586,48 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     });
   }, [resolvedTranslationTier, resolvedTafsirTier, onAudioSourcesResolved]);
 
-  // Pre-warm/cache Translation and Tafsir audio (stored MP3 or neural TTS) so transitions have zero lag
+  // Sync external preference props when updated in Preferences
+  useEffect(() => {
+    if (defaultLoop !== undefined) setIsLooping(defaultLoop);
+  }, [defaultLoop]);
+
+  useEffect(() => {
+    if (defaultIncludeRecitation !== undefined) setIncludeRecitationInRead(defaultIncludeRecitation);
+  }, [defaultIncludeRecitation]);
+
+  useEffect(() => {
+    if (defaultIncludeTranslation !== undefined) {
+      setIncludeTranslationInRead(defaultIncludeTranslation && hasTranslationText);
+    }
+  }, [defaultIncludeTranslation, hasTranslationText]);
+
+  useEffect(() => {
+    if (defaultIncludeTafsir !== undefined) setIncludeTafsirInRead(defaultIncludeTafsir);
+  }, [defaultIncludeTafsir]);
+
+  // Pre-fetch audio URL into an in-memory Blob ObjectURL for instant 0ms playback & iOS background sleep survival
+  const prefetchUrlToBlob = useCallback((url: string) => {
+    if (!url || blobUrlCacheRef.current.has(url)) return;
+    fetch(url, { method: 'GET' })
+      .then((res) => (res.ok ? res.blob() : null))
+      .then((blob) => {
+        if (blob && blob.size > 0 && !blobUrlCacheRef.current.has(url)) {
+          const objUrl = URL.createObjectURL(blob);
+          blobUrlCacheRef.current.set(url, objUrl);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Pre-warm/cache Recitation, Translation, and Tafsir audio so transitions have zero lag
   const warmUpQueuedPhases = useCallback(() => {
+    recitationUrls.forEach((u) => prefetchUrlToBlob(u));
     if (includeTranslationInRead && hasTranslationText) {
-      const transUrls = translationMetadata?.audioUrls || (translationMetadata?.record?.audioUrl ? [translationMetadata.record.audioUrl] : []);
+      const transUrls =
+        translationMetadata?.audioUrls ||
+        (translationMetadata?.record?.audioUrl ? [translationMetadata.record.audioUrl] : []);
       if (transUrls.length > 0) {
-        transUrls.forEach((u) => {
-          fetch(u, { method: 'GET' }).catch(() => {});
-        });
+        transUrls.forEach((u) => prefetchUrlToBlob(u));
       } else {
         void SpeechService.prefetchAudio(translationText, language).then((tier) => {
           setTranslationFallbackTier(tier === 'server' ? 'Server' : 'Browser');
@@ -563,11 +635,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
     }
     if (includeTafsirInRead && hasTafsirText) {
-      const tafUrls = tafsirMetadata?.audioUrls || (tafsirMetadata?.record?.audioUrl ? [tafsirMetadata.record.audioUrl] : []);
+      const tafUrls =
+        tafsirMetadata?.audioUrls ||
+        (tafsirMetadata?.record?.audioUrl ? [tafsirMetadata.record.audioUrl] : []);
       if (tafUrls.length > 0) {
-        tafUrls.forEach((u) => {
-          fetch(u, { method: 'GET' }).catch(() => {});
-        });
+        tafUrls.forEach((u) => prefetchUrlToBlob(u));
       } else {
         void SpeechService.prefetchAudio(tafsirText, effectiveTafsirLang).then((tier) => {
           setTafsirFallbackTier(tier === 'server' ? 'Server' : 'Browser');
@@ -575,6 +647,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
     }
   }, [
+    recitationUrls,
+    prefetchUrlToBlob,
     includeTranslationInRead,
     hasTranslationText,
     translationMetadata,
@@ -587,12 +661,85 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     effectiveTafsirLang,
   ]);
 
-  // Also warm up whenever the user activates Translation or Tafsir while already playing or after metadata loads
+  // Proactively pre-warm as soon as metadata resolves (even before Play is tapped) and when playing
   useEffect(() => {
-    if (isPlaying && activePhase === 'recitation') {
-      warmUpQueuedPhases();
+    warmUpQueuedPhases();
+  }, [translationMetadata, tafsirMetadata, includeTranslationInRead, includeTafsirInRead, warmUpQueuedPhases]);
+
+  // iOS Lock-Screen MediaSession + Screen WakeLock for uninterrupted continuous playback when iPhone sleeps
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return;
+
+    if ('mediaSession' in navigator && isPlaying) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: `${surahTitle} (${resolvedSurah}:${resolvedVerse})`,
+          artist:
+            activePhase === 'translation'
+              ? translationSource || p.translationTab
+              : activePhase === 'tafsir'
+              ? tafsirSource || p.tafsirTab
+              : AVAILABLE_RECITERS.find((r) => r.id === reciterId)?.name || 'Hidaya Quran',
+          album: 'Hidaya · هِدَايَة',
+        });
+        navigator.mediaSession.playbackState = 'playing';
+        navigator.mediaSession.setActionHandler('play', () => {
+          if (!isPlaying) togglePlay();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          if (isPlaying) togglePlay();
+        });
+        navigator.mediaSession.setActionHandler(
+          'previoustrack',
+          onPreviousVerse ? () => onPreviousVerse() : null
+        );
+        navigator.mediaSession.setActionHandler(
+          'nexttrack',
+          onNextVerse
+            ? () => onNextVerse()
+            : onPlaybackComplete
+            ? () => onPlaybackComplete()
+            : null
+        );
+      } catch {
+        // Ignore unsupported mediaSession handlers
+      }
+    } else if ('mediaSession' in navigator && !isPlaying) {
+      try {
+        navigator.mediaSession.playbackState = 'paused';
+      } catch {}
     }
-  }, [isPlaying, activePhase, includeTranslationInRead, includeTafsirInRead, translationMetadata, tafsirMetadata, warmUpQueuedPhases]);
+
+    // Request Screen Wake Lock while playing so screen stays awake on TV/Mobile when open
+    const manageWakeLock = async () => {
+      try {
+        const nav = navigator as Navigator & {
+          wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> };
+        };
+        if (isPlaying && nav.wakeLock && !wakeLockRef.current) {
+          wakeLockRef.current = await nav.wakeLock.request('screen');
+        } else if (!isPlaying && wakeLockRef.current) {
+          await wakeLockRef.current.release?.();
+          wakeLockRef.current = null;
+        }
+      } catch {
+        // WakeLock may be disallowed in background tabs
+      }
+    };
+    void manageWakeLock();
+  }, [
+    isPlaying,
+    activePhase,
+    surahTitle,
+    resolvedSurah,
+    resolvedVerse,
+    reciterId,
+    translationSource,
+    tafsirSource,
+    onPreviousVerse,
+    onNextVerse,
+    onPlaybackComplete,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const playUrl = (url: string, phase: ActivePhase) => {
     const audio = audioRef.current;
@@ -601,7 +748,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     SpeechService.cancel();
     window.dispatchEvent(new CustomEvent('hidaya-playback-owner', { detail: audio }));
     audio.pause();
-    if (audio.src !== new URL(url, window.location.href).href) audio.src = url;
+    const resolvedBlobOrUrl = blobUrlCacheRef.current.get(url) || url;
+    const targetHref = resolvedBlobOrUrl.startsWith('blob:')
+      ? resolvedBlobOrUrl
+      : new URL(resolvedBlobOrUrl, window.location.href).href;
+    if (audio.src !== targetHref) audio.src = targetHref;
     audio.playbackRate = playbackRate;
     audio.muted = isMuted;
     setActivePhase(phase);
@@ -912,11 +1063,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             type="button"
             onClick={() => {
               const nextVal = !includeRecitationInRead;
-              if (!nextVal && !includeTranslationInRead && !includeTafsirInRead) {
-                setIncludeRecitationInRead(true);
-              } else {
-                setIncludeRecitationInRead(nextVal);
-              }
+              const finalVal = !nextVal && !includeTranslationInRead && !includeTafsirInRead ? true : nextVal;
+              setIncludeRecitationInRead(finalVal);
+              StorageService.setCardPreferences({ includeRecitationByDefault: finalVal });
+              onPhaseTogglesChange?.({
+                recitation: finalVal,
+                translation: includeTranslationInRead,
+                tafsir: includeTafsirInRead,
+              });
               setStreamMode('recitation');
             }}
             aria-pressed={includeRecitationInRead}
@@ -942,6 +1096,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               onClick={() => {
                 const nextVal = !includeTranslationInRead;
                 setIncludeTranslationInRead(nextVal);
+                StorageService.setCardPreferences({ includeTranslationByDefault: nextVal });
+                onPhaseTogglesChange?.({
+                  recitation: includeRecitationInRead,
+                  translation: nextVal,
+                  tafsir: includeTafsirInRead,
+                });
                 if (nextVal && !includeRecitationInRead) {
                   setStreamMode('translation');
                 }
@@ -972,6 +1132,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               onClick={() => {
                 const nextVal = !includeTafsirInRead;
                 setIncludeTafsirInRead(nextVal);
+                StorageService.setCardPreferences({ includeTafsirByDefault: nextVal });
+                onPhaseTogglesChange?.({
+                  recitation: includeRecitationInRead,
+                  translation: includeTranslationInRead,
+                  tafsir: nextVal,
+                });
                 if (nextVal && !includeRecitationInRead && !includeTranslationInRead) {
                   setStreamMode('tafsir');
                 }
@@ -1063,7 +1229,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           {/* Loop toggle */}
           <button
             type="button"
-            onClick={() => setIsLooping(!isLooping)}
+            onClick={() => {
+              const nextLoop = !isLooping;
+              setIsLooping(nextLoop);
+              StorageService.setCardPreferences({ loopVerse: nextLoop });
+              onLoopChange?.(nextLoop);
+            }}
             className={`p-1.5 rounded-lg border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
               isLooping
                 ? 'bg-emerald-800/20 border-emerald-800/40 text-emerald-900 dark:text-emerald-200 font-bold'

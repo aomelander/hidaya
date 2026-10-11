@@ -12,6 +12,8 @@ import {
   ReaderProfile,
   PreferredScholar,
   EntryMode,
+  SocialComment,
+  VerseCardPreferences,
 } from '../types';
 import { APP_CONFIG } from '../config/appConfig';
 
@@ -500,4 +502,134 @@ export const StorageService = {
       localStorage.setItem(STORAGE_KEYS.SHOW_READ_PAGE, String(show));
     } catch {}
   },
+
+  /**
+   * Retrieves the universal VerseCard display & playback preferences.
+   */
+  getCardPreferences(): VerseCardPreferences {
+    const defaults: VerseCardPreferences = {
+      ...DEFAULTS.CARD_PREFS,
+      showTransliteration: this.getShowTransliteration(),
+    };
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.CARD_PREFS);
+      if (!raw) return defaults;
+      const parsed = JSON.parse(raw) as Partial<VerseCardPreferences>;
+      return {
+        ...defaults,
+        ...parsed,
+      };
+    } catch {
+      return defaults;
+    }
+  },
+
+  /**
+   * Saves partial or complete updates to the universal VerseCard preferences.
+   */
+  setCardPreferences(updates: Partial<VerseCardPreferences>): VerseCardPreferences {
+    const next = {
+      ...this.getCardPreferences(),
+      ...updates,
+    };
+    try {
+      localStorage.setItem(STORAGE_KEYS.CARD_PREFS, JSON.stringify(next));
+      if (updates.showTransliteration !== undefined) {
+        this.setShowTransliteration(updates.showTransliteration);
+      }
+    } catch {}
+    return next;
+  },
+
+  /**
+   * Retrieves all social comments grouped by verseId.
+   */
+  getAllSocialComments(): Record<string, SocialComment[]> {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.SOCIAL_COMMENTS);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  },
+
+  /**
+   * Retrieves social comments for a specific verseId, migrating any legacy reflection note if present.
+   */
+  getSocialComments(verseId: string): SocialComment[] {
+    const all = this.getAllSocialComments();
+    const list = all[verseId] || [];
+    if (list.length === 0) {
+      const legacy = this.getReflection(verseId);
+      const legacyText = [legacy?.reflectNotes, legacy?.applyNotes, legacy?.liveNotes]
+        .filter(Boolean)
+        .join('\n\n')
+        .trim();
+      if (legacyText) {
+        return [
+          {
+            id: `legacy-${verseId}`,
+            verseId,
+            text: legacyText,
+            mood: legacy?.mood,
+            createdAt: legacy?.date || new Date().toISOString(),
+          },
+        ];
+      }
+    }
+    return list;
+  },
+
+  /**
+   * Adds a new timestamped social comment to a verse card.
+   */
+  addSocialComment(
+    verseId: string,
+    text: string,
+    mood?: SocialComment['mood']
+  ): SocialComment[] {
+    const trimmed = text.trim();
+    if (!trimmed) return this.getSocialComments(verseId);
+    const all = this.getAllSocialComments();
+    const existing = this.getSocialComments(verseId);
+    const comment: SocialComment = {
+      id: `${verseId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      verseId,
+      text: trimmed,
+      mood,
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [comment, ...existing];
+    all[verseId] = updated;
+    try {
+      localStorage.setItem(STORAGE_KEYS.SOCIAL_COMMENTS, JSON.stringify(all));
+      this.saveReflection(verseId, {
+        reflectNotes: updated.map((c) => c.text).join('\n\n'),
+        mood: mood || existing[0]?.mood,
+      });
+    } catch {}
+    return updated;
+  },
+
+  /**
+   * Deletes a social comment from a verse card.
+   */
+  deleteSocialComment(verseId: string, commentId: string): SocialComment[] {
+    const all = this.getAllSocialComments();
+    const existing = this.getSocialComments(verseId);
+    const updated = existing.filter((c) => c.id !== commentId);
+    all[verseId] = updated;
+    try {
+      localStorage.setItem(STORAGE_KEYS.SOCIAL_COMMENTS, JSON.stringify(all));
+      if (updated.length === 0) {
+        this.deleteReflection(verseId);
+      } else {
+        this.saveReflection(verseId, {
+          reflectNotes: updated.map((c) => c.text).join('\n\n'),
+        });
+      }
+    } catch {}
+    return updated;
+  },
 };
+

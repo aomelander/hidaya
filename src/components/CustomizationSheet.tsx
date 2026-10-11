@@ -2,20 +2,19 @@
 
 /**
  * @file src/components/CustomizationSheet.tsx
- * @description Preferences & Contemplation Depth view supporting dedicated inline tab rendering
- * (`inlinePage` mode with zero popups) and including an inline Offline Storage & PWA Install
- * section to manage cached Quranic passages, translations, and per-verse audio recitations.
+ * @description Intuitively structured 5-section Preferences & Personalization Hub:
+ * 1. Language, Theme & LG TV / Fullscreen Sanctuary Mode
+ * 2. Video-Style Auto-Play on Swipe & Continuous Audio Settings (Recitation, Translation, Tafsir, Next Verse vs Loop)
+ * 3. Universal Verse Card Customization (Choose exactly which layers appear on the card + font scales)
+ * 4. Reader Profile & Explanation Depth (Standard, Teen 13-17, Kids & Family 8+)
+ * 5. Offline Cache & PWA App Installation
  */
 
 import React, { useEffect, useState } from 'react';
 import {
-  X,
   SlidersHorizontal,
-  Clock,
   BookOpen,
-  Layers,
   Type,
-  Eye,
   Check,
   RotateCcw,
   Globe,
@@ -23,12 +22,18 @@ import {
   Sun,
   Download,
   Trash2,
-  WifiOff,
   Smartphone,
   Users,
-  ChevronDown,
   Sparkles,
-  ShieldCheck,
+  Tv,
+  Maximize2,
+  Minimize2,
+  Headphones,
+  Repeat,
+  Play,
+  Layers,
+  MessageCircle,
+  Film,
 } from 'lucide-react';
 import {
   Language,
@@ -39,15 +44,14 @@ import {
   ReaderProfile,
   EntryMode,
   PreferredScholar,
+  VerseCardPreferences,
+  ReciterId,
 } from '../types';
-import { SessionDepthSelector } from './SessionDepthSelector';
-import { ExplanationDepthSelector } from './ExplanationDepthSelector';
-import { SphereFilter } from './SphereFilter';
 import { OfflineCacheService } from '../services/offlineCacheService';
 import { StorageService } from '../services/storage';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
-import { useOfflineStatus } from '../hooks/useOfflineStatus';
-import { ScholarIngestionModal } from './ScholarIngestionModal';
+import { AVAILABLE_RECITERS } from '../services/audioReciters';
+import { APP_CONFIG } from '../config/appConfig';
 
 export interface CustomizationSheetProps {
   isOpen: boolean;
@@ -55,27 +59,20 @@ export interface CustomizationSheetProps {
   inlinePage?: boolean;
   language: Language;
   onLanguageChange?: (lang: Language) => void;
-  // Theme state
   isDark?: boolean;
   onToggleDark?: () => void;
-  // Reader Profile (Adult, Teen, Kids & Family)
   readerProfile?: ReaderProfile;
   onReaderProfileChange?: (profile: ReaderProfile) => void;
-  // Entry Mode (In This Moment, Big Questions, Character & Growth)
   activeMode?: EntryMode;
   onEntryModeChange?: (mode: EntryMode) => void;
-  // Preferred Classical Tafsir Scholar (Ibn Kathir, Al-Sa'di, Al-Muyassar)
   preferredScholar?: PreferredScholar;
   onPreferredScholarChange?: (scholar: PreferredScholar) => void;
-  // Session & Depth State
   sessionDepth: SessionDepth;
   onSessionDepthChange: (depth: SessionDepth) => void;
   explanationDepth: ExplanationDepth;
   onExplanationDepthChange: (depth: ExplanationDepth) => void;
-  // Sphere filter
   activeSphere: LifeSphere;
   onSphereChange: (sphere: LifeSphere) => void;
-  // Accessibility & Reading Preferences
   arabicScale: number;
   onArabicScaleChange: (scale: number) => void;
   readingScale?: number;
@@ -84,283 +81,69 @@ export interface CustomizationSheetProps {
   onToggleTransliteration: () => void;
   isHighContrast: boolean;
   onToggleHighContrast: () => void;
-  // Perspective Mode
   perspectiveMode: PerspectiveMode;
   onTogglePerspective: () => void;
-  // Optional Workspace Pages (Read & North Star)
   showReadPage?: boolean;
   onToggleShowReadPage?: () => void;
   showNorthStarPage?: boolean;
   onToggleShowNorthStarPage?: () => void;
+  cardPreferences?: VerseCardPreferences;
+  onCardPreferencesChange?: (updates: Partial<VerseCardPreferences>) => void;
+  onToggleFullscreenTv?: () => void;
+  isFullscreenActive?: boolean;
 }
 
 const LANGUAGE_OPTIONS: { code: Language; label: string; native: string }[] = [
+  { code: 'fr', label: 'French', native: 'Français' },
   { code: 'en', label: 'English', native: 'English' },
   { code: 'sv', label: 'Swedish', native: 'Svenska' },
-  { code: 'fr', label: 'French', native: 'Français' },
   { code: 'ar', label: 'Arabic', native: 'العربية' },
 ];
 
-const UI_TEXT: Record<
-  Language,
+const SCHOLARS: { id: PreferredScholar; label: string; sub: Record<Language, string> }[] = [
   {
-    title: string;
-    subtitle: string;
-    languageTab: string;
-    themeLabel: string;
-    darkMode: string;
-    lightMode: string;
-    sessionTab: string;
-    explanationTab: string;
-    spheresTab: string;
-    readingTab: string;
-    offlineTab: string;
-    offlineReadyDesc: string;
-    cacheBookmarksAudioBtn: string;
-    clearAudioCacheBtn: string;
-    installAppBtn: string;
-    iosInstallHint: string;
-    done: string;
-    reset: string;
-    arabicSize: string;
-    readingSize: string;
-    translit: string;
-    highContrast: string;
-    perspective: string;
-    devotional: string;
-    inquirer: string;
-  }
-> = {
-  en: {
-    title: 'Preferences & Reading Comfort',
-    subtitle: 'Customize language, theme, font sizing, and offline storage.',
-    languageTab: 'Language & Appearance',
-    themeLabel: 'Color Theme',
-    darkMode: 'Dark Sanctuary',
-    lightMode: 'Warm Parchment',
-    sessionTab: 'Session Length',
-    explanationTab: 'Explanation Depth',
-    spheresTab: 'Life Spheres',
-    readingTab: 'Reading & Typography',
-    offlineTab: 'Offline Access & App Installation',
-    offlineReadyDesc: 'All verified Quranic passages, translations (EN/SV/FR/AR), and Tafsir are cached for offline reading.',
-    cacheBookmarksAudioBtn: 'Cache Bookmark Audio',
-    clearAudioCacheBtn: 'Clear Audio Cache',
-    installAppBtn: 'Install Hidaya App',
-    iosInstallHint: 'On iPhone/iPad: tap Share in Safari and choose "Add to Home Screen".',
-    done: 'Return to Guidance',
-    reset: 'Reset Defaults',
-    arabicSize: 'Arabic Text Scale',
-    readingSize: 'Translation & Notes Text Scale',
-    translit: 'Phonetic Transliteration',
-    highContrast: 'High Contrast Mode',
-    perspective: 'Perspective View',
-    devotional: 'Devotional (Spiritual Reflection)',
-    inquirer: 'Inquirer (Historical Context)',
+    id: 'Ibn Kathir',
+    label: 'Ibn Kathir',
+    sub: {
+      fr: 'Exégèse classique traditionnelle (XIVe s.)',
+      en: 'Classical narrative & Hadith exegesis (14th c.)',
+      sv: 'Klassisk traditionell tafsir (1300-talet)',
+      ar: 'تفسير القرآن العظيم — ابن كثير',
+    },
   },
-  sv: {
-    title: 'Inställningar & Läskomfort',
-    subtitle: 'Anpassa språk, tema, textstorlekar och offlinelagring.',
-    languageTab: 'Språk & Utseende',
-    themeLabel: 'Färgtema',
-    darkMode: 'Mörkt läge',
-    lightMode: 'Ljust läge',
-    sessionTab: 'Sessionens längd',
-    explanationTab: 'Förklaringsdjup',
-    spheresTab: 'Livsområden',
-    readingTab: 'Text & Tillgänglighet',
-    offlineTab: 'Offlineåtkomst & Appinstallation',
-    offlineReadyDesc: 'Alla verifierade Quran-passager, översättningar och Tafsir är sparade för läsning utan internet.',
-    cacheBookmarksAudioBtn: 'Spara bokmärkt ljud',
-    clearAudioCacheBtn: 'Rensa ljudcache',
-    installAppBtn: 'Installera Hidaya-appen',
-    iosInstallHint: 'På iPhone/iPad: tryck på Dela i Safari och välj "Lägg till på hemskärmen".',
-    done: 'Tillbaka till vägledning',
-    reset: 'Återställ',
-    arabicSize: 'Arabisk textstorlek',
-    readingSize: 'Textstorlek för översättning & anteckningar',
-    translit: 'Fonetisk translitterering',
-    highContrast: 'Hög kontrast',
-    perspective: 'Perspektiv',
-    devotional: 'Troende (Andlig reflektion)',
-    inquirer: 'Nyfiken (Historiskt sammanhang)',
-  },
-  fr: {
-    title: 'Préférences & Confort Visuel',
-    subtitle: 'Ajustez la langue, le thème, la taille des polices et le mode hors-ligne.',
-    languageTab: 'Langue & Apparence',
-    themeLabel: 'Thème visuel',
-    darkMode: 'Mode Sombre',
-    lightMode: 'Mode Clair',
-    sessionTab: 'Durée de la session',
-    explanationTab: "Niveau d'explication",
-    spheresTab: 'Sphères de vie',
-    readingTab: 'Typographie & Accessibilité',
-    offlineTab: 'Accès Hors-Ligne & Installation',
-    offlineReadyDesc: 'Tous les passages coraniques vérifiés, traductions et Tafsir sont mis en cache pour une lecture sans connexion.',
-    cacheBookmarksAudioBtn: 'Mettre en cache les audios favoris',
-    clearAudioCacheBtn: 'Vider le cache audio',
-    installAppBtn: "Installer l'application Hidaya",
-    iosInstallHint: 'Sur iPhone/iPad : touchez Partager dans Safari puis "Sur l’écran d’accueil".',
-    done: 'Retour à la guidance',
-    reset: 'Réinitialiser',
-    arabicSize: 'Taille du texte arabe',
-    readingSize: 'Taille du texte des traductions & notes',
-    translit: 'Translittération phonétique',
-    highContrast: 'Contraste élevé',
-    perspective: 'Perspective',
-    devotional: 'Dévotionnel (Méditation)',
-    inquirer: 'Curieux (Contexte historique)',
-  },
-  ar: {
-    title: 'الإعدادات وراحة القراءة',
-    subtitle: 'خصص اللغة، والمظهر، وأحجام الخطوط، والتخزين دون اتصال.',
-    languageTab: 'اللغة والمظهر',
-    themeLabel: 'نمط الإضاءة',
-    darkMode: 'الوضع الليلي',
-    lightMode: 'الوضع النهاري',
-    sessionTab: 'مدة الجلسة',
-    explanationTab: 'عمق التفسير',
-    spheresTab: 'مجالات الحياة',
-    readingTab: 'الخط والإتاحة',
-    offlineTab: 'القراءة بدون إنترنت وتثبيت التطبيق',
-    offlineReadyDesc: 'جميع المقاطع القرآنية الموثقة والتراجم والتفاسير محفوظة للقراءة بدون اتصال بالإنترنت.',
-    cacheBookmarksAudioBtn: 'حفظ تلاوات المفضلة',
-    clearAudioCacheBtn: 'مسح ذاكرة الصوت',
-    installAppBtn: 'تثبيت تطبيق هداية',
-    iosInstallHint: 'على iPhone/iPad: اضغط على مشاركة في Safari ثم اختر "إضافة إلى الشاشة الرئيسية".',
-    done: 'العودة إلى التوجيه',
-    reset: 'إعادة ضبط',
-    arabicSize: 'حجم الرسم العثماني',
-    readingSize: 'حجم خط الترجمة والخواطر',
-    translit: 'اللفظ اللاتيني',
-    highContrast: 'تباين عالٍ',
-    perspective: 'طبيعة العرض',
-    devotional: 'تدبري إيماني',
-    inquirer: 'سياقي تاريخي معرفي',
-  },
-};
-
-const PROFILE_LABELS: Record<
-  Language,
   {
-    sectionTitle: string;
-    adult: string;
-    adultSub: string;
-    teen: string;
-    teenSub: string;
-    kids: string;
-    kidsSub: string;
-  }
-> = {
-  en: {
-    sectionTitle: 'Reader Experience (Family Profiles)',
-    adult: 'Standard',
-    adultSub: 'Full Tafsir & reflection',
-    teen: 'Teen (13–17)',
-    teenSub: 'Key takeaway & glossary',
-    kids: 'Kids & Family (8+)',
-    kidsSub: 'Simple story & family question',
+    id: "Al-Sa'di",
+    label: "Al-Sa'di",
+    sub: {
+      fr: 'Clarté spirituelle et morale pratique',
+      en: 'Accessible spiritual & ethical takeaways',
+      sv: 'Tydlig andlig och praktisk vägledning',
+      ar: 'تيسير الكريم الرحمن — السعدي',
+    },
   },
-  sv: {
-    sectionTitle: 'Läsupplevelse (Familjeprofiler)',
-    adult: 'Standard',
-    adultSub: 'Full Tafsir & reflektion',
-    teen: 'Ungdom (13–17)',
-    teenSub: 'Kärnbudskap & ordlista',
-    kids: 'Barn & Familj (8+)',
-    kidsSub: 'Enkel berättelse & familjefråga',
-  },
-  fr: {
-    sectionTitle: 'Profil de Lecture (Famille)',
-    adult: 'Standard',
-    adultSub: 'Tafsir complet & méditation',
-    teen: 'Ados (13–17)',
-    teenSub: 'Essentiel & repères clés',
-    kids: 'Enfants & Famille (8+)',
-    kidsSub: 'Histoire simple & question en famille',
-  },
-  ar: {
-    sectionTitle: 'نمط القارئ (أفراد الأسرة)',
-    adult: 'الوضع الكامل',
-    adultSub: 'التفسير والتدبر المعمق',
-    teen: 'الشباب (١٣–١٧)',
-    teenSub: 'خلاصة ملهمة ودليل مفاهيم',
-    kids: 'الناشئة والأسرة (٨+)',
-    kidsSub: 'قصة مبسطة وسؤال عائلي',
-  },
-};
-
-const SCHOLAR_LABELS: Record<
-  Language,
   {
-    sectionTitle: string;
-    scholars: { id: PreferredScholar; label: string; sub: string }[];
-    entryModeTitle: string;
-  }
-> = {
-  en: {
-    sectionTitle: 'Preferred Classical Tafsir Scholar',
-    entryModeTitle: 'Contemplation Focus (Entry Mode)',
-    scholars: [
-      { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Classical Hadith & Tradition' },
-      { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Heart & Spiritual Wisdom' },
-      { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Concise & Direct Clarity' },
-      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Tafsir Al-Shaarawi (Quranpedia Book 18)' },
-    ],
+    id: 'Al-Muyassar',
+    label: 'Al-Muyassar',
+    sub: {
+      fr: 'Sens direct et concis des versets',
+      en: 'Concise, direct meaning of the verses',
+      sv: 'Kortfattad och direkt versbetydelse',
+      ar: 'التفسير الميسر — مجمع الملك فهد',
+    },
   },
-  sv: {
-    sectionTitle: 'Föredragen Klassisk & Expert Tafsir-lärd',
-    entryModeTitle: 'Reflektionsfokus (Ingångsläge)',
-    scholars: [
-      { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Klassisk tradition & kontext' },
-      { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Andlig visdom & hjärtats väg' },
-      { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Kortfattad & tydlig innebörd' },
-      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Tafsir Al-Shaarawi (Quranpedia Bok 18)' },
-    ],
-  },
-  fr: {
-    sectionTitle: 'Exégète Classique & Expert (Tafsir) Préféré',
-    entryModeTitle: 'Orientation de Méditation',
-    scholars: [
-      { id: 'Ibn Kathir', label: 'Ibn Kathir', sub: 'Tradition classique & contexte' },
-      { id: "Al-Sa'di", label: "Al-Sa'di", sub: 'Sagesse spirituelle du cœur' },
-      { id: 'Al-Muyassar', label: 'Al-Muyassar', sub: 'Clarté concise & directe' },
-      { id: "Al-Sha'rawi", label: "Al-Sha'rawi", sub: 'Tafsir Al-Shaarawi (Quranpedia Livre 18)' },
-    ],
-  },
-  ar: {
-    sectionTitle: 'المفسر المفضل (أمهات التفاسير المعتمدة)',
-    entryModeTitle: 'مسار التدبر الافتراضي',
-    scholars: [
-      { id: 'Ibn Kathir', label: 'ابن كثير', sub: 'تفسير القرآن العظيم بالمأثور' },
-      { id: "Al-Sa'di", label: 'السعدي', sub: 'تيسير الكريم الرحمن والمقاصد' },
-      { id: 'Al-Muyassar', label: 'التفسير الميسر', sub: 'عبارة وجيزة وواضحة' },
-      { id: "Al-Sha'rawi", label: 'الشعراوي', sub: 'تفسير الشعراوي (الموسوعة القرآنية - كتاب ١٨)' },
-    ],
-  },
-};
+];
 
 export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   isOpen,
   onClose,
-  inlinePage = false,
   language,
   onLanguageChange,
   isDark = false,
   onToggleDark,
   readerProfile = 'adult',
   onReaderProfileChange,
-  activeMode = 'moment',
-  onEntryModeChange,
   preferredScholar = 'Ibn Kathir',
   onPreferredScholarChange,
-  sessionDepth,
-  onSessionDepthChange,
-  explanationDepth,
-  onExplanationDepthChange,
-  activeSphere,
-  onSphereChange,
   arabicScale,
   onArabicScaleChange,
   readingScale = 1.0,
@@ -369,658 +152,851 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   onToggleTransliteration,
   isHighContrast,
   onToggleHighContrast,
-  perspectiveMode,
-  onTogglePerspective,
-  showReadPage = true,
-  onToggleShowReadPage,
-  showNorthStarPage = true,
-  onToggleShowNorthStarPage,
+  cardPreferences,
+  onCardPreferencesChange,
+  onToggleFullscreenTv,
+  isFullscreenActive = false,
 }) => {
-  const [isCachingBookmarksAudio, setIsCachingBookmarksAudio] = useState(false);
-  const [isIngestionModalOpen, setIsIngestionModalOpen] = useState(false);
-  const { isOnline, stats, refreshStats, isInstallable, isInstalled, isIOS, installPWA } =
-    useOfflineStatus();
+  const [reciterId, setReciterId] = useState<ReciterId>(() => StorageService.getPreferredReciter());
+  const [isCachingBookmarks, setIsCachingBookmarks] = useState(false);
+  const [cachedSuccess, setCachedSuccess] = useState(false);
 
-  const t = UI_TEXT[language] || UI_TEXT.en;
-  const pLabels = PROFILE_LABELS[language] || PROFILE_LABELS.en;
-  const sLabels = SCHOLAR_LABELS[language] || SCHOLAR_LABELS.en;
+  const prefs: VerseCardPreferences = cardPreferences || {
+    ...APP_CONFIG.DEFAULTS.CARD_PREFS,
+    showTransliteration,
+  };
 
   useEffect(() => {
-    if (inlinePage) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose?.();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, inlinePage]);
+    setReciterId(StorageService.getPreferredReciter());
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleCacheBookmarksAudio = async () => {
-    if (isCachingBookmarksAudio) return;
-    setIsCachingBookmarksAudio(true);
+  const updatePref = (updates: Partial<VerseCardPreferences>) => {
+    if (updates.showTransliteration !== undefined && updates.showTransliteration !== showTransliteration) {
+      onToggleTransliteration();
+    }
+    onCardPreferencesChange?.(updates);
+  };
+
+  const handleReciterSelect = (id: ReciterId) => {
+    setReciterId(id);
+    StorageService.setPreferredReciter(id);
+  };
+
+  const handleCacheBookmarkedAudio = async () => {
+    setIsCachingBookmarks(true);
     try {
-      const bookmarkIds = StorageService.getBookmarks();
-      const versesToCache = QURAN_FIXTURES.filter((v) => bookmarkIds.includes(v.id));
-      await OfflineCacheService.cacheAudioForVerses(versesToCache);
-      await refreshStats();
+      const bmIds = StorageService.getBookmarks();
+      const bmVerses = QURAN_FIXTURES.filter((v) => bmIds.includes(v.id));
+      await OfflineCacheService.cachePassages(bmVerses);
+      for (const v of bmVerses) {
+        if (v.audioUrl) {
+          await OfflineCacheService.toggleVerseAudioCache(v.audioUrl);
+        }
+      }
+      setCachedSuccess(true);
+      setTimeout(() => setCachedSuccess(false), 2500);
     } finally {
-      setIsCachingBookmarksAudio(false);
+      setIsCachingBookmarks(false);
     }
   };
 
-  const handleClearAudioCache = async () => {
-    await OfflineCacheService.clearAllAudioCache();
-    await refreshStats();
+  const handleResetDefaults = () => {
+    onArabicScaleChange(APP_CONFIG.DEFAULTS.ARABIC_SCALE);
+    onReadingScaleChange?.(APP_CONFIG.DEFAULTS.READING_SCALE);
+    onReaderProfileChange?.('adult');
+    onPreferredScholarChange?.('Ibn Kathir');
+    handleReciterSelect('alafasy');
+    updatePref(APP_CONFIG.DEFAULTS.CARD_PREFS);
   };
 
-  const sheetBody = (
-    <div
-      dir={language === 'ar' ? 'rtl' : 'ltr'}
-      className={
-        inlinePage
-          ? 'w-full max-w-2xl mx-auto rounded-3xl flex flex-col bg-white dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden'
-          : 'w-full max-w-xl max-h-[85vh] rounded-t-2xl overflow-y-auto flex flex-col bg-[#FAF8F5] dark:bg-[#061B16] border-t border-emerald-900/20 dark:border-emerald-700/40 shadow-2xl transition-transform animate-in slide-in-from-bottom duration-300'
-      }
+  const labels = {
+    fr: {
+      pageTitle: 'Préférences & Personnalisation',
+      pageSub: 'Configurez votre langue, le déclenchement audio au swipe, l’affichage de la carte universelle et le Mode Écran TV.',
+      backBtn: 'Retour aux Versets',
+      resetBtn: 'Réinitialiser',
+      sec1Title: '1. Langue, Thème & Mode Écran TV',
+      sec1Sub: 'Choisissez la langue de traduction, l’ambiance visuelle et l’affichage grand écran (TV LG / PC / Tablette).',
+      langLabel: 'Langue de l’application & des traductions',
+      themeLabel: 'Apparence du Sanctuaire',
+      lightMode: 'Parchemin Clair',
+      darkMode: 'Sanctuaire Sombre',
+      highContrast: 'Contraste Élevé',
+      tvTitle: 'Mode Écran TV / Plein Écran (LG TV, PC, Tablette)',
+      tvDesc: 'Agrandit la calligraphie pour une lecture à distance, active le pilotage par flèches télécommande et empêche la mise en veille.',
+      tvBtnActive: 'Quitter le Plein Écran TV',
+      tvBtnInactive: 'Activer le Mode Plein Écran / TV',
+      sec2Title: '2. Expérience Audio & Lecture Automatique (Façon Vidéo)',
+      sec2Sub: 'Comportement de la lecture quand vous glissez (swipe) d’un verset à l’autre et préparation en cache sans lag.',
+      autoSwipeTitle: 'Lecture automatique au swipe (Expérience Vidéo / Reels)',
+      autoSwipeDesc: 'Dès que vous glissez vers le verset suivant ou précédent, la récitation démarre immédiatement.',
+      afterVerseTitle: 'À la fin de la lecture complète du verset',
+      nextVerseOpt: 'Passer automatiquement au verset suivant',
+      loopVerseOpt: 'Répéter le même verset en boucle',
+      defaultPhasesTitle: 'Parties lues par défaut (avec pré-cache automatique zéro lag)',
+      phaseRecitation: 'Récitation Arabe',
+      phaseTranslation: 'Traduction',
+      phaseTafsir: 'Tafsir Classique (si disponible dans la langue)',
+      reciterLabel: 'Voix du Récitateur Coranique',
+      scholarLabel: 'Exégète (Tafsir) préféré',
+      sec3Title: '3. Personnalisation de la Carte Universelle',
+      sec3Sub: 'Choisissez quels éléments apparaissent sur la carte du verset pour la garder épurée et adaptée à vos besoins.',
+      arabicSize: 'Taille du texte coranique (Arabe)',
+      readingSize: 'Taille de la traduction, du tafsir et des notes',
+      cardLayersLabel: 'Sections affichées sur la carte du verset',
+      layerTranslit: 'Translittération phonétique',
+      layerTranslation: 'Traduction humaine (Niveau 2)',
+      layerTafsir: 'Tafsir classique ouvert par défaut (Niveau 3)',
+      layerComments: 'Fil de commentaires & réflexions façon réseau social (💬)',
+      layerStudio: 'Studio de création Image / Vidéo / PowerPoint (🎬)',
+      layerRoots: 'Racines linguistiques arabes',
+      layerAudioBadge: 'Indicateur de source Audio (GitHub / Server / Browser)',
+      sec4Title: '4. Profil du Lecteur & Famille',
+      sec4Sub: 'Adapte le vocabulaire des réflexions et explications selon l’âge.',
+      sec5Title: '5. Mode Hors-Ligne & Continuité iPhone',
+      sec5Sub: 'Les audios en cours sont maintenus actifs même lorsque l’écran de l’iPhone se met en veille.',
+      cacheBookmarksBtn: 'Mettre en cache les versets aimés (♥)',
+      cachedDone: 'Audios mis en cache !',
+      clearCacheBtn: 'Vider le cache audio',
+    },
+    en: {
+      pageTitle: 'Preferences & Personalization',
+      pageSub: 'Configure language, video-style auto-play on swipe, universal card layers, and LG TV Fullscreen Mode.',
+      backBtn: 'Back to Verses',
+      resetBtn: 'Reset Defaults',
+      sec1Title: '1. Language, Theme & TV Screen Mode',
+      sec1Sub: 'Select your translation language, visual atmosphere, and large-screen TV presentation mode.',
+      langLabel: 'Application & Translation Language',
+      themeLabel: 'Sanctuary Appearance',
+      lightMode: 'Warm Parchment',
+      darkMode: 'Dark Sanctuary',
+      highContrast: 'High Contrast',
+      tvTitle: 'TV Screen / Fullscreen Sanctuary Mode (LG TV, Desktop, Tablet)',
+      tvDesc: 'Enlarges typography for 10-foot viewing, enables remote/keyboard arrow navigation, and keeps the screen awake.',
+      tvBtnActive: 'Exit TV Fullscreen',
+      tvBtnInactive: 'Launch Fullscreen / TV Mode',
+      sec2Title: '2. Audio Experience & Video-Style Auto-Play',
+      sec2Sub: 'Control how audio starts when swiping between verses and zero-lag background pre-caching.',
+      autoSwipeTitle: 'Auto-Play on Swipe (Video / Reels Experience)',
+      autoSwipeDesc: 'Automatically start reciting as soon as you swipe left or right to a new verse.',
+      afterVerseTitle: 'When all active parts of a verse finish playing',
+      nextVerseOpt: 'Automatically advance to the next verse',
+      loopVerseOpt: 'Loop / repeat the current verse',
+      defaultPhasesTitle: 'Default audio phases (with automatic zero-lag pre-caching)',
+      phaseRecitation: 'Arabic Recitation',
+      phaseTranslation: 'Translation',
+      phaseTafsir: 'Classical Tafsir (when available in chosen language)',
+      reciterLabel: 'Quranic Reciter Voice',
+      scholarLabel: 'Preferred Tafsir Scholar',
+      sec3Title: '3. Universal Verse Card Customization',
+      sec3Sub: 'Choose which elements appear on the unified verse card to keep your reading view clean and personal.',
+      arabicSize: 'Quranic Arabic Font Scale',
+      readingSize: 'Translation, Tafsir & Notes Font Scale',
+      cardLayersLabel: 'Visible layers on the verse card',
+      layerTranslit: 'Phonetic Transliteration',
+      layerTranslation: 'Human Translation (Level 2)',
+      layerTafsir: 'Expand Classical Tafsir by default (Level 3)',
+      layerComments: 'Social Comment & Reflection Thread (💬)',
+      layerStudio: 'Image / Video / PowerPoint Creation Studio (🎬)',
+      layerRoots: 'Arabic Linguistic Roots',
+      layerAudioBadge: 'Audio Source Badge (GitHub / Server / Browser)',
+      sec4Title: '4. Reader & Family Profile',
+      sec4Sub: 'Adapts companion reflections for adults, teens, or family study.',
+      sec5Title: '5. Offline Storage & iPhone Sleep Continuity',
+      sec5Sub: 'Continuous playback stays active even when your iPhone screen locks or goes to sleep.',
+      cacheBookmarksBtn: 'Cache Liked Verses Audio (♥)',
+      cachedDone: 'Audio Cached!',
+      clearCacheBtn: 'Clear Audio Cache',
+    },
+    sv: {
+      pageTitle: 'Inställningar & Anpassning',
+      pageSub: 'Konfigurera språk, automatisk uppspelning vid svep, verskortets innehåll och TV-helskärmsläge.',
+      backBtn: 'Tillbaka till verser',
+      resetBtn: 'Återställ',
+      sec1Title: '1. Språk, Tema & TV-skärmsläge',
+      sec1Sub: 'Välj översättningsspråk, färgtema och helskärmsläge för TV/dator.',
+      langLabel: 'App- och översättningsspråk',
+      themeLabel: 'Visuellt tema',
+      lightMode: 'Ljust pergament',
+      darkMode: 'Mörk helgedom',
+      highContrast: 'Hög kontrast',
+      tvTitle: 'TV-läge / Helskärm (LG TV, PC, Surfplatta)',
+      tvDesc: 'Förstorar texten för avståndsläsning, aktiverar fjärrkontroll/piltangenter och håller skärmen vaken.',
+      tvBtnActive: 'Avsluta TV-helskärm',
+      tvBtnInactive: 'Aktivera Helskärm / TV-läge',
+      sec2Title: '2. Ljudupplevelse & Automatisk Uppspelning (Video-stil)',
+      sec2Sub: 'Styr hur ljudet startar när du sveper mellan verser med förladdad cache utan fördröjning.',
+      autoSwipeTitle: 'Spela automatiskt vid svep (Reels / Video-känsla)',
+      autoSwipeDesc: 'Starta recitationen direkt när du sveper till nästa eller föregående vers.',
+      afterVerseTitle: 'När versens alla valda delar har lästs klart',
+      nextVerseOpt: 'Gå automatiskt vidare till nästa vers',
+      loopVerseOpt: 'Upprepa versen i loop',
+      defaultPhasesTitle: 'Delar som läses upp som standard (förladdas utan lagg)',
+      phaseRecitation: 'Arabisk recitation',
+      phaseTranslation: 'Översättning',
+      phaseTafsir: 'Klassisk Tafsir (om tillgänglig på valt språk)',
+      reciterLabel: 'Recitatör',
+      scholarLabel: 'Föredragen Tafsir-lärd',
+      sec3Title: '3. Anpassa det Universella Verskortet',
+      sec3Sub: 'Välj vilka sektioner som ska visas på verskortet.',
+      arabicSize: 'Arabisk textstorlek',
+      readingSize: 'Textstorlek för översättning & tafsir',
+      cardLayersLabel: 'Synliga delar på verskortet',
+      layerTranslit: 'Fonetisk translitterering',
+      layerTranslation: 'Mänsklig översättning (Nivå 2)',
+      layerTafsir: 'Visa Tafsir öppet som standard (Nivå 3)',
+      layerComments: 'Kommentarer & reflektionstråd (💬)',
+      layerStudio: 'Bild-, Video- & PowerPoint-studio (🎬)',
+      layerRoots: 'Arabiska ordstammar',
+      layerAudioBadge: 'Ljudkälleindikator (GitHub / Server / Browser)',
+      sec4Title: '4. Läsar- & Familjeprofil',
+      sec4Sub: 'Anpassar reflektionsfrågor för vuxna, ungdomar eller familj.',
+      sec5Title: '5. Offlinelagring & iPhone Bakgrundsljud',
+      sec5Sub: ' Kontinuerlig uppspelning fortsätter även när iPhone-skärmen går i viloläge.',
+      cacheBookmarksBtn: 'Spara gillade versers ljud offline (♥)',
+      cachedDone: 'Ljud sparat!',
+      clearCacheBtn: 'Rensa ljudcache',
+    },
+    ar: {
+      pageTitle: 'الإعدادات وتخصيص التجربة',
+      pageSub: 'تحكم في اللغة، والتشغيل التلقائي عند السحب، ومكونات بطاقة الآية الموحدة، ووضع شاشة التلفاز.',
+      backBtn: 'العودة إلى الآيات',
+      resetBtn: 'إعادة الضبط',
+      sec1Title: '١. اللغة والمظهر ووضع شاشة التلفاز (TV)',
+      sec1Sub: 'اختر لغة الترجمة، والمظهر البصري، ووضع العرض الكامل لشاشات التلفاز والحاسوب.',
+      langLabel: 'لغة التطبيق والتراجم',
+      themeLabel: 'المظهر البصري',
+      lightMode: 'الوضع النهاري',
+      darkMode: 'الوضع الليلي',
+      highContrast: 'تباين عالٍ',
+      tvTitle: 'وضع شاشة التلفاز والعرض الكامل (LG TV / حاسوب / جهاز لوحي)',
+      tvDesc: 'يكبّر الخطوط للقراءة عن بُعد، ويفعّل التنقل بأسهم جهاز التحكم، ويمنع انطفاء الشاشة.',
+      tvBtnActive: 'إنهاء وضع ملء الشاشة',
+      tvBtnInactive: 'تفعيل وضع التلفاز / ملء الشاشة',
+      sec2Title: '٢. تجربة الصوت والتشغيل التلقائي عند السحب (بأسلوب الفيديو)',
+      sec2Sub: 'تحكم في بدء التلاوة تلقائياً عند التمرير بين الآيات مع التحميل المسبق الفوري بدون تقطع.',
+      autoSwipeTitle: 'تشغيل تلقائي عند السحب بين الآيات',
+      autoSwipeDesc: 'تبدأ التلاوة فوراً بمجرد التمرير لليمين أو اليسار للانتقال إلى آية أخرى.',
+      afterVerseTitle: 'عند انتهاء قراءة جميع أجزاء الآية',
+      nextVerseOpt: 'الانتقال تلقائياً إلى الآية التالية',
+      loopVerseOpt: 'تكرار نفس الآية في حلقة مستمرة',
+      defaultPhasesTitle: 'الأجزاء المقروءة صوتياً (مع التخزين المسبق لمنع التأخير)',
+      phaseRecitation: 'التلاوة القرآنية (عربي)',
+      phaseTranslation: 'الترجمة الصوتية',
+      phaseTafsir: 'التفسير الكلاسيكي (إن توفر باللغة المختارة)',
+      reciterLabel: 'صوت القارئ المفضل',
+      scholarLabel: 'المفسر المفضل',
+      sec3Title: '٣. تخصيص بطاقة الآية الموحدة',
+      sec3Sub: 'حدد العناصر التي تود إظهارها أو إخفاءها على بطاقة الآية.',
+      arabicSize: 'حجم خط الرسم العثماني',
+      readingSize: 'حجم خط الترجمة والتفسير والتعليقات',
+      cardLayersLabel: 'الأقسام الظاهرة في البطاقة',
+      layerTranslit: 'اللفظ اللاتيني (Transliteration)',
+      layerTranslation: 'الترجمة المعتمدة (المستوى ٢)',
+      layerTafsir: 'فتح التفسير تلقائياً (المستوى ٣)',
+      layerComments: 'قسم التعليقات والخواطر التفاعلية (💬)',
+      layerStudio: 'استوديو تصميم الصور والفيديو والعروض (🎬)',
+      layerRoots: 'الجذور اللغوية القرآنية',
+      layerAudioBadge: 'شارة مصدر الصوت (GitHub / Server / Browser)',
+      sec4Title: '٤. نمط القارئ والأسرة',
+      sec4Sub: 'مواءمة لغة التدبر للكبار أو الشباب أو الأسرة.',
+      sec5Title: '٥. التخزين دون إنترنت واستمرارية الصوت على iPhone',
+      sec5Sub: 'يستمر الصوت بالانتقال للآية التالية حتى عند قفل شاشة iPhone.',
+      cacheBookmarksBtn: 'حفظ صوتيات الآيات المفضلة (♥)',
+      cachedDone: 'تم الحفظ!',
+      clearCacheBtn: 'مسح ذاكرة الصوت',
+    },
+  }[language];
+
+  const profileLabels = {
+    fr: [
+      { id: 'adult' as ReaderProfile, title: 'Standard', sub: 'Tafsir complet & méditation approfondie' },
+      { id: 'teen' as ReaderProfile, title: 'Ados (13–17)', sub: 'Essentiel & repères clés du quotidien' },
+      { id: 'kids' as ReaderProfile, title: 'Enfants & Famille (8+)', sub: 'Histoire simple & question en famille' },
+    ],
+    en: [
+      { id: 'adult' as ReaderProfile, title: 'Standard', sub: 'Full Tafsir & deep reflection' },
+      { id: 'teen' as ReaderProfile, title: 'Teen (13–17)', sub: 'Key takeaway & concept guide' },
+      { id: 'kids' as ReaderProfile, title: 'Kids & Family (8+)', sub: 'Simple story & family question' },
+    ],
+    sv: [
+      { id: 'adult' as ReaderProfile, title: 'Standard', sub: 'Full Tafsir & fördjupad reflektion' },
+      { id: 'teen' as ReaderProfile, title: 'Ungdom (13–17)', sub: 'Kärnbudskap & ordlista' },
+      { id: 'kids' as ReaderProfile, title: 'Barn & Familj (8+)', sub: 'Enkel berättelse & familjefråga' },
+    ],
+    ar: [
+      { id: 'adult' as ReaderProfile, title: 'الوضع الكامل', sub: 'التفسير والتدبر المعمق' },
+      { id: 'teen' as ReaderProfile, title: 'الشباب (١٣–١٧)', sub: 'خلاصة ملهمة ودليل مفاهيم' },
+      { id: 'kids' as ReaderProfile, title: 'الناشئة والأسرة (٨+)', sub: 'قصة مبسطة وسؤال عائلي' },
+    ],
+  }[language];
+
+  const renderToggleRow = (
+    checked: boolean,
+    onChange: () => void,
+    title: string,
+    subtitle?: string,
+    icon?: React.ReactNode
+  ) => (
+    <button
+      type="button"
+      onClick={onChange}
+      aria-pressed={checked}
+      className={`w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl border text-start transition-all cursor-pointer ${
+        checked
+          ? 'bg-[#006D53]/10 dark:bg-[#006D53]/25 border-[#006D53]/40 text-emerald-950 dark:text-[#F5F7F2]'
+          : 'bg-[#FAF8F5] dark:bg-[#061B16]/60 border-emerald-900/10 dark:border-emerald-800/35 text-slate-700 dark:text-[#9BAFA7] hover:border-emerald-700/40'
+      }`}
     >
-      {!inlinePage && (
-        <div className="pt-3 pb-1 flex justify-center shrink-0">
-          <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-slate-100 dark:border-emerald-900/30 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-emerald-800/10 dark:bg-[#006D53]/30 text-emerald-800 dark:text-[#F4B900] flex items-center justify-center">
-            <SlidersHorizontal className="w-4 h-4" />
+      <div className="flex items-start gap-3 min-w-0">
+        {icon && <div className="mt-0.5 text-[#006D53] dark:text-[#F4B900] shrink-0">{icon}</div>}
+        <div className="min-w-0">
+          <div className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
+            {title}
           </div>
-          <div>
-            <h2
-              id="customization-title"
-              className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2] leading-tight"
-            >
-              {t.title}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-[#9BAFA7]">
-              {t.subtitle}
+          {subtitle && (
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5 leading-relaxed">
+              {subtitle}
             </p>
+          )}
+        </div>
+      </div>
+      <div
+        className={`w-11 h-6 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
+          checked ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
+        }`}
+      >
+        <span className="w-5 h-5 rounded-full bg-white shadow-xs block transition-transform" />
+      </div>
+    </button>
+  );
+
+  return (
+    <section
+      aria-label={labels.pageTitle}
+      dir={language === 'ar' ? 'rtl' : 'ltr'}
+      className="space-y-6 pb-12"
+    >
+      {/* Top Header Banner of Preferences */}
+      <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-[#006D53] dark:text-[#F4B900]">
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>Hidaya Sanctuary</span>
           </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-emerald-950 dark:text-[#F5F7F2]">
+            {labels.pageTitle}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-[#9BAFA7] max-w-2xl">
+            {labels.pageSub}
+          </p>
         </div>
 
-        {!inlinePage && onClose && (
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
-            onClick={onClose}
-            className="w-9 h-9 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
-            aria-label="Close preferences"
+            onClick={handleResetDefaults}
+            className="min-h-[42px] px-3.5 py-2 rounded-xl border border-emerald-900/15 dark:border-emerald-800/40 text-xs font-semibold text-slate-600 dark:text-[#9BAFA7] hover:text-emerald-950 dark:hover:text-white inline-flex items-center gap-1.5 cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>{labels.resetBtn}</span>
           </button>
-        )}
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-[42px] px-5 py-2.5 rounded-xl bg-[#006D53] hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs inline-flex items-center gap-2 cursor-pointer"
+            >
+              <Check className="w-4 h-4" />
+              <span>{labels.backBtn}</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Content Body */}
-      <div className="px-6 py-6 space-y-6">
-        {/* Section 0: Language & Theme */}
-        {(onLanguageChange || onToggleDark) && (
-          <div className="space-y-3">
-            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5 text-[#F4B900]" />
-              {t.languageTab}
-            </span>
-
-            {onLanguageChange && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {LANGUAGE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.code}
-                    type="button"
-                    onClick={() => onLanguageChange(opt.code)}
-                    aria-pressed={language === opt.code}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                      language === opt.code
-                        ? 'bg-[#006D53] text-white border-emerald-700 shadow-2xs'
-                        : 'bg-[#FAF8F5] dark:bg-[#061B16]/60 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300 hover:border-emerald-600'
-                    }`}
-                  >
-                    <span>{opt.native}</span>
-                    {language === opt.code && <Check className="w-3.5 h-3.5 shrink-0 text-[#F4B900]" />}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {onToggleDark && (
-              <button
-                type="button"
-                onClick={onToggleDark}
-                className="w-full p-3.5 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/60 border border-emerald-900/10 dark:border-emerald-800/30 flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
-              >
-                <span>{t.themeLabel}</span>
-                <span className="inline-flex items-center gap-1.5 text-emerald-800 dark:text-[#F4B900]">
-                  {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-                  <span>{isDark ? t.darkMode : t.lightMode}</span>
-                </span>
-              </button>
-            )}
+      {/* SECTION 1: LANGUAGE, THEME & LG TV / FULLSCREEN MODE */}
+      <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-5">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
+            <Globe className="w-5 h-5" />
           </div>
-        )}
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
+              {labels.sec1Title}
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">{labels.sec1Sub}</p>
+          </div>
+        </div>
 
-        {/* Section 0.25: Optional Navigation Pages (Show/Hide Read & North Star Pages) */}
-        {(onToggleShowReadPage || onToggleShowNorthStarPage) && (
-          <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-[#F4B900]" />
-              <span>
-                {language === 'ar'
-                  ? 'الصفحات الاختيارية في شريط التنقل'
-                  : language === 'sv'
-                  ? 'Valfria sidor i navigeringen'
-                  : language === 'fr'
-                  ? 'Pages optionnelles de navigation'
-                  : 'Optional Navigation Pages'}
-              </span>
+        {/* Language Grid */}
+        <div className="space-y-2">
+          <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+            {labels.langLabel}
+          </span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {LANGUAGE_OPTIONS.map((opt) => {
+              const active = language === opt.code;
+              return (
+                <button
+                  key={opt.code}
+                  type="button"
+                  onClick={() => onLanguageChange?.(opt.code)}
+                  aria-pressed={active}
+                  className={`min-h-[48px] px-4 py-2.5 rounded-2xl border text-start transition-all flex items-center justify-between cursor-pointer ${
+                    active
+                      ? 'bg-[#006D53] text-white border-[#006D53] font-bold shadow-xs'
+                      : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2] hover:border-[#006D53]'
+                  }`}
+                >
+                  <div>
+                    <div className="text-sm font-bold">{opt.native}</div>
+                    <div className={`text-[11px] ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
+                      {opt.label}
+                    </div>
+                  </div>
+                  {active && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Theme & High Contrast */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+          <button
+            type="button"
+            onClick={() => isDark && onToggleDark?.()}
+            aria-pressed={!isDark}
+            className={`min-h-[48px] px-4 py-3 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+              !isDark
+                ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
+                : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+            }`}
+          >
+            <span className="inline-flex items-center gap-2 text-xs sm:text-sm">
+              <Sun className="w-4 h-4 text-[#F4B900]" />
+              <span>{labels.lightMode}</span>
             </span>
+            {!isDark && <Check className="w-4 h-4 text-[#F4B900]" />}
+          </button>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {onToggleShowReadPage && (
-                <button
-                  type="button"
-                  onClick={onToggleShowReadPage}
-                  aria-pressed={showReadPage}
-                  className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                    showReadPage
-                      ? 'bg-[#006D53] text-white border-emerald-700 shadow-2xs'
-                      : 'bg-[#FAF8F5] dark:bg-[#061B16]/60 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <div>
-                    <p className="text-xs font-bold">
-                      {language === 'ar'
-                        ? 'صفحة قراءة القرآن (Read)'
-                        : language === 'sv'
-                        ? 'Sidan Läs Koranen (Read)'
-                        : language === 'fr'
-                        ? 'Page Lire le Coran (Read)'
-                        : 'Read Quran Page (Read)'}
-                    </p>
-                    <p
-                      className={`text-[10px] mt-0.5 ${
-                        showReadPage ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'
-                      }`}
-                    >
-                      {showReadPage
-                        ? language === 'ar'
-                          ? 'ظاهرة في الشريط السفلي'
-                          : language === 'sv'
-                          ? 'Visas i menyraden'
-                          : language === 'fr'
-                          ? 'Affichée dans la barre'
-                          : 'Shown in navigation'
-                        : language === 'ar'
-                        ? 'مخفية'
-                        : language === 'sv'
-                        ? 'Dold'
-                        : language === 'fr'
-                        ? 'Masquée'
-                        : 'Hidden'}
-                    </p>
-                  </div>
-                  {showReadPage && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
-                </button>
-              )}
+          <button
+            type="button"
+            onClick={() => !isDark && onToggleDark?.()}
+            aria-pressed={isDark}
+            className={`min-h-[48px] px-4 py-3 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+              isDark
+                ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
+                : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+            }`}
+          >
+            <span className="inline-flex items-center gap-2 text-xs sm:text-sm">
+              <Moon className="w-4 h-4 text-[#F4B900]" />
+              <span>{labels.darkMode}</span>
+            </span>
+            {isDark && <Check className="w-4 h-4 text-[#F4B900]" />}
+          </button>
 
-              {onToggleShowNorthStarPage && (
-                <button
-                  type="button"
-                  onClick={onToggleShowNorthStarPage}
-                  aria-pressed={showNorthStarPage}
-                  className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                    showNorthStarPage
-                      ? 'bg-[#006D53] text-white border-emerald-700 shadow-2xs'
-                      : 'bg-[#FAF8F5] dark:bg-[#061B16]/60 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <div>
-                    <p className="text-xs font-bold">
-                      {language === 'ar'
-                        ? 'صفحة نجمة الهداية (North Star)'
-                        : language === 'sv'
-                        ? 'Sidan Ledstjärna (North Star)'
-                        : language === 'fr'
-                        ? 'Page Étoile du Jour (North Star)'
-                        : 'North Star Page (Étoile)'}
-                    </p>
-                    <p
-                      className={`text-[10px] mt-0.5 ${
-                        showNorthStarPage ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'
-                      }`}
-                    >
-                      {showNorthStarPage
-                        ? language === 'ar'
-                          ? 'ظاهرة في الشريط السفلي'
-                          : language === 'sv'
-                          ? 'Visas i menyraden'
-                          : language === 'fr'
-                          ? 'Affichée dans la barre'
-                          : 'Shown in navigation'
-                        : language === 'ar'
-                        ? 'مخفية'
-                        : language === 'sv'
-                        ? 'Dold'
-                        : language === 'fr'
-                        ? 'Masquée'
-                        : 'Hidden'}
-                    </p>
-                  </div>
-                  {showNorthStarPage && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
-                </button>
-              )}
+          <button
+            type="button"
+            onClick={onToggleHighContrast}
+            aria-pressed={isHighContrast}
+            className={`min-h-[48px] px-4 py-3 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+              isHighContrast
+                ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
+                : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+            }`}
+          >
+            <span className="text-xs sm:text-sm">{labels.highContrast}</span>
+            {isHighContrast && <Check className="w-4 h-4 text-[#F4B900]" />}
+          </button>
+        </div>
+
+        {/* Dedicated TV Screen / Fullscreen Sanctuary Mode Card */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-amber-500/30 dark:border-[#F4B900]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#006D53] text-[#F4B900] flex items-center justify-center shrink-0">
+              <Tv className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
+                {labels.tvTitle}
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-[#9BAFA7] mt-0.5 leading-relaxed">
+                {labels.tvDesc}
+              </p>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              updatePref({ tvMode: !prefs.tvMode });
+              onToggleFullscreenTv?.();
+            }}
+            className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold inline-flex items-center gap-2 shrink-0 cursor-pointer transition-all ${
+              prefs.tvMode || isFullscreenActive
+                ? 'bg-amber-500 text-slate-950 shadow-sm'
+                : 'bg-[#006D53] hover:bg-emerald-700 text-white shadow-xs'
+            }`}
+          >
+            {prefs.tvMode || isFullscreenActive ? (
+              <>
+                <Minimize2 className="w-4 h-4" />
+                <span>{labels.tvBtnActive}</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-4 h-4" />
+                <span>{labels.tvBtnInactive}</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* SECTION 2: AUDIO EXPERIENCE & VIDEO-STYLE AUTO-PLAY ON SWIPE */}
+      <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-5">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
+            <Headphones className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
+              {labels.sec2Title}
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">{labels.sec2Sub}</p>
+          </div>
+        </div>
+
+        {/* Auto-Play on Swipe Toggle */}
+        {renderToggleRow(
+          prefs.autoPlayOnSwipe,
+          () => updatePref({ autoPlayOnSwipe: !prefs.autoPlayOnSwipe }),
+          labels.autoSwipeTitle,
+          labels.autoSwipeDesc,
+          <Play className="w-4 h-4" />
         )}
 
-        {/* Section 0.5: Reader Experience (Standard, Teen 13-17, Kids & Family 8+) */}
-        {onReaderProfileChange && (
-          <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-[#F4B900]" />
-              {pLabels.sectionTitle}
+        {/* Default Audio Phases Included */}
+        <div className="space-y-2">
+          <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+            {labels.defaultPhasesTitle}
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {renderToggleRow(
+              prefs.includeRecitationByDefault,
+              () => updatePref({ includeRecitationByDefault: !prefs.includeRecitationByDefault }),
+              labels.phaseRecitation
+            )}
+            {renderToggleRow(
+              prefs.includeTranslationByDefault,
+              () => updatePref({ includeTranslationByDefault: !prefs.includeTranslationByDefault }),
+              labels.phaseTranslation
+            )}
+            {renderToggleRow(
+              prefs.includeTafsirByDefault,
+              () => updatePref({ includeTafsirByDefault: !prefs.includeTafsirByDefault }),
+              labels.phaseTafsir
+            )}
+          </div>
+        </div>
+
+        {/* End of Verse Behavior: Auto-Advance vs Loop */}
+        <div className="space-y-2">
+          <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+            {labels.afterVerseTitle}
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => updatePref({ loopVerse: false })}
+              aria-pressed={!prefs.loopVerse}
+              className={`min-h-[48px] px-4 py-3 rounded-2xl border flex items-center justify-between text-start cursor-pointer transition-all ${
+                !prefs.loopVerse
+                  ? 'bg-[#006D53] text-white border-[#006D53] font-bold shadow-xs'
+                  : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+              }`}
+            >
+              <span className="text-xs sm:text-sm">{labels.nextVerseOpt}</span>
+              {!prefs.loopVerse && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => updatePref({ loopVerse: true })}
+              aria-pressed={prefs.loopVerse}
+              className={`min-h-[48px] px-4 py-3 rounded-2xl border flex items-center justify-between text-start cursor-pointer transition-all ${
+                prefs.loopVerse
+                  ? 'bg-[#006D53] text-white border-[#006D53] font-bold shadow-xs'
+                  : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2 text-xs sm:text-sm">
+                <Repeat className="w-4 h-4 text-[#F4B900]" />
+                <span>{labels.loopVerseOpt}</span>
+              </span>
+              {prefs.loopVerse && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Reciter & Preferred Scholar */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div className="space-y-2">
+            <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+              {labels.reciterLabel}
             </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(
-                [
-                  { id: 'adult' as ReaderProfile, label: pLabels.adult, sub: pLabels.adultSub },
-                  { id: 'teen' as ReaderProfile, label: pLabels.teen, sub: pLabels.teenSub },
-                  { id: 'kids' as ReaderProfile, label: pLabels.kids, sub: pLabels.kidsSub },
-                ] as const
-              ).map((prof) => {
-                const active = readerProfile === prof.id;
+            <div className="space-y-1.5">
+              {AVAILABLE_RECITERS.map((r) => {
+                const active = r.id === reciterId;
                 return (
                   <button
-                    key={prof.id}
+                    key={r.id}
                     type="button"
-                    onClick={() => onReaderProfileChange(prof.id)}
+                    onClick={() => handleReciterSelect(r.id)}
                     aria-pressed={active}
-                    className={`p-3 rounded-2xl border text-start transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-start flex items-center justify-between cursor-pointer transition-all ${
                       active
-                        ? 'bg-[#006D53] text-white border-emerald-700 shadow-2xs'
-                        : 'bg-[#FAF8F5] dark:bg-[#061B16]/60 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-200 hover:border-emerald-600'
+                        ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
+                        : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
                     }`}
                   >
-                    <p className="text-xs font-bold">{prof.label}</p>
-                    <p
-                      className={`text-[11px] mt-0.5 ${
-                        active ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'
-                      }`}
-                    >
-                      {prof.sub}
-                    </p>
+                    <div>
+                      <div className="text-xs sm:text-sm font-semibold">{r.name}</div>
+                      <div className={`text-[11px] ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
+                        {r.subname} · {r.style}
+                      </div>
+                    </div>
+                    {active && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
                   </button>
                 );
               })}
             </div>
           </div>
-        )}
 
-        {/* Section 0.7: Preferred Classical Tafsir Scholar (Ibn Kathir · Al-Sa'di · Al-Muyassar) - Space-saving Dropdown */}
-        {onPreferredScholarChange && (
-          <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-            <label
-              htmlFor="scholar-preference-select"
-              className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center justify-between"
-            >
-              <span className="flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-                {sLabels.sectionTitle}
-              </span>
-              <span className="text-[11px] font-normal text-amber-700 dark:text-amber-400">
-                {sLabels.scholars.find((s) => s.id === preferredScholar)?.sub || ''}
-              </span>
-            </label>
-            <div className="relative">
-              <select
-                id="scholar-preference-select"
-                value={preferredScholar}
-                onChange={(e) => onPreferredScholarChange(e.target.value as PreferredScholar)}
-                className="w-full min-h-[42px] ps-3.5 pe-10 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-emerald-100 hover:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-colors appearance-none cursor-pointer"
-              >
-                {sLabels.scholars.map((sch) => (
-                  <option key={sch.id} value={sch.id}>
-                    {sch.label} — {sch.sub}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center pe-3.5 text-slate-400">
-                <ChevronDown className="w-4 h-4" />
-              </div>
+          <div className="space-y-2">
+            <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+              {labels.scholarLabel}
+            </span>
+            <div className="space-y-1.5">
+              {SCHOLARS.map((s) => {
+                const active = preferredScholar === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => onPreferredScholarChange?.(s.id)}
+                    aria-pressed={active}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-start flex items-center justify-between cursor-pointer transition-all ${
+                      active
+                        ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
+                        : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs sm:text-sm font-semibold">{s.label}</div>
+                      <div className={`text-[11px] ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
+                        {s.sub[language]}
+                      </div>
+                    </div>
+                    {active && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* Section: Typography & Visual Accessibility */}
-        <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-          <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-            <Type className="w-3.5 h-3.5 text-amber-600" />
-            {t.readingTab}
-          </span>
-
-          {/* Arabic Script Scaling */}
-          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30">
-            <div>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                {t.arabicSize}
-              </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-                {Math.round(arabicScale * 100)}%
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onArabicScaleChange(Math.max(0.8, arabicScale - 0.1))}
-                className="w-9 h-9 rounded-xl border border-slate-300 dark:border-emerald-800 bg-white dark:bg-emerald-900/30 font-bold text-xs flex items-center justify-center cursor-pointer"
-                aria-label="Decrease text scale"
-              >
-                A-
-              </button>
-              <button
-                type="button"
-                onClick={() => onArabicScaleChange(1.0)}
-                className="px-2.5 h-9 rounded-xl border border-slate-200 dark:border-emerald-800 text-xs text-slate-500 flex items-center justify-center cursor-pointer"
-                title="Reset scale"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onArabicScaleChange(Math.min(1.7, arabicScale + 0.1))}
-                className="w-9 h-9 rounded-xl border border-slate-300 dark:border-emerald-800 bg-white dark:bg-emerald-900/30 font-bold text-xs flex items-center justify-center cursor-pointer"
-                aria-label="Increase text scale"
-              >
-                A+
-              </button>
-            </div>
+      {/* SECTION 3: UNIVERSAL VERSE CARD CUSTOMIZATION */}
+      <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-5">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
+            <Layers className="w-5 h-5" />
           </div>
-
-          {/* General Reading & Translation Text Scaling */}
-          {onReadingScaleChange && (
-            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30">
-              <div>
-                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  {t.readingSize}
-                </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-                  {Math.round(readingScale * 100)}%
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onReadingScaleChange(Math.max(0.8, readingScale - 0.1))}
-                  className="w-9 h-9 rounded-xl border border-slate-300 dark:border-emerald-800 bg-white dark:bg-emerald-900/30 font-bold text-xs flex items-center justify-center cursor-pointer"
-                  aria-label="Decrease translation scale"
-                >
-                  A-
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onReadingScaleChange(1.0)}
-                  className="px-2.5 h-9 rounded-xl border border-slate-200 dark:border-emerald-800 text-xs text-slate-500 flex items-center justify-center cursor-pointer"
-                  title="Reset translation scale"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onReadingScaleChange(Math.min(1.7, readingScale + 0.1))}
-                  className="w-9 h-9 rounded-xl border border-slate-300 dark:border-emerald-800 bg-white dark:bg-emerald-900/30 font-bold text-xs flex items-center justify-center cursor-pointer"
-                  aria-label="Increase translation scale"
-                >
-                  A+
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Toggles Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={onToggleTransliteration}
-              className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all cursor-pointer ${
-                showTransliteration
-                  ? 'bg-emerald-900/10 dark:bg-emerald-800/30 border-emerald-600/50 text-emerald-950 dark:text-emerald-100'
-                  : 'bg-[#FAF8F5] dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              <div>
-                <p className="text-xs font-semibold">{t.translit}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  {showTransliteration ? 'On' : 'Off'}
-                </p>
-              </div>
-              {showTransliteration && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
-            </button>
-
-            <button
-              type="button"
-              onClick={onToggleHighContrast}
-              className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all cursor-pointer ${
-                isHighContrast
-                  ? 'bg-amber-500/15 dark:bg-amber-500/20 border-amber-600/50 text-amber-950 dark:text-amber-100'
-                  : 'bg-[#FAF8F5] dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              <div>
-                <p className="text-xs font-semibold">{t.highContrast}</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  {isHighContrast ? 'High' : 'Standard'}
-                </p>
-              </div>
-              {isHighContrast && <Eye className="w-4 h-4 text-amber-600" />}
-            </button>
-          </div>
-
-          {/* Perspective Mode Switcher */}
-          <div className="p-3.5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/30 border border-emerald-900/10 dark:border-emerald-800/30 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                {t.perspective}
-              </p>
-              <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                {perspectiveMode === 'inquirer' ? t.inquirer : t.devotional}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onTogglePerspective}
-              className="py-2 px-3 text-xs font-semibold rounded-xl border border-emerald-900/15 dark:border-emerald-700/30 bg-white dark:bg-emerald-900/30 text-emerald-900 dark:text-emerald-200 cursor-pointer"
-            >
-              {perspectiveMode === 'inquirer' ? t.devotional : t.inquirer}
-            </button>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
+              {labels.sec3Title}
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">{labels.sec3Sub}</p>
           </div>
         </div>
 
-        {/* Section 5: Offline Storage & PWA Installation */}
-        <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              {!isOnline ? (
-                <WifiOff className="w-3.5 h-3.5 text-amber-600" />
-              ) : (
-                <Download className="w-3.5 h-3.5 text-amber-600" />
-              )}
-              {t.offlineTab}
-            </span>
-            <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium tabular-nums">
-              {stats.cachedPassagesCount} Passages · {stats.cachedAudioCount} Audio
-            </span>
+        {/* Font Scales */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-4 rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-emerald-900/10 dark:border-emerald-800/40 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-emerald-950 dark:text-[#F5F7F2]">
+              <span className="inline-flex items-center gap-1.5">
+                <Type className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
+                <span>{labels.arabicSize}</span>
+              </span>
+              <span className="font-mono tabular-nums">{Math.round(arabicScale * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min={0.9}
+              max={1.7}
+              step={0.05}
+              value={arabicScale}
+              onChange={(e) => onArabicScaleChange(parseFloat(e.target.value))}
+              className="w-full accent-[#006D53] cursor-pointer"
+            />
           </div>
 
-          <div className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 space-y-3">
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              {t.offlineReadyDesc}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={handleCacheBookmarksAudio}
-                disabled={isCachingBookmarksAudio}
-                className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>{isCachingBookmarksAudio ? '...' : t.cacheBookmarksAudioBtn}</span>
-              </button>
-
-              {stats.cachedAudioCount > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearAudioCache}
-                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-emerald-800/50 bg-white dark:bg-emerald-950/50 text-slate-600 dark:text-slate-300 hover:text-red-600 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>{t.clearAudioCacheBtn}</span>
-                </button>
-              )}
-
-              {!isInstalled && isInstallable && (
-                <button
-                  type="button"
-                  onClick={installPWA}
-                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  <Smartphone className="w-3.5 h-3.5" />
-                  <span>{t.installAppBtn}</span>
-                </button>
-              )}
+          <div className="p-4 rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-emerald-900/10 dark:border-emerald-800/40 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-emerald-950 dark:text-[#F5F7F2]">
+              <span className="inline-flex items-center gap-1.5">
+                <Type className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
+                <span>{labels.readingSize}</span>
+              </span>
+              <span className="font-mono tabular-nums">{Math.round(readingScale * 100)}%</span>
             </div>
+            <input
+              type="range"
+              min={0.85}
+              max={1.5}
+              step={0.05}
+              value={readingScale}
+              onChange={(e) => onReadingScaleChange?.(parseFloat(e.target.value))}
+              className="w-full accent-[#006D53] cursor-pointer"
+            />
+          </div>
+        </div>
 
-            {!isInstalled && isIOS && (
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
-                {t.iosInstallHint}
-              </p>
+        {/* Card Layer Visibility Checkboxes */}
+        <div className="space-y-2">
+          <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+            {labels.cardLayersLabel}
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {renderToggleRow(
+              prefs.showTransliteration,
+              () => updatePref({ showTransliteration: !prefs.showTransliteration }),
+              labels.layerTranslit
+            )}
+            {renderToggleRow(
+              prefs.showTranslation,
+              () => updatePref({ showTranslation: !prefs.showTranslation }),
+              labels.layerTranslation
+            )}
+            {renderToggleRow(
+              prefs.showTafsirByDefault,
+              () => updatePref({ showTafsirByDefault: !prefs.showTafsirByDefault }),
+              labels.layerTafsir,
+              undefined,
+              <BookOpen className="w-4 h-4" />
+            )}
+            {renderToggleRow(
+              prefs.showSocialComments,
+              () => updatePref({ showSocialComments: !prefs.showSocialComments }),
+              labels.layerComments,
+              undefined,
+              <MessageCircle className="w-4 h-4" />
+            )}
+            {renderToggleRow(
+              prefs.showCreationStudio,
+              () => updatePref({ showCreationStudio: !prefs.showCreationStudio }),
+              labels.layerStudio,
+              undefined,
+              <Film className="w-4 h-4" />
+            )}
+            {renderToggleRow(
+              prefs.showRootImagery,
+              () => updatePref({ showRootImagery: !prefs.showRootImagery }),
+              labels.layerRoots,
+              undefined,
+              <Sparkles className="w-4 h-4" />
+            )}
+            {renderToggleRow(
+              prefs.showAudioSourceBadge,
+              () => updatePref({ showAudioSourceBadge: !prefs.showAudioSourceBadge }),
+              labels.layerAudioBadge
             )}
           </div>
         </div>
+      </div>
 
-        {/* Section 6: Scholar Lecture Ingestion & Theological Audit Console (Step 4) */}
-        <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>
-                {language === 'ar'
-                  ? 'تدقيق واستيراد تفاسير العلماء (المرحلة ٤)'
-                  : language === 'sv'
-                  ? 'Lärdas föreläsningar & AI-granskning (Steg 4)'
-                  : language === 'fr'
-                  ? 'Ingestion des cours de savants & audit (Étape 4)'
-                  : 'Scholar Lecture Ingestion & Audit (Step 4)'}
-              </span>
-            </span>
-            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-              AGENTS.md Level 3
-            </span>
+      {/* SECTION 4: READER PROFILE */}
+      <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
+            <Users className="w-5 h-5" />
           </div>
-
-          <div className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 space-y-3">
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              {language === 'ar'
-                ? 'استيراد ومزامنة تفسير الشيخ محمد متولي الشعراوي الموثق (الموسوعة القرآنية - كتاب رقم ١٨) مع حفظ النص العربي الأصلي كاملاً.'
-                : language === 'sv'
-                ? 'Synkronisera och granska Sheikh Muhammad Metwalli Al-Sha\'rawis autentiska Tafsir (Quranpedia Bok 18) med bevarad arabisk originaltext.'
-                : language === 'fr'
-                ? 'Synchronisez et vérifiez le Tafsir authentique de Cheikh Muhammad Metwalli Al-Sha\'rawi (Quranpedia Livre 18) avec texte arabe intégral préservé.'
-                : 'Synchronize and audit Sheikh Muhammad Metwalli Al-Sha\'rawi\'s official Tafsir dataset (Quranpedia Book 18) with verbatim Arabic preservation.'}
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setIsIngestionModalOpen(true)}
-              className="min-h-[40px] inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>
-                {language === 'ar'
-                  ? 'فتح لوحة استيراد وتدقيق تفاسير العلماء'
-                  : language === 'sv'
-                  ? 'Öppna inläsnings- och granskningspanelen'
-                  : language === 'fr'
-                  ? 'Ouvrir la console d\'ingestion et d\'audit'
-                  : 'Open Scholar Ingestion & Audit Console'}
-              </span>
-            </button>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
+              {labels.sec4Title}
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">{labels.sec4Sub}</p>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {profileLabels.map((prof) => {
+            const active = readerProfile === prof.id;
+            return (
+              <button
+                key={prof.id}
+                type="button"
+                onClick={() => onReaderProfileChange?.(prof.id)}
+                aria-pressed={active}
+                className={`p-4 rounded-2xl border text-start transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                  active
+                    ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
+                    : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-sm font-bold">{prof.title}</span>
+                  {active && <Check className="w-4 h-4 text-[#F4B900]" />}
+                </div>
+                <span className={`text-xs ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
+                  {prof.sub}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Footer Action */}
-      <div className="p-5 border-t border-slate-100 dark:border-emerald-900/30 flex items-center justify-between gap-3 shrink-0">
-        <button
-          type="button"
-          onClick={() => {
-            onArabicScaleChange(1.0);
-            onExplanationDepthChange('context');
-            onSessionDepthChange('10min');
-            onSphereChange('all');
-          }}
-          className="px-3 py-2 text-xs font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
-        >
-          {t.reset}
-        </button>
+      {/* SECTION 5: OFFLINE STORAGE & IPHONE BACKGROUND CONTINUITY */}
+      <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
+            <Smartphone className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
+              {labels.sec5Title}
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">{labels.sec5Sub}</p>
+          </div>
+        </div>
 
-        {onClose && (
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={onClose}
-            className="px-5 h-11 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer"
+            onClick={handleCacheBookmarkedAudio}
+            disabled={isCachingBookmarks}
+            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#006D53] hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
-            <Check className="w-4 h-4" />
-            <span>{t.done}</span>
+            {cachedSuccess ? <Check className="w-4 h-4 text-[#F4B900]" /> : <Download className="w-4 h-4" />}
+            <span>{cachedSuccess ? labels.cachedDone : labels.cacheBookmarksBtn}</span>
           </button>
-        )}
-      </div>
-    </div>
-  );
 
-  if (inlinePage) {
-    return (
-      <>
-        {sheetBody}
-        <ScholarIngestionModal
-          isOpen={isIngestionModalOpen}
-          onClose={() => setIsIngestionModalOpen(false)}
-          language={language}
-        />
-      </>
-    );
-  }
-
-  return (
-    <>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="customization-title"
-        className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-200"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose?.();
-        }}
-      >
-        {sheetBody}
+          <button
+            type="button"
+            onClick={() => void OfflineCacheService.clearAudioCache()}
+            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-emerald-900/15 dark:border-emerald-800/40 text-xs font-semibold text-slate-700 dark:text-[#9BAFA7] hover:text-red-600 inline-flex items-center gap-2 cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>{labels.clearCacheBtn}</span>
+          </button>
+        </div>
       </div>
-      <ScholarIngestionModal
-        isOpen={isIngestionModalOpen}
-        onClose={() => setIsIngestionModalOpen(false)}
-        language={language}
-      />
-    </>
+    </section>
   );
 };

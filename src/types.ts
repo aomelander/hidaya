@@ -258,4 +258,31 @@ export interface LicenseRegistryEntry {
 
 export type PerspectiveMode = 'devotional' | 'inquirer';
 
+export type FeedStreamMode = 'guidance' | 'surah' | 'favorites';
+
+export interface SocialComment {
+  id: string;
+  verseId: string;
+  text: string;
+  mood?: ReflectionMood;
+  createdAt: string;
+}
+
+export interface VerseCardPreferences {
+  showTransliteration: boolean;
+  showTranslation: boolean;
+  showTafsirByDefault: boolean;
+  showRootImagery: boolean;
+  showSocialComments: boolean;
+  showCreationStudio: boolean;
+  showAudioSourceBadge: boolean;
+  autoPlayOnSwipe: boolean;
+  loopVerse: boolean;
+  includeRecitationByDefault: boolean;
+  includeTranslationByDefault: boolean;
+  includeTafsirByDefault: boolean;
+  tvMode: boolean;
+}
+
+
 
