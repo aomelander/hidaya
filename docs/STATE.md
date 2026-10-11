@@ -188,3 +188,11 @@ Implemented the comprehensive UX/UI redesign and accessibility enhancement acros
    - Executed `npm run deploy` (`vinext-cloudflare deploy`) with `CLOUDFLARE_API_TOKEN`.
    - Uploaded 8 updated static client assets and SSR worker bundle (`3273.17 KiB` total / `935.17 KiB` gzip).
    - Deployed new production version `8c705253-1f19-4a88-b392-66cbe8d1f2e6` live at `https://hidaya.hidaya.workers.dev`.
+
+## 2026-10-11 — Milestone 48: Cloudflare Production Supabase Secrets for GitHub Audio Streaming
+
+1. **Root Cause Identified**:
+   - The Cloudflare Worker (`hidaya`) only had `GEMINI_API_KEY` configured as a secret, missing `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Without Supabase credentials, `/api/ayah-audio/metadata` could not look up the GitHub Releases `ayah_audio` records and fell back to `Audio: Server`.
+2. **Cloudflare Secrets Provisioned & Verified**:
+   - Uploaded `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` to the Cloudflare Worker (`hidaya`) via `wrangler secret put`.
+   - Verified on `https://hidaya.hidaya.workers.dev/api/ayah-audio/metadata?surah=2&verse=275&lang=en&type=translation&source=Sahih+International` that it now returns `"status": "available"` with `"audioUrl": "/api/ayah-audio/281aea07-a273-558b-b960-bbbc0d8f4f64"` (`Saheeh International`), streaming `audio/mpeg` (`224,784 bytes`) directly from GitHub Releases and displaying **`Audio: GitHub`**.
