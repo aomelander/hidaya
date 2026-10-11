@@ -178,3 +178,13 @@ Implemented the comprehensive UX/UI redesign and accessibility enhancement acros
    - Added real-time audio source tier detection (`onAudioSourcesResolved`) in `AudioPlayer.tsx` and `SpeechService` (`speechSynthesisService.ts`), displaying **`Audio: GitHub`** (when streaming pre-generated MP3s from GitHub Releases via `/api/ayah-audio/[id]`), **`Audio: Server`** (Tier A Server-Side Gemini Neural TTS via `/api/tts`), or **`Audio: Browser`** (Tier B Browser Web Speech API fallback) at the top of both the **Translation** and **Tafsir** sections in `QuranReaderPage.tsx` and `VerseCard.tsx`.
 4. **GitHub Releases Audio Resolution (`vite.config.ts` & `ayahAudioServerService.ts`)**:
    - Synced `.dev.vars` automatically from `process.env` in `vite.config.ts` for the Cloudflare `workerd` SSR environment and broadened classical scholar attribution matching in `ayahAudioServerService.ts` so the >80% pre-generated MP3s in GitHub Releases (`public.ayah_audio`) resolve and stream directly as `GitHub`.
+
+## 2026-10-11 — Milestone 47: Production Deployment to GitHub & Cloudflare Workers (`8c705253`)
+
+1. **GitHub Push**:
+   - Validated `npm run typecheck` and `npm run lint` with zero errors.
+   - Committed and pushed all Read Quran page, unified audio selector (`+` / `✓`), strict language Tafsir skipping, `GitHub` / `Server` / `Browser` audio source badges, and zero-lag background caching updates to `origin/main` (`https://github.com/aomelander/hidaya.git`).
+2. **Cloudflare Workers Production Deployment**:
+   - Executed `npm run deploy` (`vinext-cloudflare deploy`) with `CLOUDFLARE_API_TOKEN`.
+   - Uploaded 8 updated static client assets and SSR worker bundle (`3273.17 KiB` total / `935.17 KiB` gzip).
+   - Deployed new production version `8c705253-1f19-4a88-b392-66cbe8d1f2e6` live at `https://hidaya.hidaya.workers.dev`.
