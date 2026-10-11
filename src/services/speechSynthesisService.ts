@@ -285,8 +285,8 @@ class SpeechSynthesisEngine {
           console.warn('[SpeechService] HTML5 Audio playback error:', e);
           this.isSpeakingActive = false;
           this.currentAudioElement = null;
-          // Fall back to browser utterance
-          this.speakWithBrowserUtterance(text, language, options);
+          options.onError?.(e);
+          options.onEnd?.();
         };
 
         audio.addEventListener('play', handlePlay);
@@ -297,130 +297,29 @@ class SpeechSynthesisEngine {
         await audio.play();
         return;
       } catch (err) {
-        console.warn('[SpeechService] Audio play error, falling back to browser SpeechSynthesis:', err);
+        console.warn('[SpeechService] Server audio play error:', err);
       }
     }
 
-    // 2. Fallback to Browser SpeechSynthesis with strict language enforcement
-    if (this.isSpeakingActive) {
-      this.speakWithBrowserUtterance(text, language, options);
-    }
+    // Under AGENTS.md rules and Phase 4, robotic operating system / browser speech synthesis
+    // (window.speechSynthesis) is strictly prohibited for Quranic texts, translations, and classical Tafsir.
+    // When studio or server audio is unavailable, advance gracefully to completion without robotic speech.
+    this.isSpeakingActive = false;
+    options.onProgress?.(1);
+    options.onEnd?.();
   }
 
   /**
-   * Safe browser speech utterance fallback with strict native voice requirements.
+   * Browser SpeechSynthesis is strictly disabled for sacred Quranic texts and exegesis to prevent robotic distortion.
    */
   private async speakWithBrowserUtterance(
-    text: string,
-    language: Language,
+    _text: string,
+    _language: Language,
     options: SpeakOptions = {}
   ): Promise<void> {
-    options.onProviderResolved?.('browser');
-    if (!('speechSynthesis' in window)) {
-      this.isSpeakingActive = false;
-      options.onEnd?.();
-      return;
-    }
-
-    try {
-      const voice = await this.getBestVoice(language);
-
-      // CRITICAL GUARDRAIL: If language is Swedish and no Swedish voice is installed on the device,
-      // DO NOT pass Swedish text to an English TTS engine (this causes horrific English phoneme reading).
-      if (language === 'sv' && !voice) {
-        console.warn(
-          '[SpeechService] No native Swedish voice found in browser. Suppressing playback to prevent English butchering.'
-        );
-        this.isSpeakingActive = false;
-        options.onError?.(
-          new Error('Ingen svensk röst hittades på din enhet. Aktivera svenskt talspråk i webbläsarens inställningar.')
-        );
-        options.onEnd?.();
-        return;
-      }
-
-      const utterance = new SpeechSynthesisUtterance(text);
-
-      if (voice) {
-        utterance.voice = voice;
-        utterance.lang = voice.lang;
-      } else {
-        utterance.lang =
-          language === 'sv'
-            ? 'sv-SE'
-            : language === 'fr'
-            ? 'fr-FR'
-            : language === 'ar'
-            ? 'ar-SA'
-            : 'en-US';
-      }
-
-      const rate = options.rate ?? 0.92;
-      utterance.rate = rate;
-      utterance.pitch = options.pitch ?? 1.0;
-      utterance.volume = options.volume ?? 1.0;
-
-      const totalChars = Math.max(1, text.length);
-      const wordsCount = Math.max(1, text.trim().split(/\s+/).length);
-      // Estimate duration (~360ms per word at rate 1.0) for smooth pacing fallback if onboundary doesn't fire
-      const estimatedDurationMs = Math.max(1200, (wordsCount * 370) / Math.max(0.5, rate));
-      let startTime = Date.now();
-      let boundaryFired = false;
-
-      const clearTimer = () => {
-        if (this.progressTimer) {
-          clearInterval(this.progressTimer);
-          this.progressTimer = null;
-        }
-      };
-
-      utterance.onstart = () => {
-        startTime = Date.now();
-        options.onStart?.();
-        options.onProgress?.(0);
-        clearTimer();
-        this.progressTimer = setInterval(() => {
-          if (!this.isSpeakingActive) {
-            clearTimer();
-            return;
-          }
-          if (!boundaryFired) {
-            const elapsed = Date.now() - startTime;
-            const estRatio = Math.min(0.98, Math.max(0, elapsed / estimatedDurationMs));
-            options.onProgress?.(estRatio);
-          }
-        }, 70);
-      };
-
-      utterance.onboundary = (event) => {
-        if (typeof event.charIndex === 'number') {
-          boundaryFired = true;
-          const ratio = Math.min(1, Math.max(0, event.charIndex / totalChars));
-          options.onProgress?.(ratio);
-        }
-      };
-
-      utterance.onend = () => {
-        clearTimer();
-        options.onProgress?.(1);
-        this.isSpeakingActive = false;
-        options.onEnd?.();
-      };
-
-      utterance.onerror = (err) => {
-        clearTimer();
-        this.isSpeakingActive = false;
-        options.onError?.(err);
-        options.onEnd?.();
-      };
-
-      window.speechSynthesis.speak(utterance);
-    } catch (err) {
-      this.isSpeakingActive = false;
-      console.error('[SpeechService] Browser TTS failed:', err);
-      options.onError?.(err);
-      options.onEnd?.();
-    }
+    this.isSpeakingActive = false;
+    options.onProgress?.(1);
+    options.onEnd?.();
   }
 
   /**

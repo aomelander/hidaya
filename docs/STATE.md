@@ -66,6 +66,7 @@
 - [x] Milestone 40: GitHub Import Migration & AI Studio Environment Validation — Removed conflicting `bun.lock` lockfile, integrated `GEMINI_API_KEY` into `.env.example`, verified `MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API` capability, audited server-side Gemini routes and Supabase fallback mechanisms, resolved dev server pre-warming process termination by disabling Vinext dev lockfile conflicts (`VINEXT_NO_DEV_LOCK=1` in `vite.config.ts`), confirmed dev server running stably on port 3000 (0.0.0.0), and verified `compile_applet` and `lint_applet` passing with 0 errors.
 - [x] Milestone 41: Audio Playback Hardening, Guidance Voice Search & "Add to Audio Read" Feature — (1) Fixed MP3 streaming in `/api/ayah-audio/[id]/route.ts` to strictly adhere to RFC 7233 by returning `HTTP 206 Partial Content` with `Content-Range: bytes ${start}-${end}/${total}` and full CORS headers on all byte range requests, resolving HTML5 `<audio>` playback freezing and decode errors in Chrome and Safari; (2) Broadened trusted S3 asset host pattern validation in `zipExtractor.ts` to encompass all GitHub release S3 asset redirects; (3) Resolved Guidance voice search by upgrading `useSpeechRecognition.ts` with MediaRecorder audio recording, creating `/api/speech-to-text` powered by server-side Gemini 2.5 Flash, and adding curated 1-click voice query suggestions for Arabic, English, Swedish, and French when microphone permissions are restricted by iframe sandbox; (4) Added the "Add to Audio Read" sequential contemplation feature in `AudioPlayer.tsx` and `VerseCard.tsx`, making Translation and Tafsir audio options visible whenever corresponding texts exist, offering toggles (`+ Translation`, `+ Tafsir`) that seamlessly chain Quran recitation -> Translation -> Classical Tafsir with live word-by-word highlights and speech synthesis fallbacks; (5) Verified with `compile_applet`, `lint_applet`, and all 9 unit tests passing cleanly.
 - [x] Milestone 42: Streamlined Voice Input to Pure Browser Recognition & Typed Search Fallback — (1) Removed the Gemini speech-to-text API fallback route (`/api/speech-to-text`); (2) Retained pure browser-supported Web Speech recognition (`SpeechRecognition` / `webkitSpeechRecognition`) across Arabic (`ar-SA`), Swedish (`sv-SE`), French (`fr-FR`), and English (`en-US`); (3) Implemented seamless typed search offering in `GuidanceSearchBar` and `VoiceSearchButton` when voice input is unsupported or denied; (4) Fully preserved HTTP Range MP3 audio streaming for GitHub release recordings and verified all 9 integration tests pass.
+- [x] Milestone 43: Phase 2 Streamlined Verse Card & Headless Audio Engine (`VerseCard.tsx` & `AudioPlayer.tsx`) — (1) Transformed `AudioPlayer` with `headless` support to operate invisibly in the background on the verse card, removing the timeline scrubber, time counters, speed controls, volume buttons, reciter dropdown, and offline download buttons; (2) Replaced the heavy audio player box with a discreet, animated Play/Pause button in the card header action bar showing live playback phase indicator; (3) Removed the redundant Level 4 personal meditation notepad panel in favor of the unified Comments & Reflections thread (`💬`) with mood tags and local storage; (4) Eliminated the interactive segmented scholar buttons bar from the card in favor of direct attribution of the configured `preferredScholar` from Preferences with a clean single-row Level 3 Tafsir disclosure button; (5) Preserved the complete synchronized word-by-word teleprompter engine across Arabic, Translation, and Tafsir with viewport eye-level auto-scrolling; (6) Verified clean compilation, 0 lint errors, and 9/9 audio integration tests passing.
 
 **Live Production URL:** https://hidaya.hidaya.workers.dev
 **Cloudflare Worker:** hidaya (Version 9543ffab-03f4-4ca9-afa3-2a9cb1e22c40)
@@ -237,4 +238,51 @@ Implemented the comprehensive UX/UI redesign and accessibility enhancement acros
 4. **Verification**:
    - Passed `npm run typecheck` and `npm run lint` with 0 errors.
    - Passed all 9 unit and regression test suites (`npm test`).
+   - Verified via `compile_applet`.
+
+## 2026-10-11 — Milestone 51: Completion of Phase 2 (`implementation_plan-universal-sanctuary-reels.md`)
+
+1. **Purified Universal Verse Card (`VerseCard.tsx`)**:
+   - Removed the heavy visible audio player block (scrubber bar, timeline elapsed/total counters, and redundant buttons) from the card surface.
+   - Removed Level 4 meditation notepad block; all personal reflections and notes are now seamlessly consolidated in the unified `💬` Comments / Reflections thread with mood badges.
+   - Removed the multiple segmented scholar buttons on the card: the Tafsir layer directly renders the user's preferred scholar commentary (`preferredScholar` from `VerseCardPreferences`) with source title, translation/origin details, and verified Arabic transcript modal.
+   - Preserved the high-precision word-by-word teleprompter engine across Arabic, translation, and Tafsir with real-time eye-level auto-scrolling.
+2. **Headless Audio Engine (`AudioPlayer.tsx`)**:
+   - Added `headless` support to `AudioPlayer.tsx`, operating invisibly behind the scenes to handle audio streaming, word-by-word timing synchronization, phase transitions, and proactive pre-caching.
+   - Added reactive preferences synchronization (`hidaya-preferences-updated` and `storage` listeners) keeping reciter and playback options perfectly aligned.
+   - Added a minimalist Play/Pause button on the card action bar with dynamic accessible tooltips and status feedback.
+
+## 2026-10-11 — Milestone 52: Completion of Phase 3 (`implementation_plan-universal-sanctuary-reels.md`)
+
+1. **Single-Verse Full-Screen Reels Mode (`page.tsx`)**:
+   - Replaced vertical multi-card stacking with a focused single active verse at a time (`currentVerse = displayedPassages[safeIndex]`).
+   - Implemented Stories/Reels-style segmented progress bar at the top of the card showing current Ayah progression (`Verset 1 sur 4`) with interactive segment jumping.
+2. **Fluid Touch & Gesture Navigation**:
+   - Added multi-directional touch swipe navigation (`onTouchStart` / `onTouchEnd`) on both the card and guidance container, with RTL-awareness (`language === 'ar'`).
+   - Keyboard left/right arrow navigation and discrete previous/next buttons.
+   - Video-style auto-play on swipe (`autoPlayOnSwipe`) automatically starts recitation when advancing to the next verse.
+3. **Universal Sanctuary Reader for Ayah Cartouche (`۝`)**:
+   - Clicking on the ornate Ayah Cartouche (`۝`) or Surah title now loads the Surah in the exact same Universal Sanctuary Reels viewer without ever redirecting to a different page layout.
+   - Merges curated Surah fixtures and canonical API ayahs, smoothly centering on the clicked verse index.
+   - Connected `onOpenUniversalVerse` in `QuranReaderPage` and integrated sticky `BottomNav` for seamless tab switching.
+4. **Verification**:
+   - Passed `npm run typecheck` and `npm run lint` with 0 errors.
+   - Passed all 9 unit and regression tests (`npm test`).
+   - Verified via `compile_applet`.
+
+## 2026-10-11 — Milestone 53: Completion of Phase 4 (`implementation_plan-universal-sanctuary-reels.md`)
+
+1. **Deterministic Audio Resolution (`ayahAudioServerService.ts` & `AudioPlayer.tsx`)**:
+   - Hardened `lookupAyahAudio` in `ayahAudioServerService.ts` and `AudioPlayer.tsx` to reliably resolve GitHub Releases audio streams (`/api/ayah-audio/[id]`).
+   - Eliminated the risk of premature audio dropouts by gracefully advancing to the next phase/verse when studio audio is absent rather than halting.
+2. **Strict Eradication of Browser Web Speech API (`speechSynthesisService.ts`)**:
+   - In accordance with AGENTS.md rules, removed all fallbacks to the browser's robotic operating-system voice (`window.speechSynthesis`).
+   - Restricted speech synthesis exclusively to server-side high-fidelity Gemini neural voices (`/api/tts`).
+   - When server audio is unavailable or errors, the playback pipeline skips gracefully to completion without inflicting synthetic operating-system voices on sacred texts.
+3. **Proactive `N+1` CacheStorage Pre-Caching**:
+   - Upgraded `prefetchUrlToBlob` in `AudioPlayer.tsx` to automatically persist fetched audio streams directly into the Service Worker's `CacheStorage` (`hidaya-audio-v3`).
+   - Proactively pre-warms next-verse (N+1) audio recitation, translation, and Tafsir in both memory and `CacheStorage` for gapless, zero-lag playback during swiping.
+4. **Verification**:
+   - Passed `npm run typecheck` and `npm run lint` with 0 errors.
+   - Passed all 9 unit and regression tests (`npm test`).
    - Verified via `compile_applet`.

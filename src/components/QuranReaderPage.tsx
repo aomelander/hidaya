@@ -55,6 +55,7 @@ interface QuranReaderPageProps {
   initialTarget?: QuranReaderTarget | null;
   onTargetChange?: (target: QuranReaderTarget | null) => void;
   onOpenJournal?: () => void;
+  onOpenUniversalVerse?: (surahNumber: number, ayahNumber: number) => void;
 }
 
 type BrowserTab = 'surahs' | 'juz' | 'bookmarks';
@@ -251,6 +252,7 @@ export const QuranReaderPage: React.FC<QuranReaderPageProps> = ({
   readerProfile = 'adult',
   initialTarget = null,
   onTargetChange,
+  onOpenUniversalVerse,
 }) => {
   const t = READER_STRINGS[language] || READER_STRINGS.en;
 
@@ -294,6 +296,10 @@ export const QuranReaderPage: React.FC<QuranReaderPageProps> = ({
 
   const openSurahAyah = useCallback(
     (surahNumber: number, ayahNumber: number = 1) => {
+      if (onOpenUniversalVerse) {
+        onOpenUniversalVerse(surahNumber, ayahNumber);
+        return;
+      }
       const meta = getSurahMeta(surahNumber);
       const clampedAyah = Math.max(1, Math.min(meta.ayahCount, ayahNumber));
       const next = { surahNumber, ayahNumber: clampedAyah };
@@ -302,7 +308,7 @@ export const QuranReaderPage: React.FC<QuranReaderPageProps> = ({
       lastScrolledPhaseRef.current = '';
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
-    [onTargetChange]
+    [onOpenUniversalVerse, onTargetChange]
   );
 
   // When playback phase changes (recitation -> translation -> tafsir), automatically show the corresponding tab and scroll the screen to see the part being read

@@ -9,7 +9,7 @@
  * inside each verse card.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Language,
   QuranVerseFixture,
@@ -22,7 +22,9 @@ import {
 } from '../types';
 import { Locale, getDictionary } from '../lib/i18n/dictionaries';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { StorageService } from '../services/storage';
+import { OfflineCacheService } from '../services/offlineCacheService';
 import { APP_CONFIG } from '../config/appConfig';
 import { useGuidanceSearch } from '../hooks/useGuidanceSearch';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
@@ -30,8 +32,6 @@ import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 // Core Tab Views & Components (Zero Popup Modals)
 import { Header } from '../components/Header';
 import { DailyNorthStar } from '../components/DailyNorthStar';
-import { GuidanceSearchBar } from '../components/GuidanceSearchBar';
-import { QuickChoicePills } from '../components/QuickChoicePills';
 import { OffTopicBanner } from '../components/OffTopicBanner';
 import { ContinuousSessionAudioPlayer } from '../components/ContinuousSessionAudioPlayer';
 import { expandPassage, PassageSelection } from '../services/passageSelection';
@@ -157,7 +157,9 @@ export default function App() {
     setSessionDepth,
     isAnalyzing,
     analysisResult,
+    setAnalysisResult,
     selectedPassages,
+    setSelectedPassages,
     displayedPassages,
     executeSearch,
     handleQuickPillSelect,
@@ -280,9 +282,163 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleNavigateToRead = (surahNumber: number, ayahNumber: number) => {
-    setReadTarget({ surahNumber, ayahNumber });
-    setActiveNavTab('read');
+  // Stories / Reels active verse index in Guidance tab
+  const [activeVerseIndex, setActiveVerseIndex] = useState<number>(0);
+
+  // Sync active audio verse with current displayed verse when passages change
+  useEffect(() => {
+    setActiveVerseIndex(0);
+    if (displayedPassages.length > 0) {
+      setActiveAudioVerseId(displayedPassages[0].id);
+    }
+  }, [displayedPassages]);
+
+  const handleAdvanceToVerse = (targetIdx: number) => {
+    if (displayedPassages.length === 0) return;
+    const resolvedIdx = (targetIdx + displayedPassages.length) % displayedPassages.length;
+    setActiveVerseIndex(resolvedIdx);
+    const targetVerse = displayedPassages[resolvedIdx];
+    setActiveAudioVerseId(targetVerse.id);
+
+    // If autoPlayOnSwipe preference is enabled or global play was active, trigger playback for new verse
+    if (cardPreferences.autoPlayOnSwipe || isGlobalPlaying) {
+      window.dispatchEvent(
+        new CustomEvent('hidaya-global-toggle-play', {
+          detail: { action: 'play', ayahId: targetVerse.id },
+        })
+      );
+    }
+  };
+
+  // Keyboard navigation for reels (ArrowLeft / ArrowRight)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (displayedPassages.length <= 1) return;
+      if (e.key === 'ArrowRight') {
+        if (language === 'ar') {
+          handleAdvanceToVerse(activeVerseIndex - 1);
+        } else {
+          handleAdvanceToVerse(activeVerseIndex + 1);
+        }
+      } else if (e.key === 'ArrowLeft') {
+        if (language === 'ar') {
+          handleAdvanceToVerse(activeVerseIndex + 1);
+        } else {
+          handleAdvanceToVerse(activeVerseIndex - 1);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeVerseIndex, displayedPassages.length, language]);
+
+  // Touch Swipe Gesture Detection on Guidance Viewport
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleContainerTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleContainerTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+
+    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
+      const isRtl = language === 'ar';
+      const isNext = isRtl ? deltaX > 0 : deltaX < 0;
+      if (isNext) {
+        handleAdvanceToVerse(activeVerseIndex + 1);
+      } else {
+        handleAdvanceToVerse(activeVerseIndex - 1);
+      }
+    }
+  };
+
+  // Universal Sanctuary Reader: Clicking Ayah Cartouche loads the surah in the same universal component
+  const handleNavigateToRead = async (surahNumber: number, ayahNumber: number) => {
+    const exactId = `${surahNumber}:${ayahNumber}`;
+
+    // 1. Gather all fixtures for this surah
+    const surahFixtures = QURAN_FIXTURES.filter((f) => f.surahNumber === surahNumber);
+
+    // Check if the exact requested verse is among the surah fixtures
+    const fixtureIdx = surahFixtures.findIndex(
+      (f) =>
+        f.id === exactId ||
+        (f.surahNumber === surahNumber &&
+          (f.verseNumber === String(ayahNumber) ||
+            f.verseNumber.startsWith(`${ayahNumber}-`) ||
+            f.verseNumber.endsWith(`-${ayahNumber}`)))
+    );
+
+    if (fixtureIdx >= 0) {
+      // Surah fixtures contain the requested verse: load the surah set and focus on this verse
+      setSelectedPassages(surahFixtures);
+      setActiveVerseIndex(fixtureIdx);
+      setActiveAudioVerseId(surahFixtures[fixtureIdx].id);
+      OfflineCacheService.cachePassages(surahFixtures);
+      const targetVerse = surahFixtures[fixtureIdx];
+      setAnalysisResult({
+        status: 'matched',
+        detectedSituation: `Surah ${targetVerse.surahNameTransliterated} (${surahNumber}:${targetVerse.verseNumber})`,
+        detectedEmotion: targetVerse.surahNameArabic,
+        underlyingNeed: targetVerse.surahNameMeaning,
+        matchedPassageIds: surahFixtures.map((f) => f.id),
+        relevanceExplanation: `Surah ${targetVerse.surahNameTransliterated} — ${targetVerse.surahNameMeaning}`,
+      });
+      setActiveNavTab('guidance');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // 2. Fetch the verse from verified canonical API
+    try {
+      const res = await fetch(`/api/quran/ayah?surah=${surahNumber}&ayah=${ayahNumber}&lang=${language}`);
+      if (res.ok) {
+        const payload = (await res.json()) as { verse?: QuranVerseFixture } | QuranVerseFixture;
+        const verseData = ('verse' in payload && payload.verse ? payload.verse : payload) as QuranVerseFixture;
+        if (verseData && verseData.id) {
+          const merged = [...surahFixtures.filter((f) => f.id !== verseData.id), verseData];
+          merged.sort((a, b) => {
+            const aNum = parseInt(a.verseNumber.split('-')[0], 10) || 0;
+            const bNum = parseInt(b.verseNumber.split('-')[0], 10) || 0;
+            return aNum - bNum;
+          });
+          setSelectedPassages(merged);
+          const targetIdx = merged.findIndex((m) => m.id === verseData.id);
+          setActiveVerseIndex(targetIdx >= 0 ? targetIdx : 0);
+          setActiveAudioVerseId(verseData.id);
+          OfflineCacheService.cachePassages(merged);
+          setAnalysisResult({
+            status: 'matched',
+            detectedSituation: `Surah ${verseData.surahNameTransliterated} (${surahNumber}:${ayahNumber})`,
+            detectedEmotion: verseData.surahNameArabic,
+            underlyingNeed: verseData.surahNameMeaning,
+            matchedPassageIds: merged.map((m) => m.id),
+            relevanceExplanation: `Surah ${verseData.surahNameTransliterated} — ${verseData.surahNameMeaning}`,
+          });
+          setActiveNavTab('guidance');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load verse into universal reader:', err);
+    }
+
+    // 3. Fallback: If surah fixtures exist, display them; otherwise keep current view in guidance tab
+    if (surahFixtures.length > 0) {
+      setSelectedPassages(surahFixtures);
+      setActiveVerseIndex(0);
+      setActiveAudioVerseId(surahFixtures[0].id);
+    }
+    setActiveNavTab('guidance');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -294,15 +450,6 @@ export default function App() {
   const switchTab = (tab: BottomNavTab) => {
     setActiveNavTab(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleAdvanceToVerse = (targetIdx: number) => {
-    if (displayedPassages.length === 0) return;
-    const resolvedIdx = (targetIdx + displayedPassages.length) % displayedPassages.length;
-    const targetVerse = displayedPassages[resolvedIdx];
-    setActiveAudioVerseId(targetVerse.id);
-    const targetEl = document.getElementById(`verse-${targetVerse.id}`);
-    targetEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   return (
@@ -352,32 +499,9 @@ export default function App() {
 
       {/* Dedicated Tab Viewport — Each Onglet Manages Its Own Page With Zero Popups */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-16 sm:pb-20">
-        {/* TAB 1: GUIDANCE (Search, Topics & Inline Verse Study) */}
+        {/* TAB 1: GUIDANCE (Search, Topics & Inline Verse Study — Universal Sanctuary Reels Mode) */}
         {activeNavTab === 'guidance' && (
-          <div className="space-y-6">
-            <section
-              id="guidance-portal"
-              aria-label="Guidance Portal"
-              className="space-y-4 p-5 sm:p-7 rounded-3xl bg-white dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-                <div>
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-950 dark:text-[#F5F7F2] text-balance">
-                    {dict.portalTitle}
-                  </h1>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9BAFA7] mt-1">
-                    {dict.portalSubtitle}
-                  </p>
-                </div>
-              </div>
-
-              <QuickChoicePills
-                activeMode={activeMode}
-                language={language}
-                onSelectPill={(pill) => handleQuickPillSelect(pill, language)}
-              />
-            </section>
-
+          <div className="space-y-4">
             {isAnalyzing && (
               <div className="text-center py-10 space-y-3" role="status" aria-live="polite">
                 <div className="w-9 h-9 border-2 border-[#006D53] border-t-transparent rounded-full animate-spin mx-auto" />
@@ -397,58 +521,110 @@ export default function App() {
               />
             )}
 
-            {!isAnalyzing && displayedPassages.length > 0 && (
-              <section id="passages-section" aria-label="Quranic Passages" className="space-y-6">
-                {displayedPassages.length > 1 && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 rounded-2xl bg-white/90 dark:bg-[#0B3027]/90 border border-emerald-900/10 dark:border-emerald-800/35 text-xs">
-                    <span className="font-semibold text-emerald-950 dark:text-[#F5F7F2] tabular-nums">
-                      {language === 'ar'
-                        ? `${displayedPassages.length} آيات مطابقة للتدبر`
-                        : language === 'sv'
-                        ? `${displayedPassages.length} Quran-passager hittades`
-                        : language === 'fr'
-                        ? `${displayedPassages.length} passages coraniques trouvés`
-                        : `${displayedPassages.length} Quranic Passages Found`}
-                    </span>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {displayedPassages.map((p) => {
-                        const firstAyah = parseInt(String(p.verseNumber).split('-')[0], 10) || 1;
-                        return (
+            {!isAnalyzing && displayedPassages.length > 0 && (() => {
+              const totalVerses = displayedPassages.length;
+              const safeIndex = Math.min(activeVerseIndex, totalVerses - 1);
+              const currentVerse = displayedPassages[safeIndex] || displayedPassages[0];
+
+              return (
+                <section
+                  id="passages-section"
+                  aria-label="Quranic Passages"
+                  className="space-y-3 sm:space-y-4"
+                  onTouchStart={handleContainerTouchStart}
+                  onTouchEnd={handleContainerTouchEnd}
+                >
+                  {/* Reels / Stories Segmented Progress Bar */}
+                  {totalVerses > 1 && (
+                    <div className="space-y-2 px-1">
+                      {/* Segmented Bar */}
+                      <div className="flex items-center gap-1 sm:gap-1.5" role="tablist" aria-label="Passage progression">
+                        {displayedPassages.map((p, idx) => {
+                          const isCurrent = idx === safeIndex;
+                          const isPast = idx < safeIndex;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => handleAdvanceToVerse(idx)}
+                              aria-label={`Go to Ayah ${p.id} (${idx + 1}/${totalVerses})`}
+                              className={`h-1.5 rounded-full transition-all flex-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+                                isCurrent
+                                  ? 'bg-[#006D53] dark:bg-[#F4B900]'
+                                  : isPast
+                                  ? 'bg-emerald-800/40 dark:bg-emerald-700/50'
+                                  : 'bg-emerald-900/15 dark:bg-emerald-900/30 hover:bg-emerald-900/30'
+                              }`}
+                            />
+                          );
+                        })}
+                      </div>
+
+                      {/* Subtitle with Ayah indicator & Previous / Next buttons */}
+                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-[#9BAFA7]">
+                        <span className="font-semibold text-emerald-950 dark:text-[#F5F7F2] tabular-nums flex items-center gap-1.5">
+                          <span>
+                            {language === 'ar'
+                              ? `الآية ${safeIndex + 1} من ${totalVerses}`
+                              : language === 'fr'
+                              ? `Verset ${safeIndex + 1} sur ${totalVerses}`
+                              : language === 'sv'
+                              ? `Vers ${safeIndex + 1} av ${totalVerses}`
+                              : `Ayah ${safeIndex + 1} of ${totalVerses}`}
+                          </span>
+                          <span className="text-slate-400" aria-hidden="true">·</span>
+                          <span className="font-mono text-[11px] text-[#006D53] dark:text-[#F4B900]">
+                            {currentVerse.id}
+                          </span>
+                        </span>
+
+                        <div className="flex items-center gap-1">
                           <button
-                            key={p.id}
                             type="button"
-                            onClick={() => handleNavigateToRead(p.surahNumber, firstAyah)}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-950/5 dark:bg-[#061B16]/70 hover:bg-[#006D53] hover:text-white dark:hover:bg-[#006D53] text-emerald-900 dark:text-[#F5F7F2] transition-colors font-medium border border-emerald-900/10 dark:border-emerald-800/40 tabular-nums cursor-pointer"
+                            onClick={() => handleAdvanceToVerse(safeIndex - 1)}
+                            disabled={safeIndex === 0}
+                            aria-label="Previous Ayah"
+                            className="p-1 rounded-lg text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/10 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                           >
-                            {language === 'ar' ? `الآية ${p.id}` : `Ayah ${p.id}`}
+                            <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
                           </button>
-                        );
-                      })}
+                          <button
+                            type="button"
+                            onClick={() => handleAdvanceToVerse(safeIndex + 1)}
+                            disabled={safeIndex === totalVerses - 1}
+                            aria-label="Next Ayah"
+                            className="p-1 rounded-lg text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/10 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                          >
+                            <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {displayedPassages.map((verse, idx) => (
+                  )}
+
+                  {/* Single Active Universal Verse Card */}
                   <div
-                    key={verse.id}
-                    id={`verse-${verse.id}`}
-                    className={
-                      (activeAudioVerseId === verse.id || activeAudioVerseId === expandPassage(verse, passageSelections[verse.id])?.id)
-                        ? 'ring-2 ring-[#F4B900]/80 rounded-3xl transition-all'
-                        : ''
-                    }
+                    key={currentVerse.id}
+                    id={`verse-${currentVerse.id}`}
+                    className="transition-all"
                   >
                     <VerseCard
-                      selection={passageSelections[verse.id]}
-                      onSelectionChange={(selection) => setPassageSelections(previous => ({ ...previous, [verse.id]: selection }))}
-                      verse={verse}
-                      nextVerse={displayedPassages[idx + 1] || displayedPassages[0]}
+                      selection={passageSelections[currentVerse.id]}
+                      onSelectionChange={(selection) =>
+                        setPassageSelections((previous) => ({
+                          ...previous,
+                          [currentVerse.id]: selection,
+                        }))
+                      }
+                      verse={currentVerse}
+                      nextVerse={displayedPassages[safeIndex + 1] || displayedPassages[0]}
                       language={language}
                       arabicScale={arabicScale}
                       readingScale={readingScale}
-                      cardIndex={idx}
-                      totalCards={displayedPassages.length}
+                      cardIndex={safeIndex}
+                      totalCards={totalVerses}
                       showTransliteration={showTransliteration}
-                      isBookmarked={bookmarks.includes(verse.id)}
+                      isBookmarked={bookmarks.includes(currentVerse.id)}
                       onToggleBookmark={handleToggleBookmark}
                       onReflectionSaved={() => setReflections(StorageService.getReflections())}
                       explanationDepth={explanationDepth}
@@ -456,15 +632,15 @@ export default function App() {
                       readerProfile={readerProfile}
                       preferredScholar={preferredScholar}
                       onNavigateToRead={handleNavigateToRead}
-                      isActive={activeAudioVerseId === verse.id || (idx === 0 && !activeAudioVerseId)}
-                      onNextVerse={() => handleAdvanceToVerse(idx + 1)}
-                      onPreviousVerse={() => handleAdvanceToVerse(idx - 1)}
+                      isActive={true}
+                      onNextVerse={() => handleAdvanceToVerse(safeIndex + 1)}
+                      onPreviousVerse={() => handleAdvanceToVerse(safeIndex - 1)}
                       cardPreferences={cardPreferences}
                     />
                   </div>
-                ))}
-              </section>
-            )}
+                </section>
+              );
+            })()}
           </div>
         )}
 
@@ -493,6 +669,7 @@ export default function App() {
             initialTarget={readTarget}
             onTargetChange={setReadTarget}
             onOpenJournal={() => switchTab('journal')}
+            onOpenUniversalVerse={handleNavigateToRead}
           />
         )}
 
@@ -574,6 +751,24 @@ export default function App() {
         {/* Ethical Boundaries & Al-Isra 17:105 Footer */}
         <Footer language={language} />
       </main>
+
+      {/* Primary Sticky Bottom Navigation */}
+      <BottomNav
+        locale={lang}
+        activeTab={activeNavTab}
+        isAudioActive={activeNavTab === 'audio'}
+        isPreferencesOpen={activeNavTab === 'preferences'}
+        isJournalOpen={activeNavTab === 'journal'}
+        bookmarkCount={bookmarks.length}
+        showReadPage={showReadPage}
+        showNorthStarPage={showNorthStarPage}
+        onSelectGuidance={() => switchTab('guidance')}
+        onToggleAudio={() => switchTab('audio')}
+        onSelectRead={() => switchTab('read')}
+        onSelectNorthStar={() => switchTab('northStar')}
+        onOpenJournal={() => switchTab('journal')}
+        onOpenPreferences={() => switchTab('preferences')}
+      />
     </div>
   );
 }

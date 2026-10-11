@@ -82,6 +82,7 @@ interface AudioPlayerProps {
   nextVerseAudioUrl?: string;
   nextVerseTranslationText?: string;
   isActive?: boolean;
+  headless?: boolean;
   onAudioSourcesResolved?: (sources: {
     translation: AudioSourceTier | null;
     tafsir: AudioSourceTier | null;
@@ -263,6 +264,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   nextVerseAudioUrl,
   nextVerseTranslationText,
   isActive,
+  headless = false,
   onAudioSourcesResolved,
 }) => {
   const effectiveTafsirLang: Language = tafsirLanguage || language;
@@ -579,7 +581,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (translationMetadata?.status === 'available' && translationMetadata.record?.audioUrl) {
       return 'GitHub';
     }
-    return SpeechService.isServerTtsConfigured() ? translationFallbackTier : 'Browser';
+    return SpeechService.isServerTtsConfigured() && translationFallbackTier === 'Server'
+      ? 'Server'
+      : null;
   }, [hasTranslationText, translationMetadata, translationFallbackTier]);
 
   const resolvedTafsirTier: AudioSourceTier | null = useMemo(() => {
@@ -587,7 +591,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (tafsirMetadata?.status === 'available' && tafsirMetadata.record?.audioUrl) {
       return 'GitHub';
     }
-    return SpeechService.isServerTtsConfigured() ? tafsirFallbackTier : 'Browser';
+    return SpeechService.isServerTtsConfigured() && tafsirFallbackTier === 'Server'
+      ? 'Server'
+      : null;
   }, [hasTafsirText, tafsirMetadata, tafsirFallbackTier]);
 
   useEffect(() => {
@@ -616,9 +622,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (defaultIncludeTafsir !== undefined) setIncludeTafsirInRead(defaultIncludeTafsir);
   }, [defaultIncludeTafsir]);
 
-  // Pre-fetch audio URL into an in-memory Blob ObjectURL for instant 0ms playback & iOS background sleep survival
+  // Pre-fetch audio URL into in-memory Blob ObjectURL and CacheStorage for instant 0ms playback & offline resilience
   const prefetchUrlToBlob = useCallback((url: string) => {
-    if (!url || blobUrlCacheRef.current.has(url)) return;
+    if (!url) return;
+    // Proactive CacheStorage caching (N+1)
+    void OfflineCacheService.cacheVerseAudio(url);
+
+    if (blobUrlCacheRef.current.has(url)) return;
     fetch(url, { method: 'GET' })
       .then((res) => (res.ok ? res.blob() : null))
       .then((blob) => {
@@ -641,7 +651,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         transUrls.forEach((u) => prefetchUrlToBlob(u));
       } else {
         void SpeechService.prefetchAudio(translationText, language).then((tier) => {
-          setTranslationFallbackTier(tier === 'server' ? 'Server' : 'Browser');
+          setTranslationFallbackTier(tier === 'server' ? 'Server' : (null as any));
         });
       }
     }
@@ -653,11 +663,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         tafUrls.forEach((u) => prefetchUrlToBlob(u));
       } else {
         void SpeechService.prefetchAudio(tafsirText, effectiveTafsirLang).then((tier) => {
-          setTafsirFallbackTier(tier === 'server' ? 'Server' : 'Browser');
+          setTafsirFallbackTier(tier === 'server' ? 'Server' : (null as any));
         });
       }
     }
-    // Proactively pre-cache Next Verse (N+1) Recitation and Translation in memory
+    // Proactively pre-cache Next Verse (N+1) Recitation and Translation in memory & CacheStorage
     if (nextVerseAudioUrl) {
       prefetchUrlToBlob(nextVerseAudioUrl);
     }
@@ -819,7 +829,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         rate: playbackRate,
         targetAudioElement: audioRef.current,
         onProviderResolved: (tier) => {
-          setTafsirFallbackTier(tier === 'server' ? 'Server' : 'Browser');
+          setTafsirFallbackTier(tier === 'server' ? 'Server' : (null as any));
         },
         onProgress: (ratio) => {
           if (request !== playSeqRef.current) return;
@@ -831,7 +841,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         },
         onError: () => {
           if (request !== playSeqRef.current) return;
-          stopPlayback();
+          finishVersePlaybackOrAdvance();
         },
       });
     }
@@ -844,7 +854,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         tafUrls.forEach((u) => { fetch(u, { method: 'GET' }).catch(() => {}); });
       } else {
         void SpeechService.prefetchAudio(tafsirText, effectiveTafsirLang).then((tier) => {
-          setTafsirFallbackTier(tier === 'server' ? 'Server' : 'Browser');
+          setTafsirFallbackTier(tier === 'server' ? 'Server' : (null as any));
         });
       }
     }
@@ -864,7 +874,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         rate: playbackRate,
         targetAudioElement: audioRef.current,
         onProviderResolved: (tier) => {
-          setTranslationFallbackTier(tier === 'server' ? 'Server' : 'Browser');
+          setTranslationFallbackTier(tier === 'server' ? 'Server' : (null as any));
         },
         onProgress: (ratio) => {
           if (request !== playSeqRef.current) return;
@@ -883,7 +893,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           if (includeTafsirInRead && hasTafsirText) {
             playTafsirStep();
           } else {
-            stopPlayback();
+            finishVersePlaybackOrAdvance();
           }
         },
       });
@@ -988,6 +998,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
     }
   }, [isActive, autoPlayOnAdvance]);
+
+  // Dynamically synchronize preferences from storage when updated in the Preferences Sheet
+  useEffect(() => {
+    const handlePrefChange = () => {
+      setReciterId(StorageService.getPreferredReciter());
+      const prefs = StorageService.getCardPreferences();
+      if (defaultLoop === undefined) setIsLooping(prefs.loopVerse);
+      if (defaultIncludeRecitation === undefined) setIncludeRecitationInRead(prefs.includeRecitationByDefault);
+      if (defaultIncludeTranslation === undefined) setIncludeTranslationInRead(prefs.includeTranslationByDefault);
+      if (defaultIncludeTafsir === undefined) setIncludeTafsirInRead(prefs.includeTafsirByDefault);
+    };
+    window.addEventListener('hidaya-preferences-updated', handlePrefChange);
+    window.addEventListener('storage', handlePrefChange);
+    return () => {
+      window.removeEventListener('hidaya-preferences-updated', handlePrefChange);
+      window.removeEventListener('storage', handlePrefChange);
+    };
+  }, [defaultLoop, defaultIncludeRecitation, defaultIncludeTranslation, defaultIncludeTafsir]);
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
@@ -1108,6 +1136,26 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const currentReciter =
     AVAILABLE_RECITERS.find((r) => r.id === reciterId) || AVAILABLE_RECITERS[0];
+
+  if (headless) {
+    return (
+      <div className="sr-only" aria-hidden="true">
+        <audio
+          ref={audioRef}
+          preload="metadata"
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onEnded={handleEnded}
+          onError={() => {
+            if (activePhase === 'idle') return;
+            setHasPlaybackError(true);
+            if (activePhase === 'translation' && includeTafsirInRead) playTafsirStep();
+            else stopPlayback();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div

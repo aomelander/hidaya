@@ -19,21 +19,15 @@ import {
   Bookmark,
   BookmarkCheck,
   BookOpen,
-  Sparkles,
   Copy,
   Check,
   ChevronDown,
   ChevronUp,
-  Save,
-  Quote,
   Download,
   Users,
   Heart,
   ShieldCheck,
   FileText,
-  Video,
-  Presentation,
-  Printer,
   Plus,
   ArrowLeft,
   ArrowRight,
@@ -42,6 +36,8 @@ import {
   Share2,
   Trash2,
   Send,
+  Play,
+  Pause,
 } from 'lucide-react';
 import {
   QuranVerseFixture,
@@ -51,16 +47,13 @@ import {
   ReaderProfile,
   ReflectionMood,
   PreferredScholar,
-  UserReflection,
   TafsirCitation,
   SocialComment,
   VerseCardPreferences,
 } from '../types';
 import { AudioPlayer, AudioSourceTier } from './AudioPlayer';
 import { StorageService } from '../services/storage';
-import { ExportService } from '../services/exportService';
 import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
-import { getLocalizedReflection } from '../data/localizedReflections';
 import { getAgeAdaptiveContent } from '../data/ageAdaptiveContent';
 import { ScholarProvenanceModal } from './ScholarProvenanceModal';
 import { AyahCartouche } from './AyahCartouche';
@@ -98,7 +91,7 @@ interface VerseCardProps {
   cardPreferences?: VerseCardPreferences;
 }
 
-type InlineSection = 'none' | 'tafsir' | 'reflection';
+type InlineSection = 'none' | 'tafsir';
 
 const MOOD_LABELS: Record<Language, Record<ReflectionMood, string>> = {
   en: {
@@ -406,7 +399,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const [activeSection, setActiveSection] = useState<InlineSection>('none');
   const [copied, setCopied] = useState(false);
   const [storyExported, setStoryExported] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
 
   // Universal preferences state synced with storage and preferences sheet
   const [cardPrefs, setCardPrefs] = useState<VerseCardPreferences>(() => ({
@@ -565,11 +557,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       setSelectedScholar(preferredScholar);
     }
   }, [preferredScholar]);
-
-  // Personal reflection note (stored locally in browser)
-  const [reflectionNotes, setReflectionNotes] = useState('');
-  const [selectedMood, setSelectedMood] = useState<ReflectionMood | undefined>(undefined);
-  const [isExportingPPTX, setIsExportingPPTX] = useState(false);
 
   const t = UI_TEXT[language] || UI_TEXT.en;
   const moodDict = MOOD_LABELS[language] || MOOD_LABELS.en;
@@ -819,20 +806,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     return Math.min(translationWords.length - 1, Math.max(0, idx));
   }, [isReciting, playbackPhase, playbackRatio, translationWords.length]);
 
-  useEffect(() => {
-    const saved = StorageService.getReflection(verse.id);
-    if (saved) {
-      const combined = [saved.reflectNotes, saved.applyNotes, saved.liveNotes]
-        .filter(Boolean)
-        .join('\n\n');
-      setReflectionNotes(combined);
-      setSelectedMood(saved.mood);
-    } else {
-      setReflectionNotes('');
-      setSelectedMood(undefined);
-    }
-  }, [verse.id]);
-
   const handleCopy = () => {
     const translationPortion = translationObj?.text
       ? `\n\n"${translationObj.text}"\n— ${translationObj.translator}`
@@ -956,44 +929,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     }
   };
 
-  const handleSaveReflection = () => {
-    StorageService.saveReflection(verse.id, {
-      verseId: verse.id,
-      understandNotes: '',
-      reflectNotes: reflectionNotes,
-      applyNotes: '',
-      liveNotes: '',
-      mood: selectedMood,
-    });
-    StorageService.recordDailyVisit();
-    if (!isBookmarked) {
-      onToggleBookmark(verse.id);
-    }
-    setIsSaved(true);
-    onReflectionSaved?.();
-    setTimeout(() => setIsSaved(false), 2500);
-  };
-
-  const handleExportPPTX = async () => {
-    setIsExportingPPTX(true);
-    try {
-      const reflectionPayload: UserReflection = {
-        verseId: verse.id,
-        date: new Date().toISOString(),
-        understandNotes: '',
-        reflectNotes: reflectionNotes,
-        applyNotes: '',
-        liveNotes: '',
-        mood: selectedMood,
-      };
-      await ExportService.exportToPPTX(verse, language, reflectionPayload);
-    } catch (err) {
-      console.error('Failed to export PPTX:', err);
-    } finally {
-      setIsExportingPPTX(false);
-    }
-  };
-
   const toggleSection = (section: InlineSection) => {
     setActiveSection((prev) => (prev === section ? 'none' : section));
   };
@@ -1008,7 +943,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       ? 'تُفهم هذه الآية الكريمة في ضوء سياقها القرآني العام ومقاصد الشريعة.'
       : 'Read this passage within its broader Quranic context and scholarly tradition.');
 
-  const hasSavedNotes = Boolean(reflectionNotes.trim());
   const currentCitation = useMemo(() => {
     if (!availableCitations || availableCitations.length === 0) return null;
     const match = availableCitations.find(
@@ -1152,8 +1086,72 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           </p>
         </div>
 
-        {/* Sacred Social Action Bar: Heart, Comments, Studio, Share, Story PNG, Copy */}
+        {/* Sacred Social Action Bar: Play/Pause, Heart, Comments, Studio, Share, Story PNG, Copy */}
         <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-end">
+          {/* Global Play / Pause Trigger */}
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent('hidaya-global-toggle-play', {
+                  detail: { action: isReciting ? 'pause' : 'play' },
+                })
+              );
+            }}
+            className={`min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+              isReciting
+                ? 'bg-amber-500 text-slate-950 font-bold shadow-2xs'
+                : 'text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5'
+            }`}
+            title={
+              isReciting
+                ? language === 'ar'
+                  ? 'إيقاف مؤقت'
+                  : language === 'fr'
+                  ? 'Mettre en pause'
+                  : language === 'sv'
+                  ? 'Pausa'
+                  : 'Pause'
+                : language === 'ar'
+                ? 'تشغيل'
+                : language === 'fr'
+                ? 'Lire'
+                : language === 'sv'
+                ? 'Spela'
+                : 'Play'
+            }
+            aria-label={isReciting ? 'Pause' : 'Play'}
+          >
+            {isReciting ? (
+              <Pause className="w-4 h-4 fill-current shrink-0" />
+            ) : (
+              <Play className="w-4 h-4 fill-current ms-0.5 shrink-0" />
+            )}
+            {isReciting && (
+              <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">
+                {playbackPhase === 'recitation'
+                  ? language === 'ar'
+                    ? 'تلاوة'
+                    : language === 'fr'
+                    ? 'Récitation'
+                    : language === 'sv'
+                    ? 'Recitation'
+                    : 'Recitation'
+                  : playbackPhase === 'translation'
+                  ? language === 'ar'
+                    ? 'ترجمة'
+                    : language === 'fr'
+                    ? 'Traduction'
+                    : language === 'sv'
+                    ? 'Översättning'
+                    : 'Translation'
+                  : language === 'ar'
+                  ? 'تفسير'
+                  : 'Tafsir'}
+              </span>
+            )}
+          </button>
+
           {/* Like / Heart */}
           <button
             type="button"
@@ -1440,6 +1438,16 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             <p className="text-xs text-slate-500 dark:text-[#9BAFA7]">
               — {translationObj.translator}
             </p>
+            {isReciting && (
+              <p className="text-[11px] text-slate-400 dark:text-[#9BAFA7]/70 italic pt-0.5" role="note">
+                {({
+                  en: 'Highlighting is approximate, based on playback duration; word timestamps are unavailable.',
+                  sv: 'Markeringen är ungefärlig och baseras på ljudets längd; tidsstämplar för ord saknas.',
+                  fr: 'Le surlignage est approximatif, basé sur la durée audio ; les horodatages des mots ne sont pas disponibles.',
+                  ar: 'تمييز الكلمات تقريبي حسب مدة التسجيل؛ لا تتوفر توقيتات الكلمات.',
+                })[language]}
+              </p>
+            )}
           </section>
         )}
 
@@ -1499,122 +1507,82 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           </section>
         )}
 
-        {/* Inline Audio Player with Consecutive Range Playback & Word-by-Word Progress Callback */}
-        <div className="pt-1">
-          <AudioPlayer
-            audioUrl={verse.audioUrl}
-            verseNumbers={visibleVerseNumbers(expandedPassage)}
-            surahNumber={verse.surahNumber}
-            verseNumber={effectiveVerseNumberStr}
-            surahVerseId={effectiveVerseId}
-            ayahId={verse.id}
-            translationSource={translationObj?.translator}
-            tafsirSource={currentCitation?.scholar}
-            key={`${effectiveVerseId}:${language}:${currentCitation?.scholar}`}
-            translationText={translationObj?.text || ''}
-            tafsirText={currentCitation?.text || ''}
-            language={language}
-            autoPlayOnAdvance={cardPrefs.autoPlayOnSwipe}
-            defaultLoop={cardPrefs.loopVerse}
-            defaultIncludeRecitation={cardPrefs.includeRecitationByDefault}
-            defaultIncludeTranslation={cardPrefs.includeTranslationByDefault}
-            defaultIncludeTafsir={cardPrefs.includeTafsirByDefault}
-            nextVerseAudioUrl={nextVerse?.audioUrl}
-            nextVerseTranslationText={nextVerse?.translations?.[language]?.text}
-            isActive={isActive}
-            onNextVerse={onNextVerse}
-            onPreviousVerse={onPreviousVerse}
-            onPlaybackProgress={(ratio, playing, phase) => {
-              setPlaybackRatio(ratio);
-              setIsReciting(playing);
-              setPlaybackPhase(phase || (playing ? 'recitation' : 'idle'));
-              if (phase === 'tafsir' && playing) {
-                setActiveSection('tafsir');
-              }
-            }}
-            onAudioSourcesResolved={setAudioSources}
-          />
-        </div>
+        {/* Headless Audio Player Engine with Consecutive Range Playback & Word-by-Word Progress Callback */}
+        <AudioPlayer
+          headless={true}
+          audioUrl={verse.audioUrl}
+          verseNumbers={visibleVerseNumbers(expandedPassage)}
+          surahNumber={verse.surahNumber}
+          verseNumber={effectiveVerseNumberStr}
+          surahVerseId={effectiveVerseId}
+          ayahId={verse.id}
+          translationSource={translationObj?.translator}
+          tafsirSource={currentCitation?.scholar}
+          key={`${effectiveVerseId}:${language}:${currentCitation?.scholar}`}
+          translationText={translationObj?.text || ''}
+          tafsirText={currentCitation?.text || ''}
+          language={language}
+          autoPlayOnAdvance={cardPrefs.autoPlayOnSwipe}
+          defaultLoop={cardPrefs.loopVerse}
+          defaultIncludeRecitation={cardPrefs.includeRecitationByDefault}
+          defaultIncludeTranslation={cardPrefs.includeTranslationByDefault}
+          defaultIncludeTafsir={cardPrefs.includeTafsirByDefault}
+          nextVerseAudioUrl={nextVerse?.audioUrl}
+          nextVerseTranslationText={nextVerse?.translations?.[language]?.text}
+          isActive={isActive}
+          onNextVerse={onNextVerse}
+          onPreviousVerse={onPreviousVerse}
+          onPlaybackProgress={(ratio, playing, phase) => {
+            setPlaybackRatio(ratio);
+            setIsReciting(playing);
+            setPlaybackPhase(phase || (playing ? 'recitation' : 'idle'));
+            if (phase === 'tafsir' && playing) {
+              setActiveSection('tafsir');
+            }
+          }}
+          onAudioSourcesResolved={setAudioSources}
+        />
 
-        {/* Single-Row 2-Segment Disclosure Bar (Tafsir · Reflection) */}
-        <div
-          className={`grid ${
-            availableCitations.length > 0 ? 'grid-cols-2' : 'grid-cols-1'
-          } gap-2 p-1 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/80 border border-emerald-900/10 dark:border-emerald-800/40`}
-        >
-          {/* Level 3: Inline Classical Tafsir Toggle (only displayed when citations exist in selected language) */}
-          {availableCitations.length > 0 && (
+        {/* LEVEL 3: Classical Tafsir Disclosure (Directly configured from Preferences) */}
+        {availableCitations.length > 0 && (
+          <div className="pt-1">
             <button
               type="button"
               onClick={() => toggleSection('tafsir')}
               aria-expanded={activeSection === 'tafsir'}
-              className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+              className={`w-full min-h-[42px] inline-flex items-center justify-between gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                 activeSection === 'tafsir'
                   ? 'bg-[#006D53] text-white shadow-2xs'
-                  : 'text-emerald-950 dark:text-[#F5F7F2] hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
+                  : 'bg-[#FAF8F5] dark:bg-[#061B16]/80 text-emerald-950 dark:text-[#F5F7F2] border border-emerald-900/10 dark:border-emerald-800/40 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{t.tafsirTab}</span>
+              <span className="inline-flex items-center gap-2 truncate">
+                <BookOpen className="w-4 h-4 shrink-0" />
+                <span className="font-bold">{t.tafsirTab}</span>
+                {currentCitation && (
+                  <span
+                    className={`text-[11px] font-medium truncate ${
+                      activeSection === 'tafsir'
+                        ? 'text-emerald-100'
+                        : 'text-slate-500 dark:text-[#9BAFA7]'
+                    }`}
+                  >
+                    · {currentCitation.scholar}
+                  </span>
+                )}
+              </span>
               {activeSection === 'tafsir' ? (
-                <ChevronUp className="w-3.5 h-3.5 shrink-0" />
+                <ChevronUp className="w-4 h-4 shrink-0" />
               ) : (
-                <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                <ChevronDown className="w-4 h-4 shrink-0 opacity-70" />
               )}
             </button>
-          )}
-
-          {/* Level 4: Inline Personal Reflection Toggle */}
-          <button
-            type="button"
-            onClick={() => toggleSection('reflection')}
-            aria-expanded={activeSection === 'reflection'}
-            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-              activeSection === 'reflection'
-                ? 'bg-[#006D53] text-white shadow-2xs'
-                : 'text-emerald-950 dark:text-[#F5F7F2] hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 shrink-0 text-[#F4B900]" />
-            <span className="truncate">{t.reflectionTab}</span>
-            {hasSavedNotes && (
-              <span className="text-[#F4B900] font-bold shrink-0" title="Saved notes">
-                ·
-              </span>
-            )}
-            {activeSection === 'reflection' ? (
-              <ChevronUp className="w-3.5 h-3.5 shrink-0" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5 shrink-0 opacity-70" />
-            )}
-          </button>
-        </div>
+          </div>
+        )}
 
         {/* INLINE PANEL 1: LEVEL 3 CLASSICAL & EXPERT TAFSIR WITH PROVENANCE AUDIT */}
         {activeSection === 'tafsir' && availableCitations.length > 0 && (
           <div ref={tafsirSectionRef} className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-4">
-            {/* Interactive Scholar Selector Bar (Segmented Control) */}
-            {availableCitations.length > 1 && (
-              <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-emerald-950/5 dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 text-xs">
-                {availableCitations.map((c, idx) => {
-                  const isActive = currentCitation?.scholar.toLowerCase() === c.scholar.toLowerCase();
-                  return (
-                    <button
-                      key={`${c.scholar}-${idx}`}
-                      type="button"
-                      onClick={() => setSelectedScholar(c.scholar)}
-                      className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                        isActive
-                          ? 'bg-[#006D53] text-white shadow-2xs font-bold'
-                          : 'text-slate-600 dark:text-[#9BAFA7] hover:text-emerald-900 dark:hover:text-[#F5F7F2] hover:bg-white/40 dark:hover:bg-emerald-900/30'
-                      }`}
-                    >
-                      <span>{c.scholar}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
 
             {currentCitation && isTrustedTafsirText ? (
               <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0B3027]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-3.5 shadow-2xs">
@@ -1764,102 +1732,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* INLINE PANEL 2: LEVEL 4 PERSONAL REFLECTION WITH MOOD TAGS (100% Localized) */}
-        {activeSection === 'reflection' && (
-          <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-4">
-            {/* Mood Selector for Journal Filtering */}
-            <div className="space-y-1.5">
-              <span className="block text-xs font-bold text-emerald-900 dark:text-[#F5F7F2]">
-                {t.moodLabel}
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {(['calm', 'hopeful', 'grateful', 'anxious', 'overwhelmed'] as ReflectionMood[]).map(
-                  (m) => {
-                    const active = selectedMood === m;
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setSelectedMood(active ? undefined : m)}
-                        aria-pressed={active}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                          active
-                            ? 'bg-[#006D53] text-white'
-                            : 'bg-white dark:bg-[#0B3027] text-slate-600 dark:text-[#9BAFA7] border border-slate-200 dark:border-emerald-800/40 hover:border-[#006D53]'
-                        }`}
-                      >
-                        {moodDict[m]}
-                      </button>
-                    );
-                  }
-                )}
-              </div>
-            </div>
-
-            {/* Clean Personal Reflection Note & Journal Command Box */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor={`reflection-notes-${verse.id}`}
-                  className="block text-xs font-bold text-emerald-900 dark:text-[#F5F7F2]"
-                >
-                  {t.reflectionNotepadTitle}
-                </label>
-                <span className="text-[11px] text-slate-500 dark:text-[#9BAFA7]">
-                  {t.reflectionNotepadHint}
-                </span>
-              </div>
-
-              <textarea
-                id={`reflection-notes-${verse.id}`}
-                value={reflectionNotes}
-                onChange={(e) => setReflectionNotes(e.target.value)}
-                placeholder={t.reflectionNotepadPlaceholder}
-                rows={5}
-                style={{ fontSize: `${readingScale * 0.9}rem` }}
-                className="w-full p-3.5 leading-relaxed rounded-2xl bg-white dark:bg-[#0B3027] border border-slate-200 dark:border-emerald-800/50 focus:outline-none focus:ring-2 focus:ring-[#006D53] placeholder:text-slate-400 dark:placeholder:text-[#9BAFA7]/60 text-slate-800 dark:text-[#F5F7F2] resize-y"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-emerald-800/40">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleExportPPTX}
-                  disabled={isExportingPPTX}
-                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-[#F5F7F2] bg-emerald-900/5 dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 hover:bg-emerald-900/10 transition-colors cursor-pointer disabled:opacity-50"
-                  title={t.exportPPTX}
-                  aria-label={t.exportPPTX}
-                >
-                  <Presentation className="w-3.5 h-3.5 text-amber-600 dark:text-[#F4B900]" />
-                  <span>{isExportingPPTX ? '...' : t.exportPPTX}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => ExportService.exportToPDF()}
-                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#9BAFA7] bg-emerald-900/5 dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 hover:bg-emerald-900/10 transition-colors cursor-pointer"
-                  title={t.exportPDF}
-                  aria-label={t.exportPDF}
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>{t.exportPDF}</span>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSaveReflection}
-                className={`min-h-[42px] inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                  isSaved ? 'bg-emerald-600' : 'bg-[#006D53] hover:bg-emerald-700'
-                }`}
-              >
-                {isSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                <span>{isSaved ? t.savedBtn : t.saveBtn}</span>
-              </button>
-            </div>
           </div>
         )}
 

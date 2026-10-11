@@ -103,21 +103,21 @@ Plutôt que d'afficher une suite de cartes scrollables à l'infini :
 - [x] Intégrer le bouton **Play / Pause global** dans l'en-tête, synchronisé avec le verset actif.
 
 ### Phase 2 : Carte de Verset Épurée (`VerseCard.tsx` & `AudioPlayer.tsx`)
-- [ ] **Supprimer le bloc de contrôles audio lourd** : retirer la timeline/barre de scrubber, les compteurs de temps, et les boutons superflus de la carte.
-- [ ] **Supprimer le bloc Niveau 4 (méditation notepad)** : rediriger toute prise de note vers le fil de commentaires `💬`.
-- [ ] **Affichage direct du Tafsir choisi** : lire `preferredScholar` depuis les préférences et afficher directement ce tafsir sans segmented control sur la carte.
-- [ ] Conserver uniquement le moteur de **téléprompteur mot-à-mot avec auto-scroll fluide**.
+- [x] **Supprimer le bloc de contrôles audio lourd** : retirer la timeline/barre de scrubber, les compteurs de temps, et les boutons superflus de la carte.
+- [x] **Supprimer le bloc Niveau 4 (méditation notepad)** : rediriger toute prise de note vers le fil de commentaires `💬`.
+- [x] **Affichage direct du Tafsir choisi** : lire `preferredScholar` depuis les préférences et afficher directement ce tafsir sans segmented control sur la carte.
+- [x] Conserver uniquement le moteur de **téléprompteur mot-à-mot avec auto-scroll fluide**.
 
 ### Phase 3 : Mode Reels Plein Écran à Verset Unique (`page.tsx`)
-- [ ] Remplacer l'empilement vertical de toutes les cartes (`displayedPassages.map`) par l'affichage **d'une seule carte active à la fois** (`currentVerse = displayedPassages[activeIndex]`).
-- [ ] Ajouter une barre de progression segmentée en haut de la carte (ex. 4 segments pour 4 versets) indiquant le verset en cours.
-- [ ] Permettre la navigation par swipe tactile gauche/droite ou par touches fléchées / boutons discrets.
-- [ ] Clic sur le cercle Ayah (`۝`) : charge la sourate dans ce même visualiseur universel, sans jamais basculer sur une page différente.
+- [x] Remplacer l'empilement vertical de toutes les cartes (`displayedPassages.map`) par l'affichage **d'une seule carte active à la fois** (`currentVerse = displayedPassages[activeIndex]`).
+- [x] Ajouter une barre de progression segmentée en haut de la carte (ex. 4 segments pour 4 versets) indiquant le verset en cours.
+- [x] Permettre la navigation par swipe tactile gauche/droite ou par touches fléchées / boutons discrets.
+- [x] Clic sur le cercle Ayah (`۝`) : charge la sourate dans ce même visualiseur universel, sans jamais basculer sur une page différente.
 
 ### Phase 4 : Sécurisation de l'Audio GitHub Releases
-- [ ] Dans `ayahAudioServerService.ts` et `AudioPlayer.tsx`, fiabiliser la résolution des MP3 de GitHub Releases.
-- [ ] Supprimer le fallback vers `window.speechSynthesis` dans `speechSynthesisService.ts` pour les versets et tafsirs.
-- [ ] Assurer la mise en cache `CacheStorage` proactive (`N+1`) des audios GitHub pour un enchaînement instantané sans coupure.
+- [x] Dans `ayahAudioServerService.ts` et `AudioPlayer.tsx`, fiabiliser la résolution des MP3 de GitHub Releases.
+- [x] Supprimer le fallback vers `window.speechSynthesis` dans `speechSynthesisService.ts` pour les versets et tafsirs.
+- [x] Assurer la mise en cache `CacheStorage` proactive (`N+1`) des audios GitHub pour un enchaînement instantané sans coupure.
 
 ### Phase 5 : Validation & Tests de Régression
 - [ ] Vérifier que `npm run typecheck` et `npm run lint` passent avec 0 erreur.
