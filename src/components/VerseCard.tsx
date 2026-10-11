@@ -1022,68 +1022,77 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       aria-labelledby={`verse-heading-${verse.id}`}
     >
       {/* Clean Unboxed Header Row (100% Localized) */}
-      <div className="px-5 sm:px-7 py-4 border-b border-slate-100 dark:border-emerald-900/35 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Card Header: Surah metadata and action bar (compact in normal mode, full in expert mode) */}
+      <div className="px-5 sm:px-7 py-3 border-b border-slate-100 dark:border-emerald-900/35 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div>
-          <h2
-            id={`verse-heading-${verse.id}`}
-            className="text-sm sm:text-base font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2 flex-wrap"
-          >
-            {/* Chosen Ayah Number at the start inside the circular symbol — clickable to open in Read page */}
-            <AyahCartouche
-              number={effectiveVerseNumberStr}
-              size="md"
-              className="text-amber-700 dark:text-[#F4B900]"
-              title={
-                onNavigateToRead
-                  ? `${t.tafsirTab === 'Tafsir' ? 'Read in Quran' : 'Lire dans le Coran'} (${verse.surahNumber}:${baseRangeBounds.start})`
-                  : undefined
-              }
-              onClick={
-                onNavigateToRead
-                  ? () => {
+          {cardPrefs.expertMode ? (
+            <>
+              <h2
+                id={`verse-heading-${verse.id}`}
+                className="text-sm sm:text-base font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2 flex-wrap"
+              >
+                {/* Chosen Ayah Number at the start inside circular symbol */}
+                <AyahCartouche
+                  number={effectiveVerseNumberStr}
+                  size="md"
+                  className="text-amber-700 dark:text-[#F4B900]"
+                  title={
+                    onNavigateToRead
+                      ? `${t.tafsirTab === 'Tafsir' ? 'Read in Quran' : 'Lire dans le Coran'} (${verse.surahNumber}:${baseRangeBounds.start})`
+                      : undefined
+                  }
+                  onClick={
+                    onNavigateToRead
+                      ? () => {
+                          const firstNum =
+                            parseInt(String(effectiveVerseNumberStr).split('-')[0], 10) ||
+                            baseRangeBounds.start;
+                          onNavigateToRead(verse.surahNumber, firstNum);
+                        }
+                      : undefined
+                  }
+                />
+                {onNavigateToRead ? (
+                  <button
+                    type="button"
+                    onClick={() => {
                       const firstNum =
                         parseInt(String(effectiveVerseNumberStr).split('-')[0], 10) ||
                         baseRangeBounds.start;
                       onNavigateToRead(verse.surahNumber, firstNum);
-                    }
-                  : undefined
-              }
-            />
-            {onNavigateToRead ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const firstNum =
-                    parseInt(String(effectiveVerseNumberStr).split('-')[0], 10) ||
-                    baseRangeBounds.start;
-                  onNavigateToRead(verse.surahNumber, firstNum);
-                }}
-                className="hover:text-[#006D53] dark:hover:text-[#F4B900] transition-colors cursor-pointer text-start"
-              >
-                {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
-              </button>
-            ) : (
-              <span>
-                {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
-              </span>
-            )}
-            {totalCards !== undefined && totalCards > 1 && (
-              <span className="text-xs font-mono text-slate-400 dark:text-[#9BAFA7] font-normal tabular-nums">
-                · {cardIndex !== undefined ? cardIndex + 1 : 1}/{totalCards}
-              </span>
-            )}
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">
-            <span>{localizedDetails.surahMeaning}</span>
-            <span className="mx-1.5" aria-hidden="true">
-              ·
-            </span>
-            <span>{localizedDetails.revelationTypeDisplay}</span>
-            <span className="mx-1.5" aria-hidden="true">
-              ·
-            </span>
-            <span className="tabular-nums">{localizedDetails.juzDisplay}</span>
-          </p>
+                    }}
+                    className="hover:text-[#006D53] dark:hover:text-[#F4B900] transition-colors cursor-pointer text-start"
+                  >
+                    {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
+                  </button>
+                ) : (
+                  <span>
+                    {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
+                  </span>
+                )}
+                {totalCards !== undefined && totalCards > 1 && (
+                  <span className="text-xs font-mono text-slate-400 dark:text-[#9BAFA7] font-normal tabular-nums">
+                    · {cardIndex !== undefined ? cardIndex + 1 : 1}/{totalCards}
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">
+                <span>{localizedDetails.surahMeaning}</span>
+                <span className="mx-1.5" aria-hidden="true">
+                  ·
+                </span>
+                <span>{localizedDetails.revelationTypeDisplay}</span>
+                <span className="mx-1.5" aria-hidden="true">
+                  ·
+                </span>
+                <span className="tabular-nums">{localizedDetails.juzDisplay}</span>
+              </p>
+            </>
+          ) : (
+            <h2 id={`verse-heading-${verse.id}`} className="sr-only">
+              {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay} {effectiveVerseNumberStr}
+            </h2>
+          )}
         </div>
 
         {/* Sacred Social Action Bar: Play/Pause, Heart, Comments, Studio, Share, Story PNG, Copy */}
@@ -1246,99 +1255,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
       {/* Main Content Body */}
       <div className="p-5 sm:p-7 space-y-5">
-        {/* Adjacent Verses Flow Controller (Ornate Quranic Ayah Cartouches with directional indicators) */}
-        {(canAddBefore || canAddAfter || includeBefore || includeAfter) && (
-          <div className="flex flex-wrap items-center gap-2 pt-0.5 pb-0.5">
-            {canAddBefore && (
-              <button
-                type="button"
-                onClick={() => onSelectionChange?.({ ...selection, before: !includeBefore })}
-                title={
-                  includeBefore
-                    ? `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — Click to remove`
-                    : `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — Click to add to reading`
-                }
-                aria-label={`${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber})`}
-                aria-pressed={includeBefore}
-                className={`group relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                  includeBefore
-                    ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
-                    : 'bg-[#FAF8F5] dark:bg-[#061B16]/70 border-emerald-900/15 dark:border-emerald-800/40 text-emerald-900 dark:text-[#F5F7F2] hover:bg-emerald-900/10 dark:hover:bg-emerald-900/40 hover:border-[#006D53]'
-                }`}
-              >
-                {/* Arrow and Sign indicator badge */}
-                <span
-                  className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
-                    includeBefore
-                      ? 'text-[#F4B900]'
-                      : 'text-[#006D53] dark:text-emerald-300'
-                  }`}
-                >
-                  <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180 transition-transform group-hover:-translate-x-0.5 rtl:group-hover:translate-x-0.5" />
-                  {includeBefore ? (
-                    <Check className="w-3 h-3 stroke-[3]" />
-                  ) : (
-                    <Plus className="w-3 h-3 stroke-[2.5]" />
-                  )}
-                </span>
-
-                {/* Ornate Quranic Ayah Cartouche with the Verse Number Inside */}
-                <AyahCartouche
-                  number={verse.surroundingVerses?.before?.verseNumber || ''}
-                  active={includeBefore}
-                  size="md"
-                />
-              </button>
-            )}
-
-            {(canAddAfter || includeAfter) && (
-              <button
-                type="button"
-                onClick={() => onSelectionChange?.({ ...selection, after: !includeAfter })}
-                title={
-                  includeAfter
-                    ? `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — Click to remove`
-                    : `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — Click to add to reading`
-                }
-                aria-label={`${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber})`}
-                aria-pressed={includeAfter}
-                className={`group relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                  includeAfter
-                    ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
-                    : 'bg-[#FAF8F5] dark:bg-[#061B16]/70 border-emerald-900/15 dark:border-emerald-800/40 text-emerald-900 dark:text-[#F5F7F2] hover:bg-emerald-900/10 dark:hover:bg-emerald-900/40 hover:border-[#006D53]'
-                }`}
-              >
-                {/* Ornate Quranic Ayah Cartouche with the Verse Number Inside */}
-                <AyahCartouche
-                  number={verse.surroundingVerses?.after?.verseNumber || ''}
-                  active={includeAfter}
-                  size="md"
-                />
-
-                {/* Sign and Arrow indicator badge */}
-                <span
-                  className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
-                    includeAfter
-                      ? 'text-[#F4B900]'
-                      : 'text-[#006D53] dark:text-emerald-300'
-                  }`}
-                >
-                  {includeAfter ? (
-                    <Check className="w-3 h-3 stroke-[3]" />
-                  ) : (
-                    <Plus className="w-3 h-3 stroke-[2.5]" />
-                  )}
-                  <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180 transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
-                </span>
-              </button>
-            )}
-          </div>
-        )}
-
         {/* LEVEL 1: Original Verified Quranic Arabic (Uthmani Script) on Warm Mushaf Surface (#F7F0E2 / #061B16) */}
         <section ref={arabicSectionRef} aria-label="Level 1: Verified Uthmani Arabic">
           <div
-            className="p-5 sm:p-7 rounded-2xl bg-[#F7F0E2] dark:bg-[#061B16] border border-amber-900/12 dark:border-emerald-800/35"
+            className="p-5 sm:p-7 rounded-2xl bg-[#F7F0E2] dark:bg-[#061B16] border border-amber-900/12 dark:border-emerald-800/35 relative"
             style={{
               fontSize: `${Math.round(26 * (readerProfile === 'kids' ? Math.max(arabicScale, 1.3) : arabicScale))}px`,
               lineHeight: 2.25,
@@ -1349,6 +1269,31 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               lang="ar"
               className="font-arabic text-right text-emerald-950 dark:text-[#F5F7F2] select-text antialiased font-normal"
             >
+              {/* Subtle small symbol at the beginning of recited verses to extend preceding verse */}
+              {(canAddBefore || includeBefore) && (
+                <button
+                  type="button"
+                  onClick={() => onSelectionChange?.({ ...selection, before: !includeBefore })}
+                  title={
+                    includeBefore
+                      ? `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour retirer' : 'Click to remove'}`
+                      : `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour ajouter' : 'Click to add'}`
+                  }
+                  aria-label={`${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber})`}
+                  aria-pressed={includeBefore}
+                  className={`inline-flex items-center justify-center align-middle mx-1 px-1.5 py-0.5 rounded-lg text-xs font-sans not-italic transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F4B900] ${
+                    includeBefore
+                      ? 'bg-[#006D53]/20 text-[#006D53] dark:text-[#F4B900] border border-emerald-600/30'
+                      : 'text-amber-900/60 dark:text-[#9BAFA7] hover:text-emerald-800 dark:hover:text-[#F5F7F2] hover:bg-amber-900/10'
+                  }`}
+                >
+                  <span className="font-bold">{includeBefore ? '✓' : '+'}</span>
+                  <span className="text-[10px] tabular-nums font-mono ms-0.5 opacity-80">
+                    {verse.surroundingVerses?.before?.verseNumber}
+                  </span>
+                </button>
+              )}
+
               {tokenizedArabicSegments.map((seg, segIdx) => (
                 <React.Fragment key={segIdx}>
                   {seg.words.map(({ word, globalIdx }) => {
@@ -1391,6 +1336,31 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                   </span>{' '}
                 </React.Fragment>
               ))}
+
+              {/* Subtle small symbol at the end of recited verses to extend following verse */}
+              {(canAddAfter || includeAfter) && (
+                <button
+                  type="button"
+                  onClick={() => onSelectionChange?.({ ...selection, after: !includeAfter })}
+                  title={
+                    includeAfter
+                      ? `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour retirer' : 'Click to remove'}`
+                      : `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour ajouter' : 'Click to add'}`
+                  }
+                  aria-label={`${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber})`}
+                  aria-pressed={includeAfter}
+                  className={`inline-flex items-center justify-center align-middle mx-1 px-1.5 py-0.5 rounded-lg text-xs font-sans not-italic transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F4B900] ${
+                    includeAfter
+                      ? 'bg-[#006D53]/20 text-[#006D53] dark:text-[#F4B900] border border-emerald-600/30'
+                      : 'text-amber-900/60 dark:text-[#9BAFA7] hover:text-emerald-800 dark:hover:text-[#F5F7F2] hover:bg-amber-900/10'
+                  }`}
+                >
+                  <span className="text-[10px] tabular-nums font-mono me-0.5 opacity-80">
+                    {verse.surroundingVerses?.after?.verseNumber}
+                  </span>
+                  <span className="font-bold">{includeAfter ? '✓' : '+'}</span>
+                </button>
+              )}
             </p>
           </div>
 
@@ -1404,7 +1374,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         {/* LEVEL 2: Certified Human Translation with Word-by-Word Highlighting when Spoken */}
         {cardPrefs.showTranslation && translationObj && translationObj.text.trim().length > 0 && (
           <section ref={translationSectionRef} aria-label="Level 2: Certified Translation" className="space-y-1.5">
-            {cardPrefs.showAudioSourceBadge && audioSources.translation && (
+            {cardPrefs.expertMode && cardPrefs.showAudioSourceBadge && audioSources.translation && (
               <div className="flex items-center">
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#006D53]/15 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 border border-emerald-700/30">
                   Audio: {audioSources.translation}
@@ -1586,65 +1556,68 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
             {currentCitation && isTrustedTafsirText ? (
               <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0B3027]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-3.5 shadow-2xs">
-                {/* Header: Scholar info + Unboxed Provenance Metadata + View Original Source Trigger */}
-                <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-emerald-900/40">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
-                        {currentCitation.scholar}
-                      </h3>
-                      <span className="text-slate-400" aria-hidden="true">
-                        ·
-                      </span>
-                      <span className="text-xs text-slate-600 dark:text-[#9BAFA7] font-medium">
-                        {currentCitation.sourceBook}{' '}
-                        {currentCitation.century ? `(${currentCitation.century})` : ''}
-                      </span>
-                      {audioSources.tafsir && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#006D53]/15 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 border border-emerald-700/30">
-                          Audio: {audioSources.tafsir}
+                {/* Header: Scholar info + Unboxed Provenance Metadata + View Original Source Trigger (Expert Mode only) */}
+                {cardPrefs.expertMode && (
+                  <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-emerald-900/40">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
+                          {currentCitation.scholar}
+                        </h3>
+                        <span className="text-slate-400" aria-hidden="true">
+                          ·
                         </span>
-                      )}
+                        <span className="text-xs text-slate-600 dark:text-[#9BAFA7] font-medium">
+                          {currentCitation.sourceBook}{' '}
+                          {currentCitation.century ? `(${currentCitation.century})` : ''}
+                        </span>
+                        {cardPrefs.showAudioSourceBadge && audioSources.tafsir && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#006D53]/15 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 border border-emerald-700/30">
+                            Audio: {audioSources.tafsir}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Clean Unboxed Provenance Classification (Expert Mode only) */}
+                      <div className="flex items-center gap-2 flex-wrap pt-0.5 text-[11px] text-emerald-800 dark:text-[#F4B900] font-medium">
+                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          {currentCitation.sourceType === 'ai_translated_expert'
+                            ? t.badgeAiTranslated
+                            : currentCitation.sourceType === 'ai_synthesis'
+                            ? t.badgeAiSynthesis
+                            : t.badgeClassical}
+                        </span>
+                        {currentCitation.sourceReference && (
+                          <>
+                            <span className="text-slate-400" aria-hidden="true">
+                              ·
+                            </span>
+                            <span className="text-slate-500 dark:text-[#9BAFA7] hidden sm:inline truncate max-w-xs font-mono">
+                              {currentCitation.sourceReference.split(',')[0]}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Clean Unboxed Provenance Classification */}
-                    <div className="flex items-center gap-2 flex-wrap pt-0.5 text-[11px] text-emerald-800 dark:text-[#F4B900] font-medium">
-                      <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                      <span>
-                        {currentCitation.sourceType === 'ai_translated_expert'
-                          ? t.badgeAiTranslated
-                          : currentCitation.sourceType === 'ai_synthesis'
-                          ? t.badgeAiSynthesis
-                          : t.badgeClassical}
-                      </span>
-                      {currentCitation.sourceReference && (
-                        <>
-                          <span className="text-slate-400" aria-hidden="true">
-                            ·
-                          </span>
-                          <span className="text-slate-500 dark:text-[#9BAFA7] hidden sm:inline truncate max-w-xs font-mono">
-                            {currentCitation.sourceReference.split(',')[0]}
-                          </span>
-                        </>
-                      )}
-                    </div>
+                    {/* "View Original Arabic Source" Drawer/Modal Trigger */}
+                    <button
+                      type="button"
+                      onClick={() => setProvenanceModalOpen(true)}
+                      className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-[#F5F7F2] bg-[#FAF8F5] dark:bg-[#061B16] border border-emerald-900/15 dark:border-emerald-700/40 hover:bg-[#006D53] hover:text-white transition-colors shadow-2xs cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
+                      title={t.viewProvenanceBtn}
+                      aria-label={t.viewProvenanceBtn}
+                    >
+                      <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-[#F4B900]" />
+                      <span>{t.viewProvenanceBtn}</span>
+                    </button>
                   </div>
+                )}
 
-                  {/* "View Original Arabic Source" Drawer/Modal Trigger */}
-                  <button
-                    type="button"
-                    onClick={() => setProvenanceModalOpen(true)}
-                    className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-[#F5F7F2] bg-[#FAF8F5] dark:bg-[#061B16] border border-emerald-900/15 dark:border-emerald-700/40 hover:bg-[#006D53] hover:text-white transition-colors shadow-2xs cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
-                    title={t.viewProvenanceBtn}
-                    aria-label={t.viewProvenanceBtn}
-                  >
-                    <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-[#F4B900]" />
-                    <span>{t.viewProvenanceBtn}</span>
-                  </button>
-                </div>
-
-                {/* Verbatim Arabic Quote Excerpt Preview (Only if originalArabicRaw is distinct from currentCitation.text and viewing in EN/SV/FR) */}
-                {currentCitation.originalArabicRaw &&
+                {/* Verbatim Arabic Quote Excerpt Preview (Expert Mode only) */}
+                {cardPrefs.expertMode &&
+                  currentCitation.originalArabicRaw &&
                   language !== 'ar' &&
                   currentCitation.originalArabicRaw.trim() !== currentCitation.text.trim() && (
                     <div
@@ -1688,12 +1661,63 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                   })}
                 </p>
 
-                {/* AI Model Attribution Disclaimer if AI-translated */}
-                {currentCitation.translationDisclaimer && (
+                {/* AI Model Attribution Disclaimer if AI-translated (Expert Mode only) */}
+                {cardPrefs.expertMode && currentCitation.translationDisclaimer && (
                   <p className="text-[11px] text-amber-900/70 dark:text-amber-300/70 italic pt-1">
                     * {currentCitation.translationDisclaimer}
                   </p>
                 )}
+
+                {/* Subtle Intuitive Reading / Expert Mode Toggle */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-emerald-900/35 text-[11px] text-slate-400 dark:text-[#9BAFA7]/70">
+                  <span className="italic">
+                    {cardPrefs.expertMode
+                      ? language === 'fr'
+                        ? 'Mode Expert actif'
+                        : language === 'ar'
+                        ? 'الوضع الأكاديمي مفعّل'
+                        : language === 'sv'
+                        ? 'Expertläge aktivt'
+                        : 'Expert Mode active'
+                      : language === 'fr'
+                      ? 'Lecture intuitive'
+                      : language === 'ar'
+                      ? 'قراءة مبسطة'
+                      : language === 'sv'
+                      ? 'Förenklad läsning'
+                      : 'Intuitive reading'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextMode = !cardPrefs.expertMode;
+                      StorageService.setCardPreferences({ expertMode: nextMode, showAudioSourceBadge: nextMode });
+                      setCardPrefs((p) => ({ ...p, expertMode: nextMode, showAudioSourceBadge: nextMode }));
+                      window.dispatchEvent(
+                        new CustomEvent('hidaya-preferences-updated', {
+                          detail: { expertMode: nextMode, showAudioSourceBadge: nextMode },
+                        })
+                      );
+                    }}
+                    className="hover:text-emerald-800 dark:hover:text-[#F4B900] transition-colors cursor-pointer underline underline-offset-2"
+                  >
+                    {cardPrefs.expertMode
+                      ? language === 'fr'
+                        ? 'Masquer les détails techniques'
+                        : language === 'ar'
+                        ? 'إخفاء التفاصيل التقنية'
+                        : language === 'sv'
+                        ? 'Dölj tekniska detaljer'
+                        : 'Hide technical details'
+                      : language === 'fr'
+                      ? 'Afficher provenance & détails d’expert'
+                      : language === 'ar'
+                      ? 'إظهار التوثيق والوضع الأكاديمي'
+                      : language === 'sv'
+                      ? 'Visa proveniens & expertläge'
+                      : 'Show provenance & expert details'}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/50 dark:bg-[#061B16]/50 border border-amber-900/10 dark:border-emerald-800/20 text-center space-y-2.5">

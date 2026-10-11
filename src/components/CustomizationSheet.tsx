@@ -34,6 +34,7 @@ import {
   Layers,
   MessageCircle,
   Film,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   Language,
@@ -256,6 +257,13 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       layerStudio: 'Studio de création Image / Vidéo / PowerPoint (🎬)',
       layerRoots: 'Racines linguistiques arabes',
       layerAudioBadge: 'Indicateur de source Audio (GitHub / Server / Browser)',
+      layerExpertMode: 'Mode Expert / Académique (Tafsir détaillé, provenance & citations)',
+      layerExpertModeDesc: 'Affiche la classification de provenance, la citation arabe brute et les indicateurs techniques audio.',
+      seqReadingTitle: 'Lecture séquentielle au clic d\'un verset',
+      seqReadingDesc: 'Nombre de versets suivants chargés dans les cartes lors du clic sur un numéro de verset.',
+      seqSurah: 'Terminer la sourate',
+      seq15: '15 versets suivants',
+      seq100: '100 versets suivants',
       sec4Title: '4. Profil du Lecteur & Famille',
       sec4Sub: 'Adapte le vocabulaire des réflexions et explications selon l’âge.',
       sec5Title: '5. Mode Hors-Ligne & Continuité iPhone',
@@ -305,6 +313,13 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       layerStudio: 'Image / Video / PowerPoint Creation Studio (🎬)',
       layerRoots: 'Arabic Linguistic Roots',
       layerAudioBadge: 'Audio Source Badge (GitHub / Server / Browser)',
+      layerExpertMode: 'Expert & Scholarly Mode (Detailed Tafsir provenance & citations)',
+      layerExpertModeDesc: 'Displays scholarly provenance, raw Arabic quote excerpts, and technical audio tier badges.',
+      seqReadingTitle: 'Sequential Reading on Ayah Click',
+      seqReadingDesc: 'Number of consecutive following verses loaded into cards when clicking a verse number.',
+      seqSurah: 'Finish Surah',
+      seq15: 'Next 15 verses',
+      seq100: 'Next 100 verses',
       sec4Title: '4. Reader & Family Profile',
       sec4Sub: 'Adapts companion reflections for adults, teens, or family study.',
       sec5Title: '5. Offline Storage & iPhone Sleep Continuity',
@@ -354,6 +369,13 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       layerStudio: 'Bild-, Video- & PowerPoint-studio (🎬)',
       layerRoots: 'Arabiska ordstammar',
       layerAudioBadge: 'Ljudkälleindikator (GitHub / Server / Browser)',
+      layerExpertMode: 'Expert- & akademiskt läge (Tafsir-proveniens & citat)',
+      layerExpertModeDesc: 'Visar akademisk proveniens, råa arabiska tafsir-citat och tekniska ljudkällor.',
+      seqReadingTitle: 'Sekventiell läsning vid klick på vers',
+      seqReadingDesc: 'Antal efterföljande verser som laddas på korten vid klick på ett versnummer.',
+      seqSurah: 'Slutför suran',
+      seq15: 'Nästa 15 verser',
+      seq100: 'Nästa 100 verser',
       sec4Title: '4. Läsar- & Familjeprofil',
       sec4Sub: 'Anpassar reflektionsfrågor för vuxna, ungdomar eller familj.',
       sec5Title: '5. Offlinelagring & iPhone Bakgrundsljud',
@@ -403,6 +425,13 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       layerStudio: 'استوديو تصميم الصور والفيديو والعروض (🎬)',
       layerRoots: 'الجذور اللغوية القرآنية',
       layerAudioBadge: 'شارة مصدر الصوت (GitHub / Server / Browser)',
+      layerExpertMode: 'الوضع الأكاديمي والبحثي (توثيق السند، الاقتباسات ومصادر الصوت)',
+      layerExpertModeDesc: 'إظهار بيانات التوثيق الأكاديمي، والاقتباس العربي المباشر، ومصادر التسجيلات الصوتية.',
+      seqReadingTitle: 'التلاوة التتابعية عند النقر على الآية',
+      seqReadingDesc: 'تحديد نطاق الآيات المتتابعة التالية المحملة في البطاقات عند النقر على رقم الآية.',
+      seqSurah: 'إتمام السورة كاملة',
+      seq15: '١٥ آية تالية',
+      seq100: '١٠٠ آية تالية',
       sec4Title: '٤. نمط القارئ والأسرة',
       sec4Sub: 'مواءمة لغة التدبر للكبار أو الشباب أو الأسرة.',
       sec5Title: '٥. التخزين دون إنترنت واستمرارية الصوت على iPhone',
@@ -919,6 +948,48 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
               () => updatePref({ showAudioSourceBadge: !prefs.showAudioSourceBadge }),
               labels.layerAudioBadge
             )}
+            {renderToggleRow(
+              Boolean(prefs.expertMode),
+              () => updatePref({ expertMode: !prefs.expertMode, showAudioSourceBadge: !prefs.expertMode }),
+              labels.layerExpertMode,
+              labels.layerExpertModeDesc,
+              <ShieldCheck className="w-4 h-4" />
+            )}
+          </div>
+
+          {/* Sequential Reading Scope Selection on Ayah Click */}
+          <div className="pt-4 border-t border-amber-900/10 dark:border-emerald-800/30 space-y-2.5">
+            <div>
+              <h3 className="text-sm font-semibold text-emerald-950 dark:text-[#F5F7F2]">
+                {labels.seqReadingTitle}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">
+                {labels.seqReadingDesc}
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'surah' as const, label: labels.seqSurah },
+                { id: '15' as const, label: labels.seq15 },
+                { id: '100' as const, label: labels.seq100 },
+              ].map((opt) => {
+                const active = (prefs.sequentialReadingScope || 'surah') === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => updatePref({ sequentialReadingScope: opt.id })}
+                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border text-center flex items-center justify-center ${
+                      active
+                        ? 'bg-[#006D53] text-white border-transparent shadow-xs'
+                        : 'bg-white dark:bg-[#061B16] text-slate-700 dark:text-[#9BAFA7] border-amber-900/15 dark:border-emerald-800/40 hover:bg-emerald-900/10'
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

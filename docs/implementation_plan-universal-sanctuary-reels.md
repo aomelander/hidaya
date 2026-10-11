@@ -120,9 +120,9 @@ Plutôt que d'afficher une suite de cartes scrollables à l'infini :
 - [x] Assurer la mise en cache `CacheStorage` proactive (`N+1`) des audios GitHub pour un enchaînement instantané sans coupure.
 
 ### Phase 5 : Validation & Tests de Régression
-- [ ] Vérifier que `npm run typecheck` et `npm run lint` passent avec 0 erreur.
-- [ ] Vérifier que les 9 tests d'intégration audio (`npm test`) passent avec succès.
-- [ ] Mettre à jour la documentation d'état (`docs/STATE.md`).
+- [x] Vérifier que `npm run typecheck` et `npm run lint` passent avec 0 erreur.
+- [x] Vérifier que les 9 tests d'intégration audio (`npm test`) passent avec succès.
+- [x] Mettre à jour la documentation d'état (`docs/STATE.md`).
 
 ---
 

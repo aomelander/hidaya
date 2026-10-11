@@ -239,60 +239,42 @@ class SpeechSynthesisEngine {
     // 1. First, attempt Server-Side AI Voice synthesis (ideal for Swedish natural tone), using pre-cached audio if prefetched
     const audioDataUrl = await this.fetchOrCacheServerTts(text, language);
 
-    // If server audio was successfully retrieved, play it through the provided element or HTMLAudioElement
+    // If server audio was successfully retrieved, play it through HTMLAudioElement
     if (audioDataUrl && this.isSpeakingActive) {
       options.onProviderResolved?.('server');
       try {
         const audio = options.targetAudioElement || new Audio(audioDataUrl);
-        this.currentAudioElement = audio;
-
-        if (audio.src !== audioDataUrl) {
+        if (options.targetAudioElement) {
           audio.src = audioDataUrl;
         }
-        if (options.rate) {
-          audio.playbackRate = options.rate;
-        }
+        this.currentAudioElement = audio;
 
-        const handlePlay = () => {
+        audio.onplay = () => {
           options.onStart?.();
           options.onProgress?.(0);
         };
 
-        const handleTimeUpdate = () => {
+        audio.ontimeupdate = () => {
           if (audio.duration && audio.duration > 0) {
             const ratio = Math.min(1, Math.max(0, audio.currentTime / audio.duration));
             options.onProgress?.(ratio);
           }
         };
 
-        const cleanup = () => {
-          audio.removeEventListener('play', handlePlay);
-          audio.removeEventListener('timeupdate', handleTimeUpdate);
-          audio.removeEventListener('ended', handleEnded);
-          audio.removeEventListener('error', handleError);
-        };
-
-        const handleEnded = () => {
-          cleanup();
+        audio.onended = () => {
           options.onProgress?.(1);
           this.isSpeakingActive = false;
           this.currentAudioElement = null;
           options.onEnd?.();
         };
 
-        const handleError = (e: Event) => {
-          cleanup();
+        audio.onerror = (e) => {
           console.warn('[SpeechService] HTML5 Audio playback error:', e);
           this.isSpeakingActive = false;
           this.currentAudioElement = null;
           options.onError?.(e);
           options.onEnd?.();
         };
-
-        audio.addEventListener('play', handlePlay);
-        audio.addEventListener('timeupdate', handleTimeUpdate);
-        audio.addEventListener('ended', handleEnded);
-        audio.addEventListener('error', handleError);
 
         await audio.play();
         return;

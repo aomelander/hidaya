@@ -268,6 +268,8 @@ export interface SocialComment {
   createdAt: string;
 }
 
+export type SequentialReadingScope = 'surah' | '15' | '100';
+
 export interface VerseCardPreferences {
   showTransliteration: boolean;
   showTranslation: boolean;
@@ -276,6 +278,8 @@ export interface VerseCardPreferences {
   showSocialComments: boolean;
   showCreationStudio: boolean;
   showAudioSourceBadge: boolean;
+  expertMode: boolean;
+  sequentialReadingScope: SequentialReadingScope;
   autoPlayOnSwipe: boolean;
   loopVerse: boolean;
   includeRecitationByDefault: boolean;

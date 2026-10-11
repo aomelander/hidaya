@@ -22,6 +22,7 @@ import {
 } from '../types';
 import { Locale, getDictionary } from '../lib/i18n/dictionaries';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
+import { getSurahMeta } from '../data/surahCatalog';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { StorageService } from '../services/storage';
 import { OfflineCacheService } from '../services/offlineCacheService';
@@ -39,7 +40,7 @@ import { VerseCard } from '../components/VerseCard';
 import { CustomizationSheet } from '../components/CustomizationSheet';
 import { JournalDrawer } from '../components/JournalDrawer';
 import { QuranReaderPage, QuranReaderTarget } from '../components/QuranReaderPage';
-import { BottomNav, BottomNavTab } from '../components/BottomNav';
+import { type BottomNavTab } from '../components/BottomNav';
 import { Footer } from '../components/Footer';
 
 export default function App() {
@@ -360,67 +361,102 @@ export default function App() {
     }
   };
 
-  // Universal Sanctuary Reader: Clicking Ayah Cartouche loads the surah in the same universal component
+  // Universal Sanctuary Reader: Clicking Ayah Cartouche loads sequential reading in universal reels
   const handleNavigateToRead = async (surahNumber: number, ayahNumber: number) => {
+    const cardPrefs = StorageService.getCardPreferences();
+    const scope = cardPrefs.sequentialReadingScope || 'surah';
+    const surahMeta = getSurahMeta(surahNumber);
+    const totalAyahs = surahMeta?.ayahCount || 286;
+
+    const fromAyah = ayahNumber;
+    let toAyah = totalAyahs;
+    if (scope === '15') {
+      toAyah = Math.min(totalAyahs, fromAyah + 14);
+    } else if (scope === '100') {
+      toAyah = Math.min(totalAyahs, fromAyah + 99);
+    }
+
+    // 1. Immediate optimistic display
     const exactId = `${surahNumber}:${ayahNumber}`;
+    const initialFixture =
+      QURAN_FIXTURES.find(
+        (f) =>
+          f.id === exactId ||
+          (f.surahNumber === surahNumber &&
+            (f.verseNumber === String(ayahNumber) ||
+              f.verseNumber.startsWith(`${ayahNumber}-`) ||
+              f.verseNumber.endsWith(`-${ayahNumber}`)))
+      ) ||
+      displayedPassages.find(
+        (p) =>
+          p.surahNumber === surahNumber &&
+          (p.verseNumber === String(ayahNumber) || p.id === exactId)
+      );
 
-    // 1. Gather all fixtures for this surah
-    const surahFixtures = QURAN_FIXTURES.filter((f) => f.surahNumber === surahNumber);
-
-    // Check if the exact requested verse is among the surah fixtures
-    const fixtureIdx = surahFixtures.findIndex(
-      (f) =>
-        f.id === exactId ||
-        (f.surahNumber === surahNumber &&
-          (f.verseNumber === String(ayahNumber) ||
-            f.verseNumber.startsWith(`${ayahNumber}-`) ||
-            f.verseNumber.endsWith(`-${ayahNumber}`)))
-    );
-
-    if (fixtureIdx >= 0) {
-      // Surah fixtures contain the requested verse: load the surah set and focus on this verse
-      setSelectedPassages(surahFixtures);
-      setActiveVerseIndex(fixtureIdx);
-      setActiveAudioVerseId(surahFixtures[fixtureIdx].id);
-      OfflineCacheService.cachePassages(surahFixtures);
-      const targetVerse = surahFixtures[fixtureIdx];
+    if (initialFixture) {
+      setSelectedPassages([initialFixture]);
+      setActiveVerseIndex(0);
+      setActiveAudioVerseId(initialFixture.id);
       setAnalysisResult({
         status: 'matched',
-        detectedSituation: `Surah ${targetVerse.surahNameTransliterated} (${surahNumber}:${targetVerse.verseNumber})`,
-        detectedEmotion: targetVerse.surahNameArabic,
-        underlyingNeed: targetVerse.surahNameMeaning,
-        matchedPassageIds: surahFixtures.map((f) => f.id),
-        relevanceExplanation: `Surah ${targetVerse.surahNameTransliterated} — ${targetVerse.surahNameMeaning}`,
+        detectedSituation: `Surah ${surahMeta.nameTransliterated} (${surahNumber}:${fromAyah}${toAyah > fromAyah ? `–${toAyah}` : ''})`,
+        detectedEmotion: surahMeta.nameArabic,
+        underlyingNeed: surahMeta.meaning[language] || surahMeta.meaning.en,
+        matchedPassageIds: [initialFixture.id],
+        relevanceExplanation: `Surah ${surahMeta.nameTransliterated} — ${surahMeta.meaning[language] || surahMeta.meaning.en}`,
       });
       setActiveNavTab('guidance');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
     }
 
-    // 2. Fetch the verse from verified canonical API
+    // 2. Fetch full sequential range from /api/quran/sequence
+    try {
+      const res = await fetch(
+        `/api/quran/sequence?surah=${surahNumber}&from=${fromAyah}&to=${toAyah}&lang=${language}`
+      );
+      if (res.ok) {
+        const data = (await res.json()) as {
+          verses?: QuranVerseFixture[];
+        };
+        if (data.verses && data.verses.length > 0) {
+          setSelectedPassages(data.verses);
+          setActiveVerseIndex(0);
+          setActiveAudioVerseId(data.verses[0].id);
+          OfflineCacheService.cachePassages(data.verses);
+          setAnalysisResult({
+            status: 'matched',
+            detectedSituation: `Surah ${surahMeta.nameTransliterated} (${surahNumber}:${fromAyah}${toAyah > fromAyah ? `–${toAyah}` : ''})`,
+            detectedEmotion: surahMeta.nameArabic,
+            underlyingNeed: surahMeta.meaning[language] || surahMeta.meaning.en,
+            matchedPassageIds: data.verses.map((v) => v.id),
+            relevanceExplanation: `Surah ${surahMeta.nameTransliterated} — ${surahMeta.meaning[language] || surahMeta.meaning.en}`,
+          });
+          setActiveNavTab('guidance');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load sequential verses into universal reader:', err);
+    }
+
+    // 3. Fallback: single verse fetch if sequence fetch fails
     try {
       const res = await fetch(`/api/quran/ayah?surah=${surahNumber}&ayah=${ayahNumber}&lang=${language}`);
       if (res.ok) {
         const payload = (await res.json()) as { verse?: QuranVerseFixture } | QuranVerseFixture;
         const verseData = ('verse' in payload && payload.verse ? payload.verse : payload) as QuranVerseFixture;
         if (verseData && verseData.id) {
-          const merged = [...surahFixtures.filter((f) => f.id !== verseData.id), verseData];
-          merged.sort((a, b) => {
-            const aNum = parseInt(a.verseNumber.split('-')[0], 10) || 0;
-            const bNum = parseInt(b.verseNumber.split('-')[0], 10) || 0;
-            return aNum - bNum;
-          });
-          setSelectedPassages(merged);
-          const targetIdx = merged.findIndex((m) => m.id === verseData.id);
-          setActiveVerseIndex(targetIdx >= 0 ? targetIdx : 0);
+          setSelectedPassages([verseData]);
+          setActiveVerseIndex(0);
           setActiveAudioVerseId(verseData.id);
-          OfflineCacheService.cachePassages(merged);
+          OfflineCacheService.cachePassages([verseData]);
           setAnalysisResult({
             status: 'matched',
             detectedSituation: `Surah ${verseData.surahNameTransliterated} (${surahNumber}:${ayahNumber})`,
             detectedEmotion: verseData.surahNameArabic,
             underlyingNeed: verseData.surahNameMeaning,
-            matchedPassageIds: merged.map((m) => m.id),
+            matchedPassageIds: [verseData.id],
             relevanceExplanation: `Surah ${verseData.surahNameTransliterated} — ${verseData.surahNameMeaning}`,
           });
           setActiveNavTab('guidance');
@@ -429,17 +465,8 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.warn('Failed to load verse into universal reader:', err);
+      console.warn('Fallback single verse fetch failed:', err);
     }
-
-    // 3. Fallback: If surah fixtures exist, display them; otherwise keep current view in guidance tab
-    if (surahFixtures.length > 0) {
-      setSelectedPassages(surahFixtures);
-      setActiveVerseIndex(0);
-      setActiveAudioVerseId(surahFixtures[0].id);
-    }
-    setActiveNavTab('guidance');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -498,7 +525,7 @@ export default function App() {
       />
 
       {/* Dedicated Tab Viewport — Each Onglet Manages Its Own Page With Zero Popups */}
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-16 sm:pb-20">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* TAB 1: GUIDANCE (Search, Topics & Inline Verse Study — Universal Sanctuary Reels Mode) */}
         {activeNavTab === 'guidance' && (
           <div className="space-y-4">
@@ -574,7 +601,18 @@ export default function App() {
                           </span>
                           <span className="text-slate-400" aria-hidden="true">·</span>
                           <span className="font-mono text-[11px] text-[#006D53] dark:text-[#F4B900]">
-                            {currentVerse.id}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const firstNum =
+                                  parseInt(String(currentVerse.verseNumber || currentVerse.id).split('-')[0], 10) || 1;
+                                handleNavigateToRead(currentVerse.surahNumber, firstNum);
+                              }}
+                              className="hover:underline cursor-pointer transition-colors"
+                              title={language === 'fr' ? 'Lancer la lecture séquentielle' : 'Start sequential reading'}
+                            >
+                              {currentVerse.surahNameTransliterated} {currentVerse.id}
+                            </button>
                           </span>
                         </span>
 
@@ -751,24 +789,6 @@ export default function App() {
         {/* Ethical Boundaries & Al-Isra 17:105 Footer */}
         <Footer language={language} />
       </main>
-
-      {/* Primary Sticky Bottom Navigation */}
-      <BottomNav
-        locale={lang}
-        activeTab={activeNavTab}
-        isAudioActive={activeNavTab === 'audio'}
-        isPreferencesOpen={activeNavTab === 'preferences'}
-        isJournalOpen={activeNavTab === 'journal'}
-        bookmarkCount={bookmarks.length}
-        showReadPage={showReadPage}
-        showNorthStarPage={showNorthStarPage}
-        onSelectGuidance={() => switchTab('guidance')}
-        onToggleAudio={() => switchTab('audio')}
-        onSelectRead={() => switchTab('read')}
-        onSelectNorthStar={() => switchTab('northStar')}
-        onOpenJournal={() => switchTab('journal')}
-        onOpenPreferences={() => switchTab('preferences')}
-      />
     </div>
   );
 }

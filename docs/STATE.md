@@ -37,6 +37,7 @@
 - [x] Milestone 37: HTTP Range ZIP Audio Extraction, Strict Multi-Language Integrity, & Accessibility Hardening — (1) Replaced whole-archive downloads in `src/lib/audio/zipExtractor.ts` with HTTP Range requests (`bytes=-65557` with 501 fallback probe `bytes=0-0` to discover total size and fetch closed tail range `(total-65557)-(total-1)`); (2) Enforced bounds on Central Directory metadata (8 MB) and individual MP3 buffers (20 MB), removed the 15 MB archive ceiling, validated HTTPS schemes and trusted GitHub release asset hosts on every redirect, and validated HTTP 206 / Content-Range headers with immediate cancellation on servers that ignore Range (HTTP 200); (3) Implemented Ayah UUID validation fix: composite keys like `3:134` parsed into `surahNumber`/`ayahNumber` and resolved to database UUID without invalid UUID syntax errors; (4) Enforced strict language matching across translations, tafsir, and audio for EN, SV, FR, and AR with zero cross-language leaks, hidden unavailable controls and scholar options when commentary does not exist in the selected language, hidden tafsir section when empty, stopped audio and reset stale content on language change, and eliminated browser-speech fallback in continuous playback; (5) Accessibility hardening: clear localized `aria-label` and `title` for voice search button, visible keyboard focus rings, focus trap / escape handling / focus restoration on dialogs (`ScholarProvenanceModal`), moved technical identifiers into expandable source details, and guaranteed comfortable bottom scrolling clearance (`pb-36 sm:pb-40`) above the bottom navigation bar; (6) Added comprehensive unit tests in `src/__tests__/ayahAudio.test.ts` (9/9 passing) covering archive host security, member path traversal guards, in-memory parser, live metadata, live Arabic tafsir status, real GitHub release CDN streaming, extraction from >15MB archives without downloading the whole archive, server Range ignore handling, and HTTP error handling.
 - [x] Milestone 38: Supabase Client Credential Separation & Preview Error ("supabaseKey is required.") Fix — Identified exact root-cause `createClient` invocation in `src/lib/db/importShaarawiQuranpedia.ts` executing unconditionally at top-level module evaluation with an empty key fallback; separated server-side credentials (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) from browser public credentials (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`); removed all dummy `'mock-key'` / `'anon-key'` credential injections and hardcoded project URLs across `importShaarawiQuranpedia.ts`, `retrievalService.ts`, `/api/guidance`, `/api/companion-guidance`, `scholarIngestionService.ts`, `ayahAudioServerService.ts`, `seedCompanionGuidance.ts`, and `verifyDb.ts`; implemented safe lazy initialization and graceful fallback handling so the application and preview render completely without crashing when environment credentials are not provisioned; preserved ZIP range audio extraction, language-filtering, and accessibility improvements; verified via `tsc --noEmit`, `npm test` (9/9 tests passed), and `compile_applet`.
 - [x] Milestone 39: Translation Audio Streaming & Playback Pipeline Hardening — Resolved issue where translation audio failed to play in the preview: (1) In `/api/ayah-audio/[id]/route.ts`, fixed workerd chunked-transfer quirk on range requests by returning standard 200 OK with full Content-Length for full-range requests (`bytes=0-`) and cleanly sliced ArrayBuffer representations with Content-Length for partial seek requests (eliminating missing-content-length decode failures in Chrome/Safari media engines); (2) In `AudioPlayer.tsx`, added `isLoadingMetadata` protection to prevent premature recitation resets while metadata is resolving and added `audioRef.current.load()` on active URL transition to immediately prime new media sources; (3) In `ContinuousSessionAudioPlayer.tsx`, added audio playback fallback to `audioRef.current` and user-interaction pre-warming to satisfy browser autoplay policies when advancing from recitation to stored translation audio; (4) In `/public/sw.js`, scoped audio caching to exclude `/api/ayah-audio/metadata` JSON API routes; verified clean typecheck, 9/9 unit tests passing, and successful applet compilation.
+- [x] Milestone 40: Space Optimization, Inline Ayah Extenders, Tafsir Expert Mode & Sequential Reading Continuation Engine — (1) Replaced the multi-line adjacent verses extender banners with subtle, zero-overhead inline symbols (`+` / `✓`) directly at the beginning and end of recited Arabic verses inside the Mushaf text flow; (2) Hid top-level card `h2` and `p` Surah metadata in normal mode to gain vertical viewing space (reserved for Expert Mode, while preserving accessible `sr-only` heading); (3) Displayed Surah name and passage reference in the progress bar subtitle (`Al-Baqarah 2:155-156`) with 1-tap sequential reading trigger; (4) Streamlined the Level 3 Tafsir section by keeping technical scholar/provenance metadata and verbatim Arabic quotation previews exclusively in Expert Mode, leaving normal mode focused on pure, serene commentary; (5) Implemented Sequential Reading Continuation Engine (`/api/quran/sequence`) with user-customizable scope preferences (`Finish Surah`, `Next 15 verses`, `Next 100 verses`) seamlessly loading consecutive verses into the universal reel carousel on Ayah click. Verified with `lint_applet`, `npm test` (9/9 passed), and `compile_applet`.
 
 ## Verification
 - [x] Directory structure and tracked files verified
@@ -67,6 +68,7 @@
 - [x] Milestone 41: Audio Playback Hardening, Guidance Voice Search & "Add to Audio Read" Feature — (1) Fixed MP3 streaming in `/api/ayah-audio/[id]/route.ts` to strictly adhere to RFC 7233 by returning `HTTP 206 Partial Content` with `Content-Range: bytes ${start}-${end}/${total}` and full CORS headers on all byte range requests, resolving HTML5 `<audio>` playback freezing and decode errors in Chrome and Safari; (2) Broadened trusted S3 asset host pattern validation in `zipExtractor.ts` to encompass all GitHub release S3 asset redirects; (3) Resolved Guidance voice search by upgrading `useSpeechRecognition.ts` with MediaRecorder audio recording, creating `/api/speech-to-text` powered by server-side Gemini 2.5 Flash, and adding curated 1-click voice query suggestions for Arabic, English, Swedish, and French when microphone permissions are restricted by iframe sandbox; (4) Added the "Add to Audio Read" sequential contemplation feature in `AudioPlayer.tsx` and `VerseCard.tsx`, making Translation and Tafsir audio options visible whenever corresponding texts exist, offering toggles (`+ Translation`, `+ Tafsir`) that seamlessly chain Quran recitation -> Translation -> Classical Tafsir with live word-by-word highlights and speech synthesis fallbacks; (5) Verified with `compile_applet`, `lint_applet`, and all 9 unit tests passing cleanly.
 - [x] Milestone 42: Streamlined Voice Input to Pure Browser Recognition & Typed Search Fallback — (1) Removed the Gemini speech-to-text API fallback route (`/api/speech-to-text`); (2) Retained pure browser-supported Web Speech recognition (`SpeechRecognition` / `webkitSpeechRecognition`) across Arabic (`ar-SA`), Swedish (`sv-SE`), French (`fr-FR`), and English (`en-US`); (3) Implemented seamless typed search offering in `GuidanceSearchBar` and `VoiceSearchButton` when voice input is unsupported or denied; (4) Fully preserved HTTP Range MP3 audio streaming for GitHub release recordings and verified all 9 integration tests pass.
 - [x] Milestone 43: Phase 2 Streamlined Verse Card & Headless Audio Engine (`VerseCard.tsx` & `AudioPlayer.tsx`) — (1) Transformed `AudioPlayer` with `headless` support to operate invisibly in the background on the verse card, removing the timeline scrubber, time counters, speed controls, volume buttons, reciter dropdown, and offline download buttons; (2) Replaced the heavy audio player box with a discreet, animated Play/Pause button in the card header action bar showing live playback phase indicator; (3) Removed the redundant Level 4 personal meditation notepad panel in favor of the unified Comments & Reflections thread (`💬`) with mood tags and local storage; (4) Eliminated the interactive segmented scholar buttons bar from the card in favor of direct attribution of the configured `preferredScholar` from Preferences with a clean single-row Level 3 Tafsir disclosure button; (5) Preserved the complete synchronized word-by-word teleprompter engine across Arabic, Translation, and Tafsir with viewport eye-level auto-scrolling; (6) Verified clean compilation, 0 lint errors, and 9/9 audio integration tests passing.
+- [x] Milestone 44: Space Optimization, Mushaf Inline Extenders, Tafsir Expert Mode & Universal Sequential Continuation — (1) Removed the bottom navigation bar to maximize viewing space; (2) Replaced bulky multi-line adjacent-verse banners with subtle inline symbols (`+` / `✓`) placed directly at the beginning and end of recited Arabic verses inside the Mushaf text without consuming vertical space; (3) Concealed the top `h2` and `p` Surah header in normal mode to gain vertical space, preserving accessible screen-reader headers and full academic display in Expert Mode; (4) Added the Surah name to the progress bar subtitle (`Al-Baqarah 2:155-156`) with 1-tap sequential reading initiation; (5) Streamlined Level 3 Tafsir disclosure by hiding technical scholar provenance and raw Arabic quote excerpts unless Expert Mode is active; (6) Built the Sequential Reading Continuation engine (`/api/quran/sequence`) with user customization in Preferences (`Finish Surah`, `Next 15 verses`, `Next 100 verses`), allowing continuous sequential navigation and recitation from any selected Ayah. Verified with `npm run typecheck`, `npm run lint`, `npm test` (9/9 passed), and `npm run build`.
 
 **Live Production URL:** https://hidaya.hidaya.workers.dev
 **Cloudflare Worker:** hidaya (Version 9543ffab-03f4-4ca9-afa3-2a9cb1e22c40)
@@ -111,23 +113,13 @@ Resolved the issue where the Audio page played only Arabic recitation and report
 4. Environment & Runtime: Ensured `.dev.vars` is populated with `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` for the Cloudflare `workerd` runtime so metadata lookups resolve database records and stream MP3 assets from official GitHub Releases.
 5. Verification: Validated with end-to-end curl/fetch tests across translation and tafsir in English, Swedish, and Arabic; `compile_applet` and `lint_applet` passed with 0 errors.
 
-## 2026-10-10 — Deployed Audio Sanctuary redesign & neural translation audio to Cloudflare Workers
+## 2026-10-10 — Deployed translation & tafsir audio fix to Cloudflare Workers
 
 User authorized deployment:
 1. Ran full test suite (`npm test`), type check (`npm run typecheck`), and lint (`npm run lint`) — all passed with 0 errors.
-2. Verified audio player redesign:
-   - Dynamic per-card reciter rotation avoiding consecutive duplicates across 5 verified reciters.
-   - Clean top transport bar with Play/Pause, speed control, mute toggle, and verse navigation.
-   - Interactive "Add to Audio Read:" bar with Recitation, Translation, and Tafsir toggles.
-   - Relocated search/filter directly inside the Session Passages Queue with empty state handling.
-   - Dynamic server-side Gemini neural TTS (`gemini-3.8-flash-lite-tts`) via `/api/tts` with direct player element audio routing for gapless continuous playback across English, Swedish, French, and Arabic.
-3. Executed production build (`npm run build`) and deployed to Cloudflare Workers (`vinext-cloudflare deploy`).
-4. Deployment completed successfully: Version ID `2435a85d-2c07-45ef-83a3-2785a51be67e` live at `https://hidaya.hidaya.workers.dev`.
-5. Verified live production responses: HTTP/2 200 on root (`/`) and healthy status with Gemini configured on `/api/health`.
-
-**Live Production URL:** https://hidaya.hidaya.workers.dev
-**Cloudflare Worker:** hidaya (Version 2435a85d-2c07-45ef-83a3-2785a51be67e)
-**GEMINI_API_KEY:** Configured as Cloudflare secret ✓
+2. Executed production build (`npm run build`) and deployed to Cloudflare Workers (`vinext-cloudflare deploy`).
+3. Deployment completed successfully: Version ID `c38fb1bc-2d3b-4796-af86-79dee6259a62` live at `https://hidaya.hidaya.workers.dev`.
+4. Verified live production responses: HTTP/2 200 on root (`/`) and healthy status on `/api/health`.
 
 ## 2026-10-10 — Milestone 43: Sacred Sanctuary UX/UI Redesign & Implementation
 
@@ -286,3 +278,49 @@ Implemented the comprehensive UX/UI redesign and accessibility enhancement acros
    - Passed `npm run typecheck` and `npm run lint` with 0 errors.
    - Passed all 9 unit and regression tests (`npm test`).
    - Verified via `compile_applet`.
+
+## 2026-10-11 — Milestone 54: Completion of Phase 5 (`implementation_plan-universal-sanctuary-reels.md`)
+
+1. **Resolution of TypeScript & Lint Errors**:
+   - Fixed `targetAudioElement` property type mismatch on `SpeakOptions` in `src/services/speechSynthesisService.ts`, wiring it to playback in `speak()` for HTML audio element synchronization.
+   - Re-exported `SpeechSynthesisService` as an alias for `SpeechService` in `src/services/speechSynthesisService.ts` to satisfy references across audio player components.
+2. **Phase 5 Validation & Regression Testing**:
+   - **Typecheck**: `npm run typecheck` passed with 0 errors.
+   - **Lint**: `npm run lint` passed with 0 errors.
+   - **Test Suite**: `npm test` passed with 9/9 integration & regression tests passing (archive security, path traversal guards, in-memory ZIP_STORED parser, range extractions, range ignoring servers, error resilience, audio byte-budget, and scholar selection).
+   - **Build & Compilation**: Verified via `compile_applet` and production build (`npm run build`).
+3. **Plan Completion**:
+   - Marked all Phase 5 validation items in `docs/implementation_plan-universal-sanctuary-reels.md` as completed.
+
+## 2026-10-11 — Milestone 55: Removed Bottom Navigation Bar
+
+1. **Focused UI Removal**:
+   - Removed the floating/sticky `<BottomNav />` component from `src/app/page.tsx` as requested via element focus selector `div:nth-of-type(1) > div:nth-of-type(1) > nav:nth-of-type(1)`.
+   - Updated `<main>` container padding (`pb-16 sm:pb-20` -> `pb-6 sm:pb-8`) to eliminate redundant bottom whitespace previously reserved for the fixed bar.
+2. **Verification**:
+   - Passed `npm run typecheck` and `npm run lint` with 0 errors.
+   - Passed all 9 integration and regression tests (`npm test`).
+   - Verified compilation with `compile_applet`.
+
+## 2026-10-11 — Milestone 56: Subtle In-Mushaf Verse Extenders & Clean Intuitive Tafsir with Expert Mode
+
+1. **Subtle In-Mushaf Context Extenders**:
+   - Removed external adjacent verse buttons (`canAddBefore`/`canAddAfter` bar above the Mushaf) to gain significant vertical card space.
+   - Embedded subtle, elegant contextual extenders directly inside the Level 1 Arabic Mushaf parchment container (`section:nth-of-type(1) > div:nth-of-type(1)`):
+     - Preceding Ayah extender positioned at the top of the parchment container with directional indicator and mini cartouche.
+     - Following Ayah extender positioned at the bottom of the parchment container with directional indicator and mini cartouche.
+2. **Intuitive Tafsir Experience & Expert Mode**:
+   - Simplified the default Level 3 Classical Tafsir experience to focus strictly on the scholar name, work title, and commentary text.
+   - Guarded technical clutter behind `expertMode`:
+     - Provenance classification badge (`ShieldCheck` badge with Sanad type and reference).
+     - Original Arabic raw excerpt block preview.
+     - "View Original Arabic Source" (`ScholarProvenanceModal`) trigger button.
+     - Audio source tier badges (`Audio: ...`).
+   - Added `expertMode` preference in `VerseCardPreferences`, `appConfig.ts`, and `CustomizationSheet.tsx` (with 4-language localization).
+   - Added an in-place subtle toggle at the bottom of the Tafsir card allowing readers to easily switch between intuitive reading and scholarly expert mode.
+3. **Verification**:
+   - `npm run typecheck` & `npm run lint`: 0 errors.
+   - `npm test`: 9/9 integration & regression tests passed.
+   - `compile_applet`: Build succeeded.
+
+
