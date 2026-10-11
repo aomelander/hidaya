@@ -196,3 +196,45 @@ Implemented the comprehensive UX/UI redesign and accessibility enhancement acros
 2. **Cloudflare Secrets Provisioned & Verified**:
    - Uploaded `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` to the Cloudflare Worker (`hidaya`) via `wrangler secret put`.
    - Verified on `https://hidaya.hidaya.workers.dev/api/ayah-audio/metadata?surah=2&verse=275&lang=en&type=translation&source=Sahih+International` that it now returns `"status": "available"` with `"audioUrl": "/api/ayah-audio/281aea07-a273-558b-b960-bbbc0d8f4f64"` (`Saheeh International`), streaming `audio/mpeg` (`224,784 bytes`) directly from GitHub Releases and displaying **`Audio: GitHub`**.
+
+## 2026-10-11 — Milestone 49: Completion of Social Media Experience Plan (`docs/implementation_plan-social-media.md`)
+
+1. **Ultra-Pure Header (`Header.tsx`)**:
+   - Stripped all extraneous navigation to two essentials: Brand identity (returns to Guidance) and Preferences button (`⚙️`).
+   - Relocated TV Mode and language selection into Preferences; removed redundant `BottomNav`.
+2. **Restructured 5-Section Preferences Dashboard (`CustomizationSheet.tsx`)**:
+   - Section 1: Language (`FR`, `EN`, `SV`, `AR`), Theme, High Contrast, and TV Fullscreen Sanctuary Mode (with screen Wake Lock).
+   - Section 2: Audio Experience & Video-Style Auto-Play (`autoPlayOnSwipe`, `loopVerse` vs auto-advance, default read phases: Recitation, Translation, Tafsir, and Reciter/Scholar selectors).
+   - Section 3: Universal Verse Card Customization (Arabic & Translation font size sliders, toggles for Transliteration, Translation, Tafsir, Social Comments `💬`, Creation Studio `🎬`, Arabic Roots, and Audio Source Tier Badges).
+   - Section 4: Reader Profile & Depth (`Standard`, `Teen 13–17`, `Kids & Family 8+`).
+   - Section 5: Offline Cache, PWA Install, and Audio Cache clearing.
+3. **Smart Teleprompter & Line-by-Line Auto-Scroll (`VerseCard.tsx`)**:
+   - Full synchronized word-by-word highlighting across all three audio layers: Arabic Uthmani (`data-word-index`), Translation (`data-trans-word-index`), and Classical Tafsir (`data-tafsir-word-index`).
+   - Implemented real-time line-by-line smooth auto-scrolling: watches active word DOM coordinates and smoothly keeps the active line centered at optimal eye-level height (`window.scrollBy({ top: deltaY, behavior: 'smooth' })`).
+4. **Reels/Video-Style Auto-Play on Swipe (`VerseCard.tsx`, `AudioPlayer.tsx`, & `page.tsx`)**:
+   - Touch horizontal swipe gesture detection with RTL-awareness (`language === 'ar'`).
+   - `isActive` synchronization in `AudioPlayer`: automatically starts active verse when `autoPlayOnSwipe` is enabled and pauses previous verse without overlap.
+   - Circular wrap-around navigation and smooth scroll-to-center in `handleAdvanceToVerse`.
+   - Proactive N+1 pre-warming pipeline for instant zero-lag transitions between Recitation, Translation, Tafsir, and Next Verse.
+   - Clickable Ayah Cartouche (`۝`) navigating directly to Surah reading view.
+   - Integrated Social Bar (`♥` Like/Bookmark, `💬` Comments thread, `🎬` Social Creation Studio for 1:1/9:16 PNG, WebM/MP4 recited video, PPTX & PDF, and `↗` Native Share).
+5. **Quality & Validation**:
+   - `npm run typecheck`, `npm run lint`, and `npm test` (all 9 unit & regression tests) pass with 0 errors.
+   - Full build verified via `compile_applet`.
+
+## 2026-10-11 — Milestone 50: Completion of Phase 1 (`implementation_plan-universal-sanctuary-reels.md`)
+
+1. **X / Instagram Style Sticky Integrated Header Search (`Header.tsx`)**:
+   - Integrated the compact search bar with voice recognition button (`VoiceSearchButton`), clear button (`X`), and live analyzing indicator directly inside the sticky top `Header`.
+   - Removed the duplicate massive search box from `#guidance-portal`, streamlining the page layout.
+2. **Interactive Search Suggestions Dropdown (`SearchSuggestionsPopover.tsx`)**:
+   - Built a sleek drop-down popover appearing on input focus/click beneath the header bar.
+   - Features **Today's Focus Anchor** with quick jump to the verse of the day (e.g. *Surah 94 Ash-Sharh*), curated **Quick Topics & Moods** pills (*Apaisement, Patience, Gratitude, Repentance, Family, Courage...*), and search guidance tips.
+   - Fully accessible with outside click dismiss and Escape key handling.
+3. **Global Audio Play / Pause Controller**:
+   - Added a global Play / Pause button (`▶` / `⏸`) in the Header next to Preferences.
+   - Connected via `hidaya-playback-state` and `hidaya-global-toggle-play` events in `AudioPlayer.tsx` and `page.tsx` for instant 1-tap playback control across the active verse without searching for buttons on the card.
+4. **Verification**:
+   - Passed `npm run typecheck` and `npm run lint` with 0 errors.
+   - Passed all 9 unit and regression test suites (`npm test`).
+   - Verified via `compile_applet`.

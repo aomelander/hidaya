@@ -79,6 +79,9 @@ interface AudioPlayerProps {
   onPlaybackComplete?: () => void;
   onPreviousVerse?: () => void;
   onNextVerse?: () => void;
+  nextVerseAudioUrl?: string;
+  nextVerseTranslationText?: string;
+  isActive?: boolean;
   onAudioSourcesResolved?: (sources: {
     translation: AudioSourceTier | null;
     tafsir: AudioSourceTier | null;
@@ -257,6 +260,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   onPlaybackComplete,
   onPreviousVerse,
   onNextVerse,
+  nextVerseAudioUrl,
+  nextVerseTranslationText,
+  isActive,
   onAudioSourcesResolved,
 }) => {
   const effectiveTafsirLang: Language = tafsirLanguage || language;
@@ -556,6 +562,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       else playUrl(recitationUrls[0], 'recitation');
       return;
     }
+    if (onNextVerse) {
+      onNextVerse();
+      onPlaybackComplete?.();
+      return;
+    }
     if (onPlaybackComplete) {
       onPlaybackComplete();
       return;
@@ -646,6 +657,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         });
       }
     }
+    // Proactively pre-cache Next Verse (N+1) Recitation and Translation in memory
+    if (nextVerseAudioUrl) {
+      prefetchUrlToBlob(nextVerseAudioUrl);
+    }
+    if (nextVerseTranslationText) {
+      void SpeechService.prefetchAudio(nextVerseTranslationText, language);
+    }
   }, [
     recitationUrls,
     prefetchUrlToBlob,
@@ -659,6 +677,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     tafsirMetadata,
     tafsirText,
     effectiveTafsirLang,
+    nextVerseAudioUrl,
+    nextVerseTranslationText,
   ]);
 
   // Proactively pre-warm as soon as metadata resolves (even before Play is tapped) and when playing
@@ -909,6 +929,65 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setStreamMode('recitation');
     playUrl(recitationUrls[currentTrackIndex] || recitationUrls[0], 'recitation');
   };
+
+  // Broadcast playback state globally for the Header and app
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('hidaya-playback-state', {
+        detail: { isPlaying, ayahId, activePhase },
+      })
+    );
+  }, [isPlaying, ayahId, activePhase]);
+
+  // Listen for global play/pause toggle from Header
+  useEffect(() => {
+    const handleGlobalToggle = (e: Event) => {
+      const action = (e as CustomEvent)?.detail?.action;
+      if (action === 'pause') {
+        if (isPlaying) {
+          playSeqRef.current += 1;
+          SpeechService.cancel();
+          audioRef.current?.pause();
+          setIsPlaying(false);
+          setActivePhase('idle');
+          onPlaybackProgress?.(0, false, 'idle');
+        }
+      } else if (action === 'play') {
+        if (isActive && !isPlaying) {
+          togglePlay();
+        }
+      }
+    };
+    window.addEventListener('hidaya-global-toggle-play', handleGlobalToggle);
+    return () => window.removeEventListener('hidaya-global-toggle-play', handleGlobalToggle);
+  }, [isActive, isPlaying, togglePlay]);
+
+  // Synchronize playback state when card becomes active or inactive
+  useEffect(() => {
+    if (isActive === false) {
+      if (isPlaying) {
+        playSeqRef.current += 1;
+        SpeechService.cancel();
+        audioRef.current?.pause();
+        setIsPlaying(false);
+        setActivePhase('idle');
+        onPlaybackProgress?.(0, false, 'idle');
+      }
+    } else if (isActive === true && autoPlayOnAdvance) {
+      if (!isPlaying && activePhase === 'idle') {
+        if (includeRecitationInRead) {
+          setStreamMode('recitation');
+          playUrl(recitationUrls[currentTrackIndex] || recitationUrls[0], 'recitation');
+        } else if (includeTranslationInRead && hasTranslationText) {
+          setStreamMode('translation');
+          playTranslationStep();
+        } else if (includeTafsirInRead && hasTafsirText) {
+          setStreamMode('tafsir');
+          playTafsirStep();
+        }
+      }
+    }
+  }, [isActive, autoPlayOnAdvance]);
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {

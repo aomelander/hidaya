@@ -206,6 +206,10 @@ export const OfflineCacheService = {
     window.dispatchEvent(new CustomEvent('hidaya-offline-cache-updated'));
   },
 
+  clearAudioCache(): Promise<void> {
+    return this.clearAllAudioCache();
+  },
+
   /**
    * Computes current offline cache statistics for the Journal and Preferences tabs.
    */

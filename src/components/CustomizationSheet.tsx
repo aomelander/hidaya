@@ -161,8 +161,9 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   const [isCachingBookmarks, setIsCachingBookmarks] = useState(false);
   const [cachedSuccess, setCachedSuccess] = useState(false);
 
-  const prefs: VerseCardPreferences = cardPreferences || {
-    ...APP_CONFIG.DEFAULTS.CARD_PREFS,
+  const prefs: VerseCardPreferences = {
+    ...StorageService.getCardPreferences(),
+    ...(cardPreferences || {}),
     showTransliteration,
   };
 
@@ -173,6 +174,8 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   if (!isOpen) return null;
 
   const updatePref = (updates: Partial<VerseCardPreferences>) => {
+    StorageService.setCardPreferences(updates);
+    window.dispatchEvent(new CustomEvent('hidaya-preferences-updated', { detail: updates }));
     if (updates.showTransliteration !== undefined && updates.showTransliteration !== showTransliteration) {
       onToggleTransliteration();
     }

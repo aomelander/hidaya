@@ -14,7 +14,7 @@
  * - Level 4: Personal 4-Step Reflection & Age-Adaptive Companion (expands inline, clearly tagged)
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Bookmark,
   BookmarkCheck,
@@ -37,6 +37,11 @@ import {
   Plus,
   ArrowLeft,
   ArrowRight,
+  MessageCircle,
+  Film,
+  Share2,
+  Trash2,
+  Send,
 } from 'lucide-react';
 import {
   QuranVerseFixture,
@@ -48,6 +53,8 @@ import {
   PreferredScholar,
   UserReflection,
   TafsirCitation,
+  SocialComment,
+  VerseCardPreferences,
 } from '../types';
 import { AudioPlayer, AudioSourceTier } from './AudioPlayer';
 import { StorageService } from '../services/storage';
@@ -57,6 +64,7 @@ import { getLocalizedReflection } from '../data/localizedReflections';
 import { getAgeAdaptiveContent } from '../data/ageAdaptiveContent';
 import { ScholarProvenanceModal } from './ScholarProvenanceModal';
 import { AyahCartouche } from './AyahCartouche';
+import { SocialCreationStudio } from './SocialCreationStudio';
 
 import { expandPassage, PassageSelection, visibleVerseNumbers } from '../services/passageSelection';
 
@@ -64,6 +72,7 @@ interface VerseCardProps {
   selection?: PassageSelection;
   onSelectionChange?: (selection: PassageSelection) => void;
   verse: QuranVerseFixture;
+  nextVerse?: QuranVerseFixture;
   language: Language;
   arabicScale: number;
   readingScale?: number;
@@ -83,6 +92,10 @@ interface VerseCardProps {
   readerProfile?: ReaderProfile;
   preferredScholar?: PreferredScholar;
   onNavigateToRead?: (surahNumber: number, ayahNumber: number) => void;
+  onNextVerse?: () => void;
+  onPreviousVerse?: () => void;
+  isActive?: boolean;
+  cardPreferences?: VerseCardPreferences;
 }
 
 type InlineSection = 'none' | 'tafsir' | 'reflection';
@@ -157,6 +170,17 @@ const UI_TEXT: Record<
     reflectionNotepadHint: string;
     reflectionNotepadPlaceholder: string;
     tafsirNoDataText: string;
+    socialLikeTooltip: string;
+    socialCommentsBtn: string;
+    socialStudioBtn: string;
+    socialShareBtn: string;
+    sharedSuccess: string;
+    commentsThreadTitle: string;
+    commentsEmpty: string;
+    addCommentPlaceholder: string;
+    postCommentBtn: string;
+    prevVerseBtn: string;
+    nextVerseBtn: string;
   }
 > = {
   en: {
@@ -196,6 +220,17 @@ const UI_TEXT: Record<
     reflectionNotepadHint: 'Saved locally to your private Journal',
     reflectionNotepadPlaceholder: 'Take a quiet moment to reflect. Write your thoughts, reflections, feelings, or a personal action or prayer inspired by this verse...',
     tafsirNoDataText: 'No verified classical exegesis is currently indexed in this language for this scholar. Tap View Original Arabic Source or switch scholar.',
+    socialLikeTooltip: 'Like / Bookmark',
+    socialCommentsBtn: 'Comments & Reflections',
+    socialStudioBtn: 'Creation Studio',
+    socialShareBtn: 'Share',
+    sharedSuccess: 'Link copied!',
+    commentsThreadTitle: 'Reflections & Community Notes',
+    commentsEmpty: 'Be the first to share a reflection on this Ayah.',
+    addCommentPlaceholder: 'Share your reflections, a practical step, or a prayer...',
+    postCommentBtn: 'Post',
+    prevVerseBtn: 'Previous Ayah',
+    nextVerseBtn: 'Next Ayah',
   },
   sv: {
     copyTooltip: 'Kopiera vers',
@@ -234,6 +269,17 @@ const UI_TEXT: Record<
     reflectionNotepadHint: 'Sparas lokalt i din privata dagbok',
     reflectionNotepadPlaceholder: 'Ta en stilla stund för eftertanke. Skriv dina egna tankar, känslor, en praktisk handling eller bön inspirerad av denna vers...',
     tafsirNoDataText: 'Ingen verifierad kommentar är tillgänglig för denna lärd på detta språk ännu. Klicka på Visa ursprunglig källtext eller byt lärd.',
+    socialLikeTooltip: 'Gilla / Spara',
+    socialCommentsBtn: 'Kommentarer & Reflektioner',
+    socialStudioBtn: 'Skapelsestudio',
+    socialShareBtn: 'Dela',
+    sharedSuccess: 'Länk kopierad!',
+    commentsThreadTitle: 'Reflektioner & Samtal',
+    commentsEmpty: 'Bli den första att dela en reflektion om denna vers.',
+    addCommentPlaceholder: 'Dela dina tankar, en praktisk handling eller bön...',
+    postCommentBtn: 'Publicera',
+    prevVerseBtn: 'Föregående vers',
+    nextVerseBtn: 'Nästa vers',
   },
   fr: {
     copyTooltip: 'Copier le verset',
@@ -272,6 +318,17 @@ const UI_TEXT: Record<
     reflectionNotepadHint: 'Enregistré localement dans votre journal',
     reflectionNotepadPlaceholder: 'Prenez un instant de recueillement. Notez vos pensées, ressentis, résolutions personnelles ou invocations inspirées de ce verset...',
     tafsirNoDataText: 'Aucun commentaire vérifié n’est actuellement indexé dans cette langue pour ce savant. Consultez la source arabe originale ou changez d’exégète.',
+    socialLikeTooltip: 'Aimer / Favoris',
+    socialCommentsBtn: 'Commentaires & Méditations',
+    socialStudioBtn: 'Studio de Création',
+    socialShareBtn: 'Partager',
+    sharedSuccess: 'Lien copié !',
+    commentsThreadTitle: 'Fil de Réflexions & Méditations',
+    commentsEmpty: 'Soyez le premier à partager une réflexion sur ce verset.',
+    addCommentPlaceholder: 'Partagez vos pensées, une action concrète ou une prière...',
+    postCommentBtn: 'Publier',
+    prevVerseBtn: 'Verset précédent',
+    nextVerseBtn: 'Verset suivant',
   },
   ar: {
     copyTooltip: 'نسخ الآية',
@@ -310,11 +367,23 @@ const UI_TEXT: Record<
     reflectionNotepadHint: 'تُحفظ محلياً في يومياتك الخاصة',
     reflectionNotepadPlaceholder: 'وقفة تدبر ومحاسبة هادئة... سجّل خواطرك ومشاعرك، عهداً تقطعه على نفسك، أو دعاءً يفيض به قلبك مستوحى من هذه الآية الكريمة...',
     tafsirNoDataText: 'لا يتوفر نص تفسيري موثق لهذا المفسر بهذه اللغة حالياً. انقر على عرض النص العربي الأصلي أو اختر مفسراً آخر.',
+    socialLikeTooltip: 'إعجاب / حفظ',
+    socialCommentsBtn: 'التعليقات والتدبرات',
+    socialStudioBtn: 'استوديو الإنشاء',
+    socialShareBtn: 'مشاركة',
+    sharedSuccess: 'تم نسخ الرابط!',
+    commentsThreadTitle: 'خواطر وتدبرات الآية',
+    commentsEmpty: 'كن أول من يشارك خاطرة تدبرية حول هذه الآية الكريمة.',
+    addCommentPlaceholder: 'شارك خواطرك الإيمانية، عملاً صالحاً، أو دعاءً...',
+    postCommentBtn: 'نشر',
+    prevVerseBtn: 'الآية السابقة',
+    nextVerseBtn: 'الآية التالية',
   },
 };
 
 export const VerseCard: React.FC<VerseCardProps> = ({
   verse,
+  nextVerse,
   selection = {},
   onSelectionChange,
   language,
@@ -329,11 +398,106 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   readerProfile = 'adult',
   preferredScholar = 'Ibn Kathir',
   onNavigateToRead,
+  onNextVerse,
+  onPreviousVerse,
+  isActive,
+  cardPreferences,
 }) => {
   const [activeSection, setActiveSection] = useState<InlineSection>('none');
   const [copied, setCopied] = useState(false);
   const [storyExported, setStoryExported] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+
+  // Universal preferences state synced with storage and preferences sheet
+  const [cardPrefs, setCardPrefs] = useState<VerseCardPreferences>(() => ({
+    ...StorageService.getCardPreferences(),
+    ...(cardPreferences || {}),
+    showTransliteration,
+  }));
+
+  useEffect(() => {
+    if (cardPreferences) {
+      setCardPrefs((prev) => ({ ...prev, ...cardPreferences }));
+    }
+  }, [cardPreferences]);
+
+  useEffect(() => {
+    const handlePrefChange = (e?: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      setCardPrefs((prev) => ({
+        ...prev,
+        ...StorageService.getCardPreferences(),
+        ...(detail || {}),
+      }));
+    };
+    window.addEventListener('hidaya-preferences-updated', handlePrefChange);
+    window.addEventListener('storage', handlePrefChange);
+    return () => {
+      window.removeEventListener('hidaya-preferences-updated', handlePrefChange);
+      window.removeEventListener('storage', handlePrefChange);
+    };
+  }, []);
+
+  // Set default tafsir open if configured in preferences
+  useEffect(() => {
+    if (cardPrefs.showTafsirByDefault && activeSection === 'none') {
+      setActiveSection('tafsir');
+    }
+  }, [cardPrefs.showTafsirByDefault]);
+
+  // Social comments and creation studio state
+  const [showComments, setShowComments] = useState(false);
+  const [socialComments, setSocialComments] = useState<SocialComment[]>(() =>
+    StorageService.getSocialComments(verse.id)
+  );
+  const [newCommentText, setNewCommentText] = useState('');
+  const [newCommentMood, setNewCommentMood] = useState<ReflectionMood | undefined>(undefined);
+  const [showStudio, setShowStudio] = useState(false);
+  const [sharedSuccess, setSharedSuccess] = useState(false);
+
+  useEffect(() => {
+    setSocialComments(StorageService.getSocialComments(verse.id));
+  }, [verse.id]);
+
+  const handleAddComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommentText.trim()) return;
+    const updated = StorageService.addSocialComment(verse.id, newCommentText, newCommentMood);
+    setSocialComments(updated);
+    setNewCommentText('');
+    setNewCommentMood(undefined);
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    const updated = StorageService.deleteSocialComment(verse.id, commentId);
+    setSocialComments(updated);
+  };
+
+  const handleShare = async () => {
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+    const shareText = `« ${verse.arabicText} »\n— ${localizedDetails.surahPrefix} ${localizedDetails.surahNameDisplay} (${verse.id})\n${shareUrl}`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Hidaya — ${localizedDetails.surahNameDisplay} (${verse.id})`,
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    navigator.clipboard?.writeText(shareText);
+    setSharedSuccess(true);
+    setTimeout(() => setSharedSuccess(false), 2000);
+  };
+
+  // DOM Refs for Smart Teleprompter Auto-Scroll
+  const cardRef = useRef<HTMLElement | null>(null);
+  const arabicSectionRef = useRef<HTMLElement | null>(null);
+  const translationSectionRef = useRef<HTMLElement | null>(null);
+  const tafsirSectionRef = useRef<HTMLDivElement | null>(null);
 
   // Optional inclusion of adjacent preceding/following single verse when needed for context
   const includeBefore = Boolean(selection.before);
@@ -355,6 +519,46 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const [dynamicShaarawiCitation, setDynamicShaarawiCitation] = useState<TafsirCitation | null>(
     null
   );
+
+  // Auto-scroll on active phase shift (Arabic -> Translation -> Tafsir)
+  useEffect(() => {
+    if (!isReciting) return;
+    if (playbackPhase === 'recitation') {
+      arabicSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else if (playbackPhase === 'translation') {
+      translationSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else if (playbackPhase === 'tafsir') {
+      setActiveSection('tafsir');
+      tafsirSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [playbackPhase, isReciting]);
+
+  // Touch Swipe Gesture Detection (Swipe Left = Next Verse, Swipe Right = Previous Verse)
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+
+    if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4) {
+      const isRtl = language === 'ar';
+      const isNext = isRtl ? deltaX > 0 : deltaX < 0;
+      if (isNext) {
+        onNextVerse?.();
+      } else {
+        onPreviousVerse?.();
+      }
+    }
+  };
 
   useEffect(() => {
     if (preferredScholar) {
@@ -829,15 +1033,62 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     return true;
   }, [currentCitation, verse.arabicText, verse.translations, translationObj]);
 
+  // Split Tafsir into words for synchronized word-by-word highlight when tafsir voiceover plays
+  const tafsirWords = useMemo(
+    () => (currentCitation?.text || '').trim().split(/\s+/).filter(Boolean),
+    [currentCitation?.text]
+  );
+
+  const activeTafsirWordIndex = useMemo(() => {
+    if (!isReciting || playbackPhase !== 'tafsir' || tafsirWords.length === 0) return -1;
+    const idx = Math.floor(playbackRatio * tafsirWords.length);
+    return Math.min(tafsirWords.length - 1, Math.max(0, idx));
+  }, [isReciting, playbackPhase, playbackRatio, tafsirWords.length]);
+
+  // Smart Teleprompter: Keep active line centered smoothly as words wrap and voiceover advances
+  useEffect(() => {
+    if (!isReciting || typeof window === 'undefined') return;
+
+    let targetEl: HTMLElement | null = null;
+    if (playbackPhase === 'recitation' && activeWordIndex >= 0) {
+      targetEl = cardRef.current?.querySelector(`[data-word-index="${activeWordIndex}"]`) || null;
+    } else if (playbackPhase === 'translation' && activeTranslationWordIndex >= 0) {
+      targetEl = cardRef.current?.querySelector(`[data-trans-word-index="${activeTranslationWordIndex}"]`) || null;
+    } else if (playbackPhase === 'tafsir' && activeTafsirWordIndex >= 0) {
+      targetEl = cardRef.current?.querySelector(`[data-tafsir-word-index="${activeTafsirWordIndex}"]`) || null;
+    }
+
+    if (targetEl) {
+      const rect = targetEl.getBoundingClientRect();
+      const idealY = window.innerHeight * 0.42; // Eye-level comfort reading line
+      const deltaY = rect.top - idealY;
+      // When the active word wraps to a new line or drifts more than 35px from comfort eye-level, scroll smoothly
+      if (Math.abs(deltaY) > 35) {
+        window.scrollBy({ top: deltaY, behavior: 'smooth' });
+      }
+    }
+  }, [
+    isReciting,
+    playbackPhase,
+    activeWordIndex,
+    activeTranslationWordIndex,
+    activeTafsirWordIndex,
+  ]);
+
   const rootItem = ageBundle.defaultRoot;
 
   return (
     <article
-      className="bg-white dark:bg-[#0B3027] rounded-3xl border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden transition-colors"
+      ref={cardRef}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className={`bg-white dark:bg-[#0B3027] rounded-3xl border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden transition-all ${
+        cardPrefs.tvMode ? 'p-2 sm:p-4 text-lg' : ''
+      }`}
       aria-labelledby={`verse-heading-${verse.id}`}
     >
       {/* Clean Unboxed Header Row (100% Localized) */}
-      <div className="px-5 sm:px-7 py-4 border-b border-slate-100 dark:border-emerald-900/35 flex items-center justify-between gap-3">
+      <div className="px-5 sm:px-7 py-4 border-b border-slate-100 dark:border-emerald-900/35 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2
             id={`verse-heading-${verse.id}`}
@@ -901,8 +1152,77 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           </p>
         </div>
 
-        {/* Minimalist 3-Action Bar: Story Card PNG, Copy & Bookmark */}
-        <div className="flex items-center gap-1">
+        {/* Sacred Social Action Bar: Heart, Comments, Studio, Share, Story PNG, Copy */}
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-end">
+          {/* Like / Heart */}
+          <button
+            type="button"
+            onClick={() => onToggleBookmark(verse.id)}
+            className={`min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+              isBookmarked
+                ? 'text-red-600 dark:text-red-400 bg-red-500/15'
+                : 'text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5'
+            }`}
+            title={isBookmarked ? t.removeBookmarkTooltip : t.socialLikeTooltip}
+            aria-pressed={isBookmarked}
+            aria-label={isBookmarked ? t.removeBookmarkTooltip : t.socialLikeTooltip}
+          >
+            <Heart className={`w-4 h-4 ${isBookmarked ? 'fill-current' : ''}`} />
+          </button>
+
+          {/* Social Comments (💬) Toggle */}
+          {cardPrefs.showSocialComments && (
+            <button
+              type="button"
+              onClick={() => setShowComments((prev) => !prev)}
+              className={`min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+                showComments
+                  ? 'bg-[#006D53] text-white shadow-2xs'
+                  : 'text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5'
+              }`}
+              title={t.socialCommentsBtn}
+              aria-label={t.socialCommentsBtn}
+              aria-expanded={showComments}
+            >
+              <MessageCircle className="w-4 h-4" />
+              {socialComments.length > 0 && (
+                <span className="text-[11px] font-mono tabular-nums font-bold">
+                  {socialComments.length}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Creation Studio (🎬) Toggle */}
+          {cardPrefs.showCreationStudio && (
+            <button
+              type="button"
+              onClick={() => setShowStudio((prev) => !prev)}
+              className={`min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+                showStudio
+                  ? 'bg-amber-600 text-white shadow-2xs'
+                  : 'text-slate-500 hover:text-amber-700 dark:text-[#9BAFA7] dark:hover:text-[#F4B900] hover:bg-amber-500/10'
+              }`}
+              title={t.socialStudioBtn}
+              aria-label={t.socialStudioBtn}
+              aria-expanded={showStudio}
+            >
+              <Film className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Share (↗) Button */}
+          <button
+            type="button"
+            onClick={handleShare}
+            className="min-h-[40px] min-w-[40px] p-2 rounded-xl text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5 transition-colors flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
+            title={sharedSuccess ? t.sharedSuccess : t.socialShareBtn}
+            aria-label={t.socialShareBtn}
+          >
+            {sharedSuccess ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
+          </button>
+
+          {/* Download 9:16 Story PNG */}
           <button
             type="button"
             onClick={handleDownloadStoryCard}
@@ -910,13 +1230,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             title={storyExported ? t.storyCardSaved : t.storyCardTooltip}
             aria-label={t.storyCardTooltip}
           >
-            {storyExported ? (
-              <Check className="w-4 h-4 text-emerald-600" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
+            {storyExported ? <Check className="w-4 h-4 text-emerald-600" /> : <Download className="w-4 h-4" />}
           </button>
 
+          {/* Copy Verse */}
           <button
             type="button"
             onClick={handleCopy}
@@ -925,25 +1242,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             aria-label={t.copyTooltip}
           >
             {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onToggleBookmark(verse.id)}
-            className={`min-h-[40px] min-w-[40px] p-2 rounded-xl transition-colors flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-              isBookmarked
-                ? 'text-amber-700 dark:text-[#F4B900] bg-amber-500/15'
-                : 'text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5'
-            }`}
-            title={isBookmarked ? t.removeBookmarkTooltip : t.bookmarkTooltip}
-            aria-pressed={isBookmarked}
-            aria-label={isBookmarked ? t.removeBookmarkTooltip : t.bookmarkTooltip}
-          >
-            {isBookmarked ? (
-              <BookmarkCheck className="w-4 h-4 fill-current" />
-            ) : (
-              <Bookmark className="w-4 h-4" />
-            )}
           </button>
         </div>
       </div>
@@ -1040,7 +1338,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         )}
 
         {/* LEVEL 1: Original Verified Quranic Arabic (Uthmani Script) on Warm Mushaf Surface (#F7F0E2 / #061B16) */}
-        <section aria-label="Level 1: Verified Uthmani Arabic">
+        <section ref={arabicSectionRef} aria-label="Level 1: Verified Uthmani Arabic">
           <div
             className="p-5 sm:p-7 rounded-2xl bg-[#F7F0E2] dark:bg-[#061B16] border border-amber-900/12 dark:border-emerald-800/35"
             style={{
@@ -1060,6 +1358,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                     return (
                       <React.Fragment key={globalIdx}>
                         <span
+                          data-word-index={globalIdx}
                           className={`inline-block rounded-lg px-0.5 transition-colors duration-150 ${
                             isWordActive
                               ? 'bg-[#F4B900]/35 dark:bg-[#F4B900]/30 text-emerald-950 dark:text-[#F4B900] underline decoration-[#F4B900] decoration-2 underline-offset-8'
@@ -1105,9 +1404,9 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         </section>
 
         {/* LEVEL 2: Certified Human Translation with Word-by-Word Highlighting when Spoken */}
-        {translationObj && translationObj.text.trim().length > 0 && (
-          <section aria-label="Level 2: Certified Translation" className="space-y-1.5">
-            {audioSources.translation && (
+        {cardPrefs.showTranslation && translationObj && translationObj.text.trim().length > 0 && (
+          <section ref={translationSectionRef} aria-label="Level 2: Certified Translation" className="space-y-1.5">
+            {cardPrefs.showAudioSourceBadge && audioSources.translation && (
               <div className="flex items-center">
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#006D53]/15 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 border border-emerald-700/30">
                   Audio: {audioSources.translation}
@@ -1124,6 +1423,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 return (
                   <React.Fragment key={idx}>
                     <span
+                      data-trans-word-index={idx}
                       className={`inline-block rounded-md px-0.5 transition-colors duration-150 ${
                         isWordActive
                           ? 'bg-[#F4B900]/35 dark:bg-[#F4B900]/30 text-emerald-950 dark:text-[#F4B900] underline decoration-[#F4B900] decoration-2 underline-offset-4'
@@ -1214,6 +1514,16 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             translationText={translationObj?.text || ''}
             tafsirText={currentCitation?.text || ''}
             language={language}
+            autoPlayOnAdvance={cardPrefs.autoPlayOnSwipe}
+            defaultLoop={cardPrefs.loopVerse}
+            defaultIncludeRecitation={cardPrefs.includeRecitationByDefault}
+            defaultIncludeTranslation={cardPrefs.includeTranslationByDefault}
+            defaultIncludeTafsir={cardPrefs.includeTafsirByDefault}
+            nextVerseAudioUrl={nextVerse?.audioUrl}
+            nextVerseTranslationText={nextVerse?.translations?.[language]?.text}
+            isActive={isActive}
+            onNextVerse={onNextVerse}
+            onPreviousVerse={onPreviousVerse}
             onPlaybackProgress={(ratio, playing, phase) => {
               setPlaybackRatio(ratio);
               setIsReciting(playing);
@@ -1282,7 +1592,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
         {/* INLINE PANEL 1: LEVEL 3 CLASSICAL & EXPERT TAFSIR WITH PROVENANCE AUDIT */}
         {activeSection === 'tafsir' && availableCitations.length > 0 && (
-          <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-4">
+          <div ref={tafsirSectionRef} className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-4">
             {/* Interactive Scholar Selector Bar (Segmented Control) */}
             {availableCitations.length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-emerald-950/5 dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 text-xs">
@@ -1379,19 +1689,35 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                     </div>
                   )}
 
-                {/* Commentary Text (Preserves verbatim Arabic RTL for Quranpedia Book 18 or localized commentary) */}
+                {/* Commentary Text (Preserves verbatim Arabic RTL for Quranpedia Book 18 or localized commentary) with synchronized word-by-word highlighting */}
                 <p
                   dir={
                     /[\u0600-\u06FF]/.test(currentCitation.text.slice(0, 80)) ? 'rtl' : undefined
                   }
                   style={{ fontSize: `${readingScale * 0.95}rem` }}
-                  className={`leading-relaxed text-slate-800 dark:text-[#F5F7F2] whitespace-pre-line ${
+                  className={`leading-relaxed text-slate-800 dark:text-[#F5F7F2] select-text ${
                     /[\u0600-\u06FF]/.test(currentCitation.text.slice(0, 80))
                       ? 'font-arabic text-right leading-loose'
                       : ''
                   }`}
                 >
-                  {currentCitation.text}
+                  {tafsirWords.map((word, idx) => {
+                    const isWordActive = idx === activeTafsirWordIndex;
+                    return (
+                      <React.Fragment key={idx}>
+                        <span
+                          data-tafsir-word-index={idx}
+                          className={`inline-block rounded-md px-0.5 transition-colors duration-150 ${
+                            isWordActive
+                              ? 'bg-[#F4B900]/35 dark:bg-[#F4B900]/30 text-emerald-950 dark:text-[#F4B900] underline decoration-[#F4B900] decoration-2 underline-offset-4'
+                              : ''
+                          }`}
+                        >
+                          {word}
+                        </span>{' '}
+                      </React.Fragment>
+                    );
+                  })}
                 </p>
 
                 {/* AI Model Attribution Disclaimer if AI-translated */}
@@ -1534,6 +1860,150 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 <span>{isSaved ? t.savedBtn : t.saveBtn}</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* INLINE SOCIAL CREATION STUDIO (1:1 / 9:16 PNG, WebM/MP4 Recited Video, PPTX & PDF) */}
+        {showStudio && cardPrefs.showCreationStudio && (
+          <div className="p-4 sm:p-6 rounded-3xl bg-amber-50/40 dark:bg-[#061B16]/80 border border-amber-500/30 dark:border-amber-500/20 space-y-4">
+            <SocialCreationStudio
+              verse={verse}
+              surahDisplayTitle={`${localizedDetails.surahPrefix} ${localizedDetails.surahNameDisplay} (${verse.id})`}
+              arabicText={verse.arabicText}
+              translationText={translationObj?.text || ''}
+              translatorName={translationObj?.translator || ''}
+              tafsirText={currentCitation?.text || ''}
+              tafsirScholar={currentCitation?.scholar || ''}
+              audioUrl={verse.audioUrl || ''}
+              language={language}
+              reflection={StorageService.getReflection(verse.id)}
+            />
+          </div>
+        )}
+
+        {/* INLINE SOCIAL COMMENTS & REFLECTIONS THREAD */}
+        {showComments && cardPrefs.showSocialComments && (
+          <div className="p-5 rounded-3xl bg-[#FAF8F5] dark:bg-[#061B16]/75 border border-emerald-900/10 dark:border-emerald-800/40 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
+                <span>{t.commentsThreadTitle}</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-900/10 dark:bg-emerald-800/30 text-emerald-900 dark:text-emerald-200 font-mono tabular-nums">
+                  {socialComments.length}
+                </span>
+              </h3>
+            </div>
+
+            {/* List of comments */}
+            {socialComments.length === 0 ? (
+              <p className="text-xs text-slate-500 dark:text-[#9BAFA7] italic py-2">
+                {t.commentsEmpty}
+              </p>
+            ) : (
+              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                {socialComments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="p-3 rounded-2xl bg-white dark:bg-[#0B3027] border border-slate-200/80 dark:border-emerald-800/30 text-xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-2">
+                        {comment.mood && (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-900/10 dark:bg-emerald-800/40 text-emerald-900 dark:text-[#F4B900] font-semibold text-[10px]">
+                            {moodDict[comment.mood]}
+                          </span>
+                        )}
+                        <span className="text-slate-400 dark:text-slate-500 tabular-nums">
+                          {new Date(comment.createdAt).toLocaleDateString(language, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteComment(comment.id)}
+                        className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-1 rounded cursor-pointer"
+                        title="Delete note"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <p className="text-slate-800 dark:text-[#F5F7F2] leading-relaxed select-text whitespace-pre-wrap">
+                      {comment.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add new comment form */}
+            <form onSubmit={handleAddComment} className="pt-2 border-t border-slate-200 dark:border-emerald-800/30 space-y-2.5">
+              <textarea
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                placeholder={t.addCommentPlaceholder}
+                rows={2}
+                className="w-full p-3 rounded-2xl bg-white dark:bg-[#0B3027] border border-slate-200 dark:border-emerald-800/40 text-xs text-slate-800 dark:text-[#F5F7F2] focus:outline-none focus:ring-2 focus:ring-[#006D53] placeholder:text-slate-400 resize-none leading-relaxed"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-1">
+                  {(['calm', 'grateful', 'hopeful', 'anxious', 'overwhelmed'] as ReflectionMood[]).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setNewCommentMood(newCommentMood === m ? undefined : m)}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+                        newCommentMood === m
+                          ? 'bg-[#006D53] text-white'
+                          : 'bg-white dark:bg-[#0B3027] text-slate-600 dark:text-[#9BAFA7] border border-slate-200 dark:border-emerald-800/30'
+                      }`}
+                    >
+                      {moodDict[m]}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="submit"
+                  disabled={!newCommentText.trim()}
+                  className="min-h-[34px] px-3.5 py-1.5 rounded-xl bg-[#006D53] hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{t.postCommentBtn}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* REELS / SWIPE PREVIOUS & NEXT VERSE NAVIGATION */}
+        {totalCards !== undefined && totalCards > 1 && (
+          <div className="pt-3 border-t border-slate-100 dark:border-emerald-900/35 flex items-center justify-between gap-2 text-xs">
+            <button
+              type="button"
+              onClick={onPreviousVerse}
+              disabled={cardIndex === 0}
+              className="px-3.5 py-2 rounded-xl bg-[#FAF8F5] dark:bg-[#061B16] border border-emerald-900/15 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2] hover:bg-[#006D53] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+              <span>{t.prevVerseBtn}</span>
+            </button>
+
+            <span className="text-[11px] font-mono tabular-nums text-slate-400 dark:text-[#9BAFA7]">
+              {cardIndex !== undefined ? cardIndex + 1 : 1} / {totalCards}
+            </span>
+
+            <button
+              type="button"
+              onClick={onNextVerse}
+              disabled={cardIndex !== undefined && cardIndex >= totalCards - 1}
+              className="px-3.5 py-2 rounded-xl bg-[#FAF8F5] dark:bg-[#061B16] border border-emerald-900/15 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2] hover:bg-[#006D53] hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-medium inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>{t.nextVerseBtn}</span>
+              <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+            </button>
           </div>
         )}
 

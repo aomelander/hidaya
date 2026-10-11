@@ -18,6 +18,7 @@ import {
   PerspectiveMode,
   ReaderProfile,
   PreferredScholar,
+  VerseCardPreferences,
 } from '../types';
 import { Locale, getDictionary } from '../lib/i18n/dictionaries';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
@@ -66,11 +67,80 @@ export default function App() {
   );
   const [bookmarks, setBookmarks] = useState<string[]>([APP_CONFIG.DEFAULTS.INITIAL_VERSE_ID]);
   const [, setReflections] = useState<Record<string, UserReflection>>({});
+  const [cardPreferences, setCardPreferences] = useState<VerseCardPreferences>(() =>
+    StorageService.getCardPreferences()
+  );
+  const [isFullscreenActive, setIsFullscreenActive] = useState(false);
 
   // Contemplation & Exegesis Depth Configuration
   const [explanationDepth, setExplanationDepth] = useState<ExplanationDepth>('context');
   const [perspectiveMode, setPerspectiveMode] = useState<PerspectiveMode>('devotional');
   const [activeAudioVerseId, setActiveAudioVerseId] = useState<string | null>(null);
+  const [isGlobalPlaying, setIsGlobalPlaying] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handlePlaybackState = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      setIsGlobalPlaying(Boolean(detail?.isPlaying));
+      if (detail?.ayahId && detail?.isPlaying) {
+        setActiveAudioVerseId(detail.ayahId);
+      }
+    };
+    window.addEventListener('hidaya-playback-state', handlePlaybackState);
+    return () => window.removeEventListener('hidaya-playback-state', handlePlaybackState);
+  }, []);
+
+  const handleToggleGlobalPlay = () => {
+    if (isGlobalPlaying) {
+      window.dispatchEvent(
+        new CustomEvent('hidaya-global-toggle-play', { detail: { action: 'pause' } })
+      );
+    } else {
+      if (!activeAudioVerseId && displayedPassages.length > 0) {
+        setActiveAudioVerseId(displayedPassages[0].id);
+      }
+      window.dispatchEvent(
+        new CustomEvent('hidaya-global-toggle-play', { detail: { action: 'play' } })
+      );
+    }
+  };
+
+  const toggleFullscreenTv = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen?.();
+        setIsFullscreenActive(true);
+      } else {
+        await document.exitFullscreen?.();
+        setIsFullscreenActive(false);
+      }
+    } catch (err) {
+      console.warn('Fullscreen toggle failed:', err);
+    }
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreenActive(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  // Screen Wake Lock when TV Mode is active
+  useEffect(() => {
+    let wakeLockSentinel: any = null;
+    if (cardPreferences.tvMode && typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+      (navigator as any).wakeLock?.request('screen')
+        .then((sentinel: any) => {
+          wakeLockSentinel = sentinel;
+        })
+        .catch(() => {});
+    }
+    return () => {
+      wakeLockSentinel?.release?.().catch(() => {});
+    };
+  }, [cardPreferences.tvMode]);
 
   const lang: Locale = language;
   const dict = getDictionary(lang);
@@ -226,6 +296,15 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleAdvanceToVerse = (targetIdx: number) => {
+    if (displayedPassages.length === 0) return;
+    const resolvedIdx = (targetIdx + displayedPassages.length) % displayedPassages.length;
+    const targetVerse = displayedPassages[resolvedIdx];
+    setActiveAudioVerseId(targetVerse.id);
+    const targetEl = document.getElementById(`verse-${targetVerse.id}`);
+    targetEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   return (
     <div
       dir={lang === 'ar' ? 'rtl' : 'ltr'}
@@ -236,17 +315,43 @@ export default function App() {
         lang === 'ar' ? 'font-arabic' : ''
       } bg-[#FAF8F5] dark:bg-[#061B16] text-slate-900 dark:text-[#F5F7F2]`}
     >
-      {/* Ultra-Minimalist Top Header (Brand + Language Switcher + Preferences Icon) */}
+      {/* Ultra-Minimalist Top Header (Brand + Preferences Icon + Integrated Search & Global Play) */}
       <Header
         language={language}
         onLanguageChange={setLanguage}
-        onSelectHome={() => switchTab('guidance')}
+        onSelectHome={() => {
+          switchTab('guidance');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         onOpenPreferences={() => switchTab('preferences')}
         isPreferencesOpen={activeNavTab === 'preferences'}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onSubmitSearch={handleSearchSubmit}
+        isAnalyzing={isAnalyzing}
+        isListening={isListening}
+        onToggleVoice={toggleVoiceInput}
+        speechError={speechError}
+        onVoiceTranscript={(transcript) => {
+          setSearchQuery(transcript);
+          executeSearch(transcript, language);
+        }}
+        onSelectPill={(pill) => handleQuickPillSelect(pill, language)}
+        onSelectTodayFocus={(passageId) => {
+          const match = QURAN_FIXTURES.find((f) => f.id === passageId);
+          if (match) {
+            handleSelectSpecificVerse(match);
+          } else {
+            setSearchQuery(passageId);
+            executeSearch(passageId, language);
+          }
+        }}
+        isGlobalPlaying={isGlobalPlaying}
+        onToggleGlobalPlay={handleToggleGlobalPlay}
       />
 
       {/* Dedicated Tab Viewport — Each Onglet Manages Its Own Page With Zero Popups */}
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-36 sm:pb-40">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-16 sm:pb-20">
         {/* TAB 1: GUIDANCE (Search, Topics & Inline Verse Study) */}
         {activeNavTab === 'guidance' && (
           <div className="space-y-6">
@@ -265,22 +370,6 @@ export default function App() {
                   </p>
                 </div>
               </div>
-
-              <GuidanceSearchBar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                onSubmit={handleSearchSubmit}
-                isAnalyzing={isAnalyzing}
-                isListening={isListening}
-                speechError={speechError}
-                onToggleVoice={toggleVoiceInput}
-                activeMode={activeMode}
-                language={language}
-                onVoiceTranscript={(transcript) => {
-                  setSearchQuery(transcript);
-                  executeSearch(transcript, language);
-                }}
-              />
 
               <QuickChoicePills
                 activeMode={activeMode}
@@ -352,6 +441,7 @@ export default function App() {
                       selection={passageSelections[verse.id]}
                       onSelectionChange={(selection) => setPassageSelections(previous => ({ ...previous, [verse.id]: selection }))}
                       verse={verse}
+                      nextVerse={displayedPassages[idx + 1] || displayedPassages[0]}
                       language={language}
                       arabicScale={arabicScale}
                       readingScale={readingScale}
@@ -366,6 +456,10 @@ export default function App() {
                       readerProfile={readerProfile}
                       preferredScholar={preferredScholar}
                       onNavigateToRead={handleNavigateToRead}
+                      isActive={activeAudioVerseId === verse.id || (idx === 0 && !activeAudioVerseId)}
+                      onNextVerse={() => handleAdvanceToVerse(idx + 1)}
+                      onPreviousVerse={() => handleAdvanceToVerse(idx - 1)}
+                      cardPreferences={cardPreferences}
                     />
                   </div>
                 ))}
@@ -470,30 +564,16 @@ export default function App() {
             onToggleShowReadPage={() => setShowReadPage((prev) => !prev)}
             showNorthStarPage={showNorthStarPage}
             onToggleShowNorthStarPage={() => setShowNorthStarPage((prev) => !prev)}
+            cardPreferences={cardPreferences}
+            onCardPreferencesChange={(updates) => setCardPreferences((prev) => ({ ...prev, ...updates }))}
+            isFullscreenActive={isFullscreenActive}
+            onToggleFullscreenTv={toggleFullscreenTv}
           />
         )}
 
         {/* Ethical Boundaries & Al-Isra 17:105 Footer */}
         <Footer language={language} />
       </main>
-
-      {/* Bottom Navigation Bar (With Optional Read & North Star Pages) */}
-      <BottomNav
-        locale={lang}
-        activeTab={activeNavTab}
-        isAudioActive={activeNavTab === 'audio'}
-        isPreferencesOpen={activeNavTab === 'preferences'}
-        isJournalOpen={activeNavTab === 'journal'}
-        bookmarkCount={mounted ? bookmarks.length : 0}
-        showReadPage={showReadPage}
-        showNorthStarPage={showNorthStarPage}
-        onSelectGuidance={() => switchTab('guidance')}
-        onToggleAudio={() => switchTab('audio')}
-        onSelectRead={() => switchTab('read')}
-        onSelectNorthStar={() => switchTab('northStar')}
-        onOpenJournal={() => switchTab('journal')}
-        onOpenPreferences={() => switchTab('preferences')}
-      />
     </div>
   );
 }
