@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 
+let invalidApiKeyDetected = false;
+
 function getAI() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'mock_key') return null;
+  if (invalidApiKeyDetected) return null;
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+  if (!apiKey || apiKey === 'mock_key' || apiKey.startsWith('YOUR_')) return null;
   return new GoogleGenAI({
     apiKey,
     httpOptions: {
@@ -88,10 +91,14 @@ export async function POST(req: NextRequest) {
       language,
     });
   } catch (err: any) {
-    console.warn('[TTS API Warning] Error during AI speech synthesis:', err?.message || err);
+    const errMsg = String(err?.message || err || '');
+    if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('API key not valid')) {
+      invalidApiKeyDetected = true;
+    }
     return NextResponse.json({
       fallback: true,
-      error: err?.message || 'Speech synthesis failed',
+      message: 'Server AI voice synthesis unavailable. Using fallback synthesis.',
     });
   }
 }
+

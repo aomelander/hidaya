@@ -458,4 +458,46 @@ export const StorageService = {
     } catch {}
     return updated;
   },
+
+  /**
+   * Gets whether the North Star page/tab is shown.
+   */
+  getShowNorthStarPage(): boolean {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.SHOW_NORTH_STAR_PAGE);
+      return val !== null ? val === 'true' : DEFAULTS.SHOW_NORTH_STAR_PAGE;
+    } catch {
+      return DEFAULTS.SHOW_NORTH_STAR_PAGE;
+    }
+  },
+
+  /**
+   * Sets whether the North Star page/tab is shown.
+   */
+  setShowNorthStarPage(show: boolean): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SHOW_NORTH_STAR_PAGE, String(show));
+    } catch {}
+  },
+
+  /**
+   * Gets whether the Read Quran page/tab is shown.
+   */
+  getShowReadPage(): boolean {
+    try {
+      const val = localStorage.getItem(STORAGE_KEYS.SHOW_READ_PAGE);
+      return val !== null ? val === 'true' : DEFAULTS.SHOW_READ_PAGE;
+    } catch {
+      return DEFAULTS.SHOW_READ_PAGE;
+    }
+  },
+
+  /**
+   * Sets whether the Read Quran page/tab is shown.
+   */
+  setShowReadPage(show: boolean): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SHOW_READ_PAGE, String(show));
+    } catch {}
+  },
 };

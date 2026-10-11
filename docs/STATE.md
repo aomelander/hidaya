@@ -128,3 +128,53 @@ User authorized deployment:
 **Cloudflare Worker:** hidaya (Version 2435a85d-2c07-45ef-83a3-2785a51be67e)
 **GEMINI_API_KEY:** Configured as Cloudflare secret ✓
 
+## 2026-10-10 — Milestone 43: Sacred Sanctuary UX/UI Redesign & Implementation
+
+Implemented the comprehensive UX/UI redesign and accessibility enhancement across Hidaya:
+1. **Sacred Visual Identity & Surface Palette**:
+   - Refined dark sanctuary palette (`#061B16` main background, `#0B3027` elevated surfaces, `#006D53` primary action emerald, `#F7F0E2` warm Mushaf Quran reading surface, `#F4B900` gold accent, `#F5F7F2` main text on dark, `#9BAFA7` secondary text).
+   - Reduced nested borders and redundant pill containers across the Guidance Portal, Passage Header, and Verse Cards.
+2. **Guidance Portal & Navigation**:
+   - Integrated `EntryModeTabs` (`In This Moment` · `Big Questions` · `Character & Growth`) directly inside the unified Guidance Portal hero card.
+   - Enhanced `QuickChoicePills` with one-tap featured contemplation topic buttons alongside the categorized topic dropdown.
+   - Upgraded `BottomNav` to expose all 5 core sanctuary destinations (`Guidance`, `Audio`, `North Star`, `Journal`, `Preferences`) with accessible `aria-current="page"` and keyboard focus rings.
+3. **Verse Card & 4-Level Content Hierarchy**:
+   - Elevated Level 1 Quranic Arabic on a warm `#F7F0E2` Mushaf parchment surface (and deep `#08231C` dark sanctuary surface) with generous line-height and clean unboxed attribution metadata.
+   - Expanded the inline disclosure bar into a 3-segment tab bar (`Tafsir` · `Reflection` · `Context & Tadabbur`) while keeping the full Context & Tadabbur modal drawer accessible for deep study.
+   - Added Level 4 AI Synthesis / Guidance Context card (`synthesisText`) in the Guidance view with clear attribution when available.
+   - Preserved strict language matching (`en`, `sv`, `fr`, `ar`), HTTP Range ZIP audio streaming, and AGENTS.md theological boundaries.
+
+
+## 2026-10-10 — Milestone 44: Read Quran Page, Clickable Verse Navigation & Optional Nav Preferences
+
+1. **Dedicated Read the Quran Page (`QuranReaderPage.tsx` & `/api/quran/ayah`)**:
+   - Added the `Read` (`Lire` / `Läs` / `القرآن`) workspace accessible from the bottom navigation bar.
+   - Includes a complete 114-Surah, 30-Juz', and Favorites directory with instant search by surah name, meaning, or `surah:ayah` reference (e.g., `3:134`) and clickable verse count badges (`7 versets`, `286 versets`, etc.).
+   - Includes the focused Surah & Ayah Reader view featuring the horizontal clickable verse number strip (`< 133 [134] 135 >`), Juz'/Page/Hizb progress bar, warm `#F7F0E2` Mushaf Arabic reading surface with synchronized audio player, segmented `Translation · Tafsir · Reflection` tabs, Level 3/4 quick access cards, and Previous/Next verse navigation cards.
+2. **Clickable Verse Numbers Across the App**:
+   - Upgraded `AyahCartouche` and verse reference badges across `VerseCard`, `DailyNorthStar`, `ContinuousSessionAudioPlayer`, `JournalDrawer`, and the Guidance passage bar so clicking any verse number opens the Read Quran page directly at that exact surah and verse.
+3. **Optional Navigation Pages in Preferences (`CustomizationSheet.tsx` & `StorageService`)**:
+   - Added persistent user preferences (`showReadPage` and `showNorthStarPage`) in the Preferences page allowing users to show or hide the **Read Quran** and **North Star** pages in the bottom navigation bar.
+
+## 2026-10-11 — Milestone 45: Read Page Guidance Palette, Top Audio Player, Tafsir Audio & Zero-Lag Pre-Caching
+
+1. **Guidance VerseCard Color Palette in Read Page (`QuranReaderPage.tsx`)**:
+   - Styled the Read Quran verse sections to match the Guidance `VerseCard` palette (`bg-[#FBF8F1] dark:bg-[#082019]` for outer cards and `bg-[#F7F0E2] dark:bg-[#0C2920]` for the Level 1 Quranic Arabic surface and elevated controls), with active gold border rings (`border-amber-500/60 dark:border-[#F4B900]/60`) on the section currently being read.
+2. **Top-Mounted Audio Player with Tafsir Selection & Reading**:
+   - Moved the `AudioPlayer` container to the top of the Read page so playback controls and stream/queue selectors (`Recitation`, `Translation`, `+ Translation`, `+ Tafsir`) are immediately accessible.
+   - Surfaced available Tafsir citations (localized scholar commentary when present, or verified canonical Arabic `Al-Tafsir Al-Muyassar` fallback) into the `AudioPlayer` with `tafsirLanguage` detection so Tafsir is always selectable in the player and read aloud when available.
+3. **Automatic Tab Switching & Smooth Auto-Scrolling During Playback**:
+   - When playback enters the `recitation`, `translation`, or `tafsir` phase, `QuranReaderPage` automatically opens the corresponding tab (`Translation` or `Tafsir`), highlights the words as they are read, and smoothly scrolls the viewport (`scrollIntoView({ behavior: 'smooth', block: 'center' })`) to the active section.
+4. **Zero-Lag Background Pre-Caching (`SpeechService.prefetchAudio` & `AudioPlayer.tsx`)**:
+   - Added `SpeechService.prefetchAudio` with shared in-flight Promise deduplication in `src/services/speechSynthesisService.ts` and `warmUpQueuedPhases` in `src/components/AudioPlayer.tsx` so activated Translation and Tafsir audio tracks (stored MP3 or `/api/tts` neural audio) start caching in the background as soon as recitation begins.
+
+## 2026-10-11 — Milestone 46: Unified Top Audio Selector (`+` / `✓`), Strict Language Tafsir Skipping, Audio Source Badges (`GitHub` / `Server` / `Browser`), & GitHub Releases Streaming Env Sync
+
+1. **Unified Top Audio Selector Bar (`AudioPlayer.tsx`)**:
+   - Consolidated the two audio selector rows into a single top selector div where each button (`Recitation (AR)`, `Translation`, `Tafsir`) displays a **`+`** or **`✓` (`Check`)** icon at the beginning to toggle inclusion in sequential reading.
+2. **Strict Chosen-Language Tafsir Skipping (`QuranReaderPage.tsx` & `AudioPlayer.tsx`)**:
+   - In the Read page, Tafsir is only shown, selected, and read if verified commentary exists in the user's chosen language (`localizedDetails.tafsirCitations`). If Tafsir does not exist in the chosen language, it is automatically skipped without falling back to another language.
+3. **Audio Source Tier Badges (`GitHub` · `Server` · `Browser`)**:
+   - Added real-time audio source tier detection (`onAudioSourcesResolved`) in `AudioPlayer.tsx` and `SpeechService` (`speechSynthesisService.ts`), displaying **`Audio: GitHub`** (when streaming pre-generated MP3s from GitHub Releases via `/api/ayah-audio/[id]`), **`Audio: Server`** (Tier A Server-Side Gemini Neural TTS via `/api/tts`), or **`Audio: Browser`** (Tier B Browser Web Speech API fallback) at the top of both the **Translation** and **Tafsir** sections in `QuranReaderPage.tsx` and `VerseCard.tsx`.
+4. **GitHub Releases Audio Resolution (`vite.config.ts` & `ayahAudioServerService.ts`)**:
+   - Synced `.dev.vars` automatically from `process.env` in `vite.config.ts` for the Cloudflare `workerd` SSR environment and broadened classical scholar attribution matching in `ayahAudioServerService.ts` so the >80% pre-generated MP3s in GitHub Releases (`public.ayah_audio`) resolve and stream directly as `GitHub`.

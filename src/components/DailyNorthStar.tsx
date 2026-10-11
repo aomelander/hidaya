@@ -35,6 +35,7 @@ interface DailyNorthStarProps {
   showTransliteration: boolean;
   onSelectVerse?: (verse: QuranVerseFixture) => void;
   onOpenReflection?: (verse: QuranVerseFixture) => void;
+  onNavigateToRead?: (surahNumber: number, ayahNumber: number) => void;
 }
 
 const UI_STRINGS: Record<Language, {
@@ -140,6 +141,7 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
   showTransliteration,
   onSelectVerse,
   onOpenReflection,
+  onNavigateToRead,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(() => {
     const today = getTodayNorthStar();
@@ -225,33 +227,33 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
   return (
     <article
       aria-label="Daily North Star Reflection"
-      className="relative overflow-hidden rounded-3xl bg-linear-to-b from-amber-500/10 via-emerald-900/5 to-white/80 dark:from-emerald-950/70 dark:via-emerald-950/40 dark:to-[#071712] border-2 border-amber-600/25 dark:border-amber-500/20 shadow-xl shadow-amber-900/5 transition-all"
+      className="relative overflow-hidden rounded-3xl bg-linear-to-b from-amber-500/10 via-emerald-900/5 to-white/90 dark:from-[#0B3027] dark:via-[#08241D] dark:to-[#061B16] border border-amber-600/25 dark:border-amber-500/25 shadow-xl shadow-amber-900/5 transition-all"
     >
       {/* Subtle Top Decorative Accent Banner */}
-      <div className="h-1.5 w-full bg-linear-to-r from-amber-400 via-emerald-600 to-amber-500"></div>
+      <div className="h-1.5 w-full bg-linear-to-r from-[#F4B900] via-[#006D53] to-[#F4B900]"></div>
 
       <div className="p-5 sm:p-7 space-y-6">
         {/* Top Header Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/30 shadow-xs">
+            <div className="w-9 h-9 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-[#F4B900] flex items-center justify-center border border-amber-500/30 shadow-xs">
               <Compass className="w-5 h-5 animate-[spin_12s_linear_infinite]" />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-amber-700 dark:text-[#F4B900] flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" />
                   {t.badge}
                 </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                <span className="text-xs text-slate-500 dark:text-[#9BAFA7] capitalize">
                   · {todayFormatted}
                 </span>
-                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 inline-flex items-center gap-1 tabular-nums">
-                  · <Flame className="w-3.5 h-3.5 text-amber-500 inline" /> {streak.currentStreak}{' '}
+                <span className="text-xs font-semibold text-amber-700 dark:text-[#F4B900] inline-flex items-center gap-1 tabular-nums">
+                  · <Flame className="w-3.5 h-3.5 text-[#F4B900] inline" /> {streak.currentStreak}{' '}
                   {t.streakUnit} ({streak.totalDaysActive} {t.totalDaysUnit})
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+              <p className="text-xs text-slate-500 dark:text-[#9BAFA7] hidden sm:block">
                 {t.subheading}
               </p>
             </div>
@@ -263,7 +265,7 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
               onClick={handlePrev}
               title={t.prevStar}
               aria-label={t.prevStar}
-              className="p-1.5 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              className="p-1.5 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -271,7 +273,7 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
             <button
               onClick={handleResetToday}
               title={t.todayLabel}
-              className="px-2.5 py-1 text-xs font-semibold rounded-xl border border-amber-600/20 text-amber-800 dark:text-amber-200 hover:bg-amber-500/15 transition-colors cursor-pointer"
+              className="px-2.5 py-1 text-xs font-semibold rounded-xl border border-amber-600/20 text-amber-800 dark:text-amber-200 hover:bg-amber-500/15 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             >
               {t.todayLabel}
             </button>
@@ -280,14 +282,14 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
               onClick={handleNext}
               title={t.nextStar}
               aria-label={t.nextStar}
-              className="p-1.5 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              className="p-1.5 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
 
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="p-1.5 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer ml-1"
+              className="p-1.5 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
               title={isExpanded ? t.collapse : t.expand}
               aria-expanded={isExpanded}
             >
@@ -302,14 +304,22 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
             {/* Surah Reference & Theme Title */}
             <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-amber-900/10 dark:border-emerald-800/30 pb-3">
               <div>
-                <h3 className="text-lg sm:text-xl font-bold text-emerald-950 dark:text-emerald-50">
+                <h3 className="text-lg sm:text-xl font-bold text-emerald-950 dark:text-[#F5F7F2]">
                   {getLocalizedText(star.theme, language)}
                 </h3>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium inline-flex items-center gap-1.5 mt-0.5">
+                <span className="text-xs text-slate-500 dark:text-[#9BAFA7] font-medium inline-flex items-center gap-1.5 mt-0.5">
                   <AyahCartouche
                     number={star.verseNumber}
                     size="md"
-                    className="text-amber-700 dark:text-amber-400"
+                    className="text-amber-700 dark:text-[#F4B900]"
+                    onClick={
+                      onNavigateToRead
+                        ? () => {
+                            const vNum = parseInt(String(star.verseNumber).split('-')[0], 10) || 1;
+                            onNavigateToRead(star.surahNumber, vNum);
+                          }
+                        : undefined
+                    }
                   />
                   <span>
                     {star.surahNameTransliterated} ({star.surahNameMeaning}) • Surah {star.surahNumber}
@@ -320,9 +330,9 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={toggleAudio}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                     isPlayingAudio
-                      ? 'bg-amber-500 text-slate-950 animate-pulse shadow-sm'
+                      ? 'bg-[#F4B900] text-slate-950 animate-pulse shadow-sm'
                       : 'bg-white dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-900/15 dark:border-emerald-700/30 hover:bg-emerald-50 dark:hover:bg-emerald-800/40'
                   }`}
                   aria-label={isPlayingAudio ? "Stop recitation" : "Listen to recitation"}
@@ -333,7 +343,7 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
 
                 <button
                   onClick={handleCopy}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-emerald-900/40 text-slate-700 dark:text-slate-300 border border-emerald-900/15 dark:border-emerald-700/30 hover:bg-emerald-50 dark:hover:bg-emerald-800/40 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-emerald-900/40 text-slate-700 dark:text-slate-300 border border-emerald-900/15 dark:border-emerald-700/30 hover:bg-emerald-50 dark:hover:bg-emerald-800/40 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
                   title={t.copy}
                 >
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
@@ -344,9 +354,9 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
 
             {/* Level 1: Original Verified Quranic Arabic (Uthmani) */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-[11px] text-amber-800 dark:text-amber-400 font-bold uppercase tracking-wider">
+              <div className="flex items-center justify-between text-[11px] text-amber-800 dark:text-[#F4B900] font-bold uppercase tracking-wider">
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                  <span className="w-2 h-2 rounded-full bg-[#F4B900] inline-block"></span>
                   Level 1: {t.sourceAttribution}
                 </span>
                 <span className="font-arabic text-sm">{star.surahNameArabic}</span>
@@ -355,7 +365,7 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
               <div
                 dir="rtl"
                 style={{ fontSize: `${arabicScale * 1.5}rem` }}
-                className="font-arabic text-emerald-950 dark:text-amber-100 leading-[2.4] text-right p-4 rounded-2xl bg-amber-50/50 dark:bg-emerald-950/30 border border-amber-900/10 dark:border-emerald-800/20 select-text"
+                className="font-arabic text-emerald-950 dark:text-amber-50 leading-[2.4] text-right p-5 rounded-2xl bg-[#F7F0E2] dark:bg-[#08231C] border border-amber-700/15 dark:border-emerald-800/35 select-text shadow-inner"
               >
                 {(() => {
                   const cleanText = (str: string) =>
@@ -376,8 +386,16 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
                     return subParts.map((part, idx) => (
                       <React.Fragment key={idx}>
                         <span>{part}</span>{' '}
-                        <span className="inline-flex items-center align-middle mx-1 text-amber-700 dark:text-amber-400 select-none">
-                          <AyahCartouche number={String(startNum + idx)} size="inline" />
+                        <span className="inline-flex items-center align-middle mx-1 text-amber-700 dark:text-[#F4B900] select-none">
+                          <AyahCartouche
+                            number={String(startNum + idx)}
+                            size="inline"
+                            onClick={
+                              onNavigateToRead
+                                ? () => onNavigateToRead(star.surahNumber, startNum + idx)
+                                : undefined
+                            }
+                          />
                         </span>{' '}
                       </React.Fragment>
                     ));
@@ -386,8 +404,20 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
                   return (
                     <>
                       <span>{subParts.join(' ') || cleanText(star.arabicText)}</span>{' '}
-                      <span className="inline-flex items-center align-middle mx-1 text-amber-700 dark:text-amber-400 select-none">
-                        <AyahCartouche number={star.verseNumber} size="inline" />
+                      <span className="inline-flex items-center align-middle mx-1 text-amber-700 dark:text-[#F4B900] select-none">
+                        <AyahCartouche
+                          number={star.verseNumber}
+                          size="inline"
+                          onClick={
+                            onNavigateToRead
+                              ? () => {
+                                  const vNum =
+                                    parseInt(String(star.verseNumber).split('-')[0], 10) || 1;
+                                  onNavigateToRead(star.surahNumber, vNum);
+                                }
+                              : undefined
+                          }
+                        />
                       </span>
                     </>
                   );
@@ -396,26 +426,26 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
 
               {/* Transliteration */}
               {showTransliteration && (
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 italic px-1 font-serif leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9BAFA7] italic px-1 font-serif leading-relaxed">
                   {star.transliteration}
                 </p>
               )}
             </div>
 
             {/* Level 2: Human Translation */}
-            <div className="space-y-1.5 bg-white/70 dark:bg-[#0A2219]/60 p-4 rounded-2xl border border-emerald-900/10 dark:border-emerald-800/30">
+            <div className="space-y-1.5 bg-white/80 dark:bg-[#061B16]/70 p-4 rounded-2xl border border-emerald-900/10 dark:border-emerald-800/30">
               <div className="text-[11px] text-emerald-800 dark:text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
                 Level 2: Human Translation ({translation.translator})
               </div>
-              <p className="text-sm sm:text-base text-slate-800 dark:text-slate-100 font-serif leading-relaxed">
+              <p className="text-sm sm:text-base text-slate-800 dark:text-[#F5F7F2] font-serif leading-relaxed">
                 &ldquo;{translation.text}&rdquo;
               </p>
             </div>
 
             {/* Revelation Context & Wisdom */}
             <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed bg-amber-500/5 dark:bg-emerald-950/20 p-3.5 rounded-xl border border-amber-500/20">
-              <span className="font-bold text-emerald-900 dark:text-amber-300 block mb-1">
+              <span className="font-bold text-emerald-900 dark:text-[#F4B900] block mb-1">
                 {t.contextHeader}:
               </span>
               {getLocalizedText(star.context, language)}
@@ -424,9 +454,9 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
             {/* Level 4: "From Quran to Life" Dual Pillars */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               {/* Question: Today, sit with this */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-emerald-950/50 border border-emerald-800/20 dark:border-emerald-700/30 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
-                  <Sun className="w-4 h-4 text-amber-500" />
+              <div className="p-4 rounded-2xl bg-white dark:bg-[#061B16]/60 border border-emerald-800/20 dark:border-emerald-700/30 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-[#F4B900] uppercase tracking-wide">
+                  <Sun className="w-4 h-4 text-[#F4B900]" />
                   <span>{t.sitWithThis}</span>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 leading-relaxed font-medium">
@@ -435,7 +465,7 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
               </div>
 
               {/* Action: Carry this with you today */}
-              <div className="p-4 rounded-2xl bg-linear-to-br from-emerald-900/10 via-emerald-800/5 to-amber-500/10 dark:from-emerald-900/30 dark:to-emerald-950/60 border border-emerald-700/30 space-y-2">
+              <div className="p-4 rounded-2xl bg-linear-to-br from-emerald-900/10 via-emerald-800/5 to-amber-500/10 dark:from-[#006D53]/25 dark:to-[#061B16]/70 border border-emerald-700/30 space-y-2">
                 <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>{t.carryThis}</span>

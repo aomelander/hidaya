@@ -68,6 +68,7 @@ export interface JournalDrawerProps {
   onSelectVerse: (verse: QuranVerseFixture) => void;
   onRemoveBookmark: (verseId: string) => void;
   onOpenReflection?: (verse: QuranVerseFixture) => void;
+  onNavigateToRead?: (surahNumber: number, ayahNumber: number) => void;
   inlinePage?: boolean;
 }
 
@@ -168,6 +169,7 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
   language,
   onSelectVerse,
   onRemoveBookmark,
+  onNavigateToRead,
   inlinePage = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'bookmarks' | 'journey'>('bookmarks');
@@ -256,8 +258,8 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
       dir={language === 'ar' ? 'rtl' : 'ltr'}
       className={
         inlinePage
-          ? 'w-full max-w-2xl mx-auto rounded-3xl bg-white dark:bg-[#0A1E17] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden flex flex-col'
-          : 'w-full max-w-2xl max-h-[85vh] rounded-t-2xl overflow-y-auto bg-[#FAF8F5] dark:bg-[#071913] text-slate-900 dark:text-slate-100 shadow-2xl border-t border-emerald-900/20 dark:border-emerald-700/40 flex flex-col'
+          ? 'w-full max-w-2xl mx-auto rounded-3xl bg-white dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden flex flex-col'
+          : 'w-full max-w-2xl max-h-[85vh] rounded-t-2xl overflow-y-auto bg-[#FAF8F5] dark:bg-[#061B16] text-slate-900 dark:text-[#F5F7F2] shadow-2xl border-t border-emerald-900/20 dark:border-emerald-700/40 flex flex-col'
       }
     >
       {!inlinePage && (
@@ -269,15 +271,15 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
       {/* Header */}
       <div className="px-6 py-5 border-b border-slate-100 dark:border-emerald-900/30 flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <h2 className="text-lg sm:text-xl font-bold text-emerald-950 dark:text-emerald-50">
+          <h2 className="text-lg sm:text-xl font-bold text-emerald-950 dark:text-[#F5F7F2]">
             {t.title}
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">{t.subtitle}</p>
+          <p className="text-xs text-slate-500 dark:text-[#9BAFA7]">{t.subtitle}</p>
 
           {/* Subtle Inline Offline Readiness Status Line */}
           <div className="pt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-emerald-800 dark:text-emerald-300 tabular-nums">
             {!isOnline ? (
-              <WifiOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <WifiOff className="w-3.5 h-3.5 text-amber-600 dark:text-[#F4B900] shrink-0" />
             ) : (
               <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             )}
@@ -303,7 +305,7 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
           <button
             type="button"
             onClick={handleExport}
-            className="p-2 rounded-xl text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/40 transition cursor-pointer"
+            className="p-2 rounded-xl text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/40 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             title="Backup Journal"
           >
             <Download className="w-4 h-4" />
@@ -311,7 +313,7 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 rounded-xl text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/40 transition cursor-pointer"
+            className="p-2 rounded-xl text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/40 transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             title="Restore Journal"
           >
             <Upload className="w-4 h-4" />
@@ -327,7 +329,7 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-9 h-9 rounded-xl border border-emerald-900/10 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer"
+              className="w-9 h-9 rounded-xl border border-emerald-900/10 flex items-center justify-center text-slate-500 hover:text-slate-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
               aria-label="Close journal"
             >
               <X className="w-4 h-4" />
@@ -342,8 +344,8 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
           type="button"
           className={`flex-1 py-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
             activeTab === 'bookmarks'
-              ? 'border-emerald-700 text-emerald-900 dark:text-emerald-300'
-              : 'border-transparent text-slate-500'
+              ? 'border-[#006D53] text-emerald-900 dark:text-[#F4B900] dark:border-[#F4B900]'
+              : 'border-transparent text-slate-500 dark:text-[#9BAFA7]'
           }`}
           onClick={() => setActiveTab('bookmarks')}
         >
@@ -353,8 +355,8 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
           type="button"
           className={`flex-1 py-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
             activeTab === 'journey'
-              ? 'border-emerald-700 text-emerald-900 dark:text-emerald-300'
-              : 'border-transparent text-slate-500'
+              ? 'border-[#006D53] text-emerald-900 dark:text-[#F4B900] dark:border-[#F4B900]'
+              : 'border-transparent text-slate-500 dark:text-[#9BAFA7]'
           }`}
           onClick={() => setActiveTab('journey')}
         >
@@ -363,7 +365,7 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
       </div>
 
       {/* Search & Filters */}
-      <div className="p-5 space-y-3 bg-[#FAF8F5]/60 dark:bg-emerald-950/20 border-b border-slate-100 dark:border-emerald-900/30">
+      <div className="p-5 space-y-3 bg-[#FAF8F5]/60 dark:bg-[#061B16]/50 border-b border-slate-100 dark:border-emerald-900/30">
         <div className="relative">
           <Search className="w-4 h-4 absolute start-3.5 top-3 text-slate-400" />
           <input
@@ -371,7 +373,7 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
             placeholder={t.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full ps-10 pe-4 py-2.5 text-xs sm:text-sm bg-white dark:bg-emerald-950/50 border border-slate-200 dark:border-emerald-800/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            className="w-full ps-10 pe-4 py-2.5 text-xs sm:text-sm bg-white dark:bg-[#0B3027] border border-slate-200 dark:border-emerald-800/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#006D53]"
           />
         </div>
         {allTopics.length > 0 && (
@@ -381,8 +383,8 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
               onClick={() => setSelectedTopic(null)}
               className={`px-3 py-1 rounded-xl text-xs whitespace-nowrap transition-colors cursor-pointer ${
                 !selectedTopic
-                  ? 'bg-emerald-800 text-white'
-                  : 'bg-white dark:bg-emerald-950 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-emerald-800/40'
+                  ? 'bg-[#006D53] text-white'
+                  : 'bg-white dark:bg-[#0B3027] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-emerald-800/40'
               }`}
             >
               {t.allTopics}
@@ -394,8 +396,8 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
                 onClick={() => setSelectedTopic(topic)}
                 className={`px-3 py-1 rounded-xl text-xs whitespace-nowrap transition-colors cursor-pointer ${
                   selectedTopic === topic
-                    ? 'bg-emerald-800 text-white'
-                    : 'bg-white dark:bg-emerald-950 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-emerald-800/40'
+                    ? 'bg-[#006D53] text-white'
+                    : 'bg-white dark:bg-[#0B3027] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-emerald-800/40'
                 }`}
               >
                 {topic}
@@ -413,8 +415,8 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
                 onClick={() => setSelectedMood(moodKey)}
                 className={`px-3 py-1 rounded-xl text-xs whitespace-nowrap transition-colors cursor-pointer ${
                   selectedMood === moodKey
-                    ? 'bg-amber-600 text-white font-semibold'
-                    : 'bg-white dark:bg-emerald-950 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-emerald-800/40'
+                    ? 'bg-[#F4B900] text-emerald-950 font-semibold'
+                    : 'bg-white dark:bg-[#0B3027] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-emerald-800/40'
                 }`}
               >
                 {moodLabels[moodKey]}
@@ -448,9 +450,22 @@ export const JournalDrawer: React.FC<JournalDrawerProps> = ({
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                    <span className="font-bold text-emerald-900 dark:text-emerald-300">
-                      Surah {verse.surahNameTransliterated} · {verse.id}
-                    </span>
+                    {onNavigateToRead ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const vNum = parseInt(String(verse.verseNumber).split('-')[0], 10) || 1;
+                          onNavigateToRead(verse.surahNumber, vNum);
+                        }}
+                        className="font-bold text-emerald-900 dark:text-emerald-300 hover:text-[#F4B900] underline decoration-dotted underline-offset-4 transition-colors cursor-pointer"
+                      >
+                        Surah {verse.surahNameTransliterated} · {verse.id}
+                      </button>
+                    ) : (
+                      <span className="font-bold text-emerald-900 dark:text-emerald-300">
+                        Surah {verse.surahNameTransliterated} · {verse.id}
+                      </span>
+                    )}
                     {userNote?.mood && (
                       <span className="text-amber-700 dark:text-amber-400 font-medium">
                         · {moodLabels[userNote.mood]}

@@ -13,6 +13,9 @@ interface AyahCartoucheProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'inline';
   scale?: number;
+  onClick?: (e: React.MouseEvent) => void;
+  title?: string;
+  ariaLabel?: string;
 }
 
 export const AyahCartouche: React.FC<AyahCartoucheProps> = ({
@@ -21,6 +24,9 @@ export const AyahCartouche: React.FC<AyahCartoucheProps> = ({
   className = '',
   size = 'md',
   scale = 1,
+  onClick,
+  title,
+  ariaLabel,
 }) => {
   const numStr = String(number || '');
   const len = numStr.length;
@@ -52,11 +58,37 @@ export const AyahCartouche: React.FC<AyahCartoucheProps> = ({
       ? { transform: `scale(${scale})`, transformOrigin: 'center' }
       : undefined;
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!onClick) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      onClick(e as unknown as React.MouseEvent);
+    }
+  };
+
   return (
     <span
       style={customStyle}
-      className={`inline-flex items-center justify-center shrink-0 transition-transform ${sizeClasses} ${className}`}
-      aria-hidden="true"
+      onClick={
+        onClick
+          ? (e) => {
+              e.stopPropagation();
+              onClick(e);
+            }
+          : undefined
+      }
+      onKeyDown={onClick ? handleKeyDown : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      title={title}
+      aria-label={ariaLabel || (onClick ? `Read verse ${numStr}` : undefined)}
+      aria-hidden={onClick ? undefined : 'true'}
+      className={`inline-flex items-center justify-center shrink-0 transition-transform ${
+        onClick
+          ? 'cursor-pointer hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] rounded-full'
+          : ''
+      } ${sizeClasses} ${className}`}
     >
       <svg
         viewBox="0 0 100 84"

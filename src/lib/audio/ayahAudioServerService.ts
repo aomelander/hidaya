@@ -141,6 +141,9 @@ export function isKnownClassicalScholar(source?: string | null): boolean {
     s.includes('السعدي') ||
     s.includes('muyassar') ||
     s.includes('الميسر') ||
+    s.includes('kingfah') ||
+    s.includes('fahd') ||
+    s.includes('مجمع') ||
     s.includes('sharawi') ||
     s.includes('الشعراوي') ||
     s.includes('mukhtasar') ||

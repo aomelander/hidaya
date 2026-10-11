@@ -701,6 +701,17 @@ export function getLocalizedVerseDetails(
     })
     .filter((cit): cit is TafsirCitation => cit !== null && Boolean(cit.text && cit.text.trim()));
 
+  // Deduplicate by scholar name (preserving the first/highest-priority entry per scholar)
+  const seenScholars = new Set<string>();
+  const uniqueTafsirCitations: TafsirCitation[] = [];
+  for (const cit of tafsirCitations) {
+    const normScholar = cit.scholar.trim().toLowerCase();
+    if (!seenScholars.has(normScholar)) {
+      seenScholars.add(normScholar);
+      uniqueTafsirCitations.push(cit);
+    }
+  }
+
   return {
     surahPrefix,
     surahNameDisplay,
@@ -709,6 +720,6 @@ export function getLocalizedVerseDetails(
     juzDisplay,
     revelationContext,
     mappingExplanation,
-    tafsirCitations,
+    tafsirCitations: uniqueTafsirCitations,
   };
 }

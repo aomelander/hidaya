@@ -37,6 +37,7 @@ import { expandPassage, PassageSelection } from '../services/passageSelection';
 import { VerseCard } from '../components/VerseCard';
 import { CustomizationSheet } from '../components/CustomizationSheet';
 import { JournalDrawer } from '../components/JournalDrawer';
+import { QuranReaderPage, QuranReaderTarget } from '../components/QuranReaderPage';
 import { BottomNav, BottomNavTab } from '../components/BottomNav';
 import { Footer } from '../components/Footer';
 
@@ -44,6 +45,7 @@ export default function App() {
   const [passageSelections, setPassageSelections] = useState<Record<string, PassageSelection>>({});
   const [mounted, setMounted] = useState(false);
   const [activeNavTab, setActiveNavTab] = useState<BottomNavTab>('guidance');
+  const [readTarget, setReadTarget] = useState<QuranReaderTarget | null>(null);
 
   // User Preferences State
   const [language, setLanguage] = useState<Language>(APP_CONFIG.DEFAULTS.LANGUAGE);
@@ -58,6 +60,10 @@ export default function App() {
   );
   const [readerProfile, setReaderProfile] = useState<ReaderProfile>('adult');
   const [preferredScholar, setPreferredScholar] = useState<PreferredScholar>('Ibn Kathir');
+  const [showReadPage, setShowReadPage] = useState<boolean>(APP_CONFIG.DEFAULTS.SHOW_READ_PAGE);
+  const [showNorthStarPage, setShowNorthStarPage] = useState<boolean>(
+    APP_CONFIG.DEFAULTS.SHOW_NORTH_STAR_PAGE
+  );
   const [bookmarks, setBookmarks] = useState<string[]>([APP_CONFIG.DEFAULTS.INITIAL_VERSE_ID]);
   const [, setReflections] = useState<Record<string, UserReflection>>({});
 
@@ -113,6 +119,8 @@ export default function App() {
     setIsHighContrast(StorageService.getHighContrast());
     setReaderProfile(StorageService.getReaderProfile());
     setPreferredScholar(StorageService.getPreferredScholar());
+    setShowReadPage(StorageService.getShowReadPage());
+    setShowNorthStarPage(StorageService.getShowNorthStarPage());
     setBookmarks(StorageService.getBookmarks());
     setReflections(StorageService.getReflections());
     StorageService.recordDailyVisit();
@@ -167,6 +175,16 @@ export default function App() {
     StorageService.setPreferredScholar(preferredScholar);
   }, [preferredScholar, mounted]);
 
+  useEffect(() => {
+    if (!mounted) return;
+    StorageService.setShowReadPage(showReadPage);
+  }, [showReadPage, mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    StorageService.setShowNorthStarPage(showNorthStarPage);
+  }, [showNorthStarPage, mounted]);
+
   // Default Verse Load
   useEffect(() => {
     const defaultVerse = QURAN_FIXTURES.find((f) => f.id === '3:134') || QURAN_FIXTURES[0];
@@ -192,6 +210,12 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleNavigateToRead = (surahNumber: number, ayahNumber: number) => {
+    setReadTarget({ surahNumber, ayahNumber });
+    setActiveNavTab('read');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     executeSearch(searchQuery, language);
@@ -210,7 +234,7 @@ export default function App() {
         mounted && isHighContrast ? 'contrast-125' : ''
       } ${
         lang === 'ar' ? 'font-arabic' : ''
-      } bg-[#FAF8F5] dark:bg-[#07140F] text-slate-900 dark:text-slate-100`}
+      } bg-[#FAF8F5] dark:bg-[#061B16] text-slate-900 dark:text-[#F5F7F2]`}
     >
       {/* Ultra-Minimalist Top Header (Brand + Language Switcher + Preferences Icon) */}
       <Header
@@ -229,15 +253,17 @@ export default function App() {
             <section
               id="guidance-portal"
               aria-label="Guidance Portal"
-              className="space-y-4 p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#0A1E17] border border-emerald-900/10 dark:border-emerald-800/35 shadow-2xs"
+              className="space-y-4 p-5 sm:p-7 rounded-3xl bg-white dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs"
             >
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-emerald-950 dark:text-emerald-50">
-                  {dict.portalTitle}
-                </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {dict.portalSubtitle}
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-emerald-950 dark:text-[#F5F7F2] text-balance">
+                    {dict.portalTitle}
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9BAFA7] mt-1">
+                    {dict.portalSubtitle}
+                  </p>
+                </div>
               </div>
 
               <GuidanceSearchBar
@@ -265,8 +291,8 @@ export default function App() {
 
             {isAnalyzing && (
               <div className="text-center py-10 space-y-3" role="status" aria-live="polite">
-                <div className="w-9 h-9 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs sm:text-sm font-medium text-emerald-900 dark:text-emerald-200">
+                <div className="w-9 h-9 border-2 border-[#006D53] border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-xs sm:text-sm font-medium text-emerald-900 dark:text-[#F5F7F2]">
                   {dict.seekingStatus}
                 </p>
               </div>
@@ -283,24 +309,32 @@ export default function App() {
             )}
 
             {!isAnalyzing && displayedPassages.length > 0 && (
-              <section id="passages-section" aria-label="Quranic Passages" className="space-y-5">
+              <section id="passages-section" aria-label="Quranic Passages" className="space-y-6">
                 {displayedPassages.length > 1 && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-white/80 dark:bg-[#0A1E17]/80 border border-emerald-900/10 dark:border-emerald-800/30 backdrop-blur-xs text-xs">
-                    <span className="font-semibold text-emerald-950 dark:text-emerald-200">
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 rounded-2xl bg-white/90 dark:bg-[#0B3027]/90 border border-emerald-900/10 dark:border-emerald-800/35 text-xs">
+                    <span className="font-semibold text-emerald-950 dark:text-[#F5F7F2] tabular-nums">
                       {language === 'ar'
-                        ? `${displayedPassages.length} آيات مطابقة للبحث`
+                        ? `${displayedPassages.length} آيات مطابقة للتدبر`
+                        : language === 'sv'
+                        ? `${displayedPassages.length} Quran-passager hittades`
+                        : language === 'fr'
+                        ? `${displayedPassages.length} passages coraniques trouvés`
                         : `${displayedPassages.length} Quranic Passages Found`}
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {displayedPassages.map((p, idx) => (
-                        <a
-                          key={p.id}
-                          href={`#verse-${p.id}`}
-                          className="px-2.5 py-1 rounded-xl bg-emerald-950/5 dark:bg-emerald-900/30 hover:bg-emerald-800 hover:text-white dark:hover:bg-emerald-700 text-emerald-900 dark:text-emerald-200 transition-colors font-medium border border-emerald-900/10 dark:border-emerald-800/40"
-                        >
-                          Ayah {p.id}
-                        </a>
-                      ))}
+                      {displayedPassages.map((p) => {
+                        const firstAyah = parseInt(String(p.verseNumber).split('-')[0], 10) || 1;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handleNavigateToRead(p.surahNumber, firstAyah)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-950/5 dark:bg-[#061B16]/70 hover:bg-[#006D53] hover:text-white dark:hover:bg-[#006D53] text-emerald-900 dark:text-[#F5F7F2] transition-colors font-medium border border-emerald-900/10 dark:border-emerald-800/40 tabular-nums cursor-pointer"
+                          >
+                            {language === 'ar' ? `الآية ${p.id}` : `Ayah ${p.id}`}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -310,7 +344,7 @@ export default function App() {
                     id={`verse-${verse.id}`}
                     className={
                       (activeAudioVerseId === verse.id || activeAudioVerseId === expandPassage(verse, passageSelections[verse.id])?.id)
-                        ? 'ring-2 ring-amber-500/80 rounded-3xl transition-all'
+                        ? 'ring-2 ring-[#F4B900]/80 rounded-3xl transition-all'
                         : ''
                     }
                   >
@@ -331,6 +365,7 @@ export default function App() {
                       perspectiveMode={perspectiveMode}
                       readerProfile={readerProfile}
                       preferredScholar={preferredScholar}
+                      onNavigateToRead={handleNavigateToRead}
                     />
                   </div>
                 ))}
@@ -346,10 +381,28 @@ export default function App() {
             verses={audioPassages}
             language={language}
             onActiveVerseChange={(verseId) => setActiveAudioVerseId(verseId)}
+            onNavigateToRead={handleNavigateToRead}
           />
         )}
 
-        {/* TAB 3: NORTH STAR (Dedicated Daily Passage Page) */}
+        {/* TAB 3: READ (Dedicated Read the Quran Page — Sourates, Juz', Favoris & Focused Verse Reader) */}
+        {activeNavTab === 'read' && (
+          <QuranReaderPage
+            language={language}
+            arabicScale={arabicScale}
+            readingScale={readingScale}
+            showTransliteration={showTransliteration}
+            bookmarks={bookmarks}
+            onToggleBookmark={handleToggleBookmark}
+            preferredScholar={preferredScholar}
+            readerProfile={readerProfile}
+            initialTarget={readTarget}
+            onTargetChange={setReadTarget}
+            onOpenJournal={() => switchTab('journal')}
+          />
+        )}
+
+        {/* TAB 4: NORTH STAR (Dedicated Daily Passage Page) */}
         {activeNavTab === 'northStar' && (
           <section aria-label="Daily Contemplation Anchor" className="space-y-6">
             <DailyNorthStar
@@ -358,11 +411,12 @@ export default function App() {
               showTransliteration={showTransliteration}
               onSelectVerse={handleSelectVerseAndGoToGuidance}
               onOpenReflection={handleSelectVerseAndGoToGuidance}
+              onNavigateToRead={handleNavigateToRead}
             />
           </section>
         )}
 
-        {/* TAB 4: JOURNAL (Dedicated Saved Verses & Reflections Page) */}
+        {/* TAB 5: JOURNAL (Dedicated Saved Verses & Reflections Page) */}
         {activeNavTab === 'journal' && (
           <JournalDrawer
             isOpen
@@ -371,10 +425,11 @@ export default function App() {
             language={language}
             onSelectVerse={handleSelectVerseAndGoToGuidance}
             onRemoveBookmark={handleToggleBookmark}
+            onNavigateToRead={handleNavigateToRead}
           />
         )}
 
-        {/* TAB 5: PREFERENCES (Dedicated Settings & Depth Page) */}
+        {/* TAB 6: PREFERENCES (Dedicated Settings & Depth Page) */}
         {activeNavTab === 'preferences' && (
           <CustomizationSheet
             isOpen
@@ -411,6 +466,10 @@ export default function App() {
             onTogglePerspective={() =>
               setPerspectiveMode((prev) => (prev === 'devotional' ? 'inquirer' : 'devotional'))
             }
+            showReadPage={showReadPage}
+            onToggleShowReadPage={() => setShowReadPage((prev) => !prev)}
+            showNorthStarPage={showNorthStarPage}
+            onToggleShowNorthStarPage={() => setShowNorthStarPage((prev) => !prev)}
           />
         )}
 
@@ -418,7 +477,7 @@ export default function App() {
         <Footer language={language} />
       </main>
 
-      {/* Unified 5-Tab Bottom Navigation Bar */}
+      {/* Bottom Navigation Bar (With Optional Read & North Star Pages) */}
       <BottomNav
         locale={lang}
         activeTab={activeNavTab}
@@ -426,8 +485,11 @@ export default function App() {
         isPreferencesOpen={activeNavTab === 'preferences'}
         isJournalOpen={activeNavTab === 'journal'}
         bookmarkCount={mounted ? bookmarks.length : 0}
+        showReadPage={showReadPage}
+        showNorthStarPage={showNorthStarPage}
         onSelectGuidance={() => switchTab('guidance')}
         onToggleAudio={() => switchTab('audio')}
+        onSelectRead={() => switchTab('read')}
         onSelectNorthStar={() => switchTab('northStar')}
         onOpenJournal={() => switchTab('journal')}
         onOpenPreferences={() => switchTab('preferences')}

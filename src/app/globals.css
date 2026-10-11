@@ -5,16 +5,59 @@
     --font-arabic: 'Amiri', 'Scheherazade New', serif;
     --font-heading: 'Cinzel', serif;
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+    /* Hidaya Sacred Sanctuary Palette Tokens */
+    --hidaya-bg-light: #FAF8F5;
+    --hidaya-surface-light: #FFFFFF;
+    --hidaya-mushaf-light: #F7F0E2;
+    --hidaya-bg-dark: #061B16;
+    --hidaya-surface-dark: #0B3027;
+    --hidaya-mushaf-dark: #08231C;
+    --hidaya-primary: #006D53;
+    --hidaya-gold: #F4B900;
+    --hidaya-text-dark: #F5F7F2;
+    --hidaya-text-muted: #9BAFA7;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
 .font-arabic {
   font-family: 'Amiri', 'Scheherazade New', 'Traditional Arabic', serif;
   font-feature-settings: "cv01", "cv02", "liga" 1;
+  letter-spacing: 0 !important;
 }
 
 .font-heading {
   font-family: 'Cinzel', serif;
+}
+
+/* Subtle custom scrollbars for reading queues */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(6, 95, 70, 0.25);
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.25);
 }
 
 /* Print Styles for PDF Export */
@@ -33,3 +76,4 @@
     display: none !important;
   }
 }
+

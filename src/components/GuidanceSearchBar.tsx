@@ -78,20 +78,29 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
       : "What character trait are you cultivating? (e.g., 'Humility', 'Tongue control')...";
   };
 
+  const clearLabel =
+    language === 'ar'
+      ? 'مسح البحث'
+      : language === 'sv'
+      ? 'Rensa sökning'
+      : language === 'fr'
+      ? 'Effacer la recherche'
+      : 'Clear search';
+
   return (
     <section aria-label="Search and Voice Input" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <form onSubmit={onSubmit} className="relative max-w-3xl mx-auto">
         <div
-          className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 shadow-lg rounded-2xl bg-white dark:bg-[#0A1E17] border-2 transition-all ${
+          className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 shadow-lg rounded-2xl bg-white dark:bg-[#061B16] border-2 transition-all ${
             isListening
               ? 'border-red-500 ring-2 ring-red-500/20 shadow-red-500/10'
-              : 'border-emerald-900/15 dark:border-emerald-800/40 focus-within:border-emerald-700 dark:focus-within:border-emerald-500 shadow-emerald-950/5'
+              : 'border-emerald-900/15 dark:border-emerald-800/40 focus-within:border-[#006D53] dark:focus-within:border-[#006D53] shadow-emerald-950/5'
           }`}
         >
           {/* Leading search icon */}
           <div
             className={`ps-1.5 sm:ps-2 shrink-0 transition-colors ${
-              isListening ? 'text-red-500 animate-pulse' : 'text-emerald-800 dark:text-emerald-400'
+              isListening ? 'text-red-500 animate-pulse' : 'text-emerald-800 dark:text-[#F4B900]'
             }`}
           >
             <Search className="w-5 h-5" />
@@ -104,20 +113,23 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={getPlaceholder()}
-            className="flex-1 min-w-0 py-2 sm:py-2.5 px-1.5 sm:px-2 text-sm sm:text-base bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-emerald-300/40 focus:outline-none placeholder:truncate"
+            className="flex-1 min-w-0 py-2 sm:py-2.5 px-1.5 sm:px-2 text-sm sm:text-base bg-transparent text-slate-900 dark:text-[#F5F7F2] placeholder:text-slate-400 dark:placeholder:text-[#9BAFA7]/60 focus:outline-none placeholder:truncate"
             aria-label={dict.searchPlaceholder}
           />
 
-          {/* Clear button when query is not empty */}
-          {searchQuery && (
+          {/* Clear Search button — appears inside the input field only when there is active query text */}
+          {searchQuery.trim().length > 0 && (
             <button
               type="button"
-              onClick={() => onSearchChange('')}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors shrink-0 cursor-pointer"
-              title={language === 'ar' ? 'مسح' : language === 'sv' ? 'Rensa' : language === 'fr' ? 'Effacer' : 'Clear'}
-              aria-label={language === 'ar' ? 'مسح' : language === 'sv' ? 'Rensa' : language === 'fr' ? 'Effacer' : 'Clear'}
+              onClick={() => {
+                onSearchChange('');
+                inputRef.current?.focus();
+              }}
+              className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-emerald-900/50 dark:hover:bg-emerald-800/70 text-slate-500 hover:text-slate-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] transition-colors shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
+              title={clearLabel}
+              aria-label={clearLabel}
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
 
@@ -141,7 +153,7 @@ export const GuidanceSearchBar: React.FC<GuidanceSearchBarProps> = ({
               disabled={isAnalyzing}
               aria-label={isAnalyzing ? dict.seekingStatus : dict.searchButton}
               title={isAnalyzing ? dict.seekingStatus : dict.searchButton}
-              className="min-h-[40px] px-3 sm:px-4 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white text-xs sm:text-sm font-bold shadow-2xs transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0"
+              className="min-h-[40px] px-3 sm:px-4 py-2 rounded-xl bg-[#006D53] hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-2xs transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             >
               {isAnalyzing ? (
                 <>

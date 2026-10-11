@@ -87,8 +87,9 @@ export const QuickChoicePills: React.FC<QuickChoicePillsProps> = ({
 
   return (
     <div className="max-w-3xl mx-auto" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      {/* Categorized Topic Selector */}
       <div className="relative flex items-center">
-        <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3.5 text-amber-600 dark:text-amber-400">
+        <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3.5 text-amber-600 dark:text-[#F4B900]">
           <Sparkles className="w-4 h-4" />
         </div>
 
@@ -96,24 +97,17 @@ export const QuickChoicePills: React.FC<QuickChoicePillsProps> = ({
           value={selectedId}
           onChange={handleChange}
           aria-label={t.placeholder}
-          className="w-full min-h-[42px] ps-9 pe-9 py-2 rounded-xl text-xs sm:text-sm font-medium bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-slate-200 hover:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600 transition-colors appearance-none cursor-pointer truncate"
+          className="w-full min-h-[42px] ps-9 pe-9 py-2 rounded-xl text-xs sm:text-sm font-medium bg-[#FAF8F5] dark:bg-[#061B16]/80 border border-emerald-900/12 dark:border-emerald-800/40 text-slate-700 dark:text-[#F5F7F2] hover:border-[#006D53] focus:outline-none focus:ring-2 focus:ring-[#006D53] transition-colors appearance-none cursor-pointer truncate"
         >
           <option value="">{t.placeholder}</option>
-          {orderedCategories.map((cat) => {
-            const groupPills = QUICK_CHOICE_PILLS.filter((p) => p.category === cat.mode);
-            return (
-              <optgroup key={cat.mode} label={cat.label}>
-                {groupPills.map((pill) => (
-                  <option key={pill.id} value={pill.id}>
-                    {getLocalizedPillLabel(pill)}
-                  </option>
-                ))}
-              </optgroup>
-            );
-          })}
+          {QUICK_CHOICE_PILLS.map((pill) => (
+            <option key={pill.id} value={pill.id}>
+              {getLocalizedPillLabel(pill)}
+            </option>
+          ))}
         </select>
 
-        <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center pe-3.5 text-slate-400">
+        <div className="pointer-events-none absolute inset-y-0 end-0 flex items-center pe-3.5 text-slate-400 dark:text-[#9BAFA7]">
           <ChevronDown className="w-4 h-4" />
         </div>
       </div>

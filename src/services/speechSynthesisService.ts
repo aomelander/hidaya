@@ -8,6 +8,8 @@
 
 import { Language } from '../types';
 
+export type TtsProviderTier = 'server' | 'browser';
+
 export interface SpeakOptions {
   rate?: number;
   pitch?: number;
@@ -17,6 +19,7 @@ export interface SpeakOptions {
   onProgress?: (ratio: number) => void;
   onEnd?: () => void;
   onError?: (err?: unknown) => void;
+  onProviderResolved?: (provider: TtsProviderTier) => void;
 }
 
 class SpeechSynthesisEngine {
@@ -25,7 +28,9 @@ class SpeechSynthesisEngine {
   private currentAudioElement: HTMLAudioElement | null = null;
   private progressTimer: ReturnType<typeof setInterval> | null = null;
   private audioCache = new Map<string, string>(); // text_lang -> base64 audio data url
+  private audioPendingPromises = new Map<string, Promise<string | undefined>>();
   private isSpeakingActive = false;
+  private serverTtsAvailable: boolean = true;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -33,6 +38,66 @@ class SpeechSynthesisEngine {
         this.initVoices();
       }
     }
+  }
+
+  public isServerTtsConfigured(): boolean {
+    return this.serverTtsAvailable;
+  }
+
+  public hasCachedServerAudio(text: string, language: Language): boolean {
+    if (!text || !text.trim()) return false;
+    return this.audioCache.has(`${language}_${text.trim()}`);
+  }
+
+  private fetchOrCacheServerTts(text: string, language: Language): Promise<string | undefined> {
+    const cleanText = text.trim();
+    if (!cleanText) return Promise.resolve(undefined);
+    const cacheKey = `${language}_${cleanText}`;
+    if (this.audioCache.has(cacheKey)) {
+      return Promise.resolve(this.audioCache.get(cacheKey));
+    }
+    if (this.audioPendingPromises.has(cacheKey)) {
+      return this.audioPendingPromises.get(cacheKey)!;
+    }
+
+    const p = (async (): Promise<string | undefined> => {
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: cleanText, language }),
+        });
+
+        if (res.ok) {
+          const data = (await res.json()) as { audio?: string; fallback?: boolean };
+          if (data.audio && !data.fallback) {
+            this.serverTtsAvailable = true;
+            this.audioCache.set(cacheKey, data.audio);
+            return data.audio;
+          }
+          if (data.fallback) {
+            this.serverTtsAvailable = false;
+          }
+        }
+      } catch (err) {
+        console.info('[SpeechService] Server AI TTS unreachable, attempting browser fallback:', err);
+      } finally {
+        this.audioPendingPromises.delete(cacheKey);
+      }
+      return undefined;
+    })();
+
+    this.audioPendingPromises.set(cacheKey, p);
+    return p;
+  }
+
+  /**
+   * Pre-fetches and caches neural TTS audio for translation or tafsir in the background
+   * when recitation starts so there is zero lag when transitioning between phases.
+   */
+  public prefetchAudio(text: string, language: Language): Promise<TtsProviderTier> {
+    if (typeof window === 'undefined' || !text || !text.trim()) return Promise.resolve('browser');
+    return this.fetchOrCacheServerTts(text, language).then((audio) => (audio ? 'server' : 'browser'));
   }
 
   private initVoices(): void {
@@ -171,32 +236,12 @@ class SpeechSynthesisEngine {
       }
     }
 
-    // 1. First, attempt Server-Side AI Voice synthesis (ideal for Swedish natural tone)
-    const cacheKey = `${language}_${text.trim()}`;
-    let audioDataUrl = this.audioCache.get(cacheKey);
-
-    if (!audioDataUrl) {
-      try {
-        const res = await fetch('/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text.trim(), language }),
-        });
-
-        if (res.ok) {
-          const data = (await res.json()) as { audio?: string; fallback?: boolean };
-          if (data.audio && !data.fallback) {
-            audioDataUrl = data.audio;
-            this.audioCache.set(cacheKey, audioDataUrl);
-          }
-        }
-      } catch (err) {
-        console.info('[SpeechService] Server AI TTS unreachable, attempting browser fallback:', err);
-      }
-    }
+    // 1. First, attempt Server-Side AI Voice synthesis (ideal for Swedish natural tone), using pre-cached audio if prefetched
+    const audioDataUrl = await this.fetchOrCacheServerTts(text, language);
 
     // If server audio was successfully retrieved, play it through the provided element or HTMLAudioElement
     if (audioDataUrl && this.isSpeakingActive) {
+      options.onProviderResolved?.('server');
       try {
         const audio = options.targetAudioElement || new Audio(audioDataUrl);
         this.currentAudioElement = audio;
@@ -270,6 +315,7 @@ class SpeechSynthesisEngine {
     language: Language,
     options: SpeakOptions = {}
   ): Promise<void> {
+    options.onProviderResolved?.('browser');
     if (!('speechSynthesis' in window)) {
       this.isSpeakingActive = false;
       options.onEnd?.();

@@ -49,7 +49,7 @@ import {
   UserReflection,
   TafsirCitation,
 } from '../types';
-import { AudioPlayer } from './AudioPlayer';
+import { AudioPlayer, AudioSourceTier } from './AudioPlayer';
 import { StorageService } from '../services/storage';
 import { ExportService } from '../services/exportService';
 import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
@@ -82,6 +82,7 @@ interface VerseCardProps {
   perspectiveMode?: PerspectiveMode;
   readerProfile?: ReaderProfile;
   preferredScholar?: PreferredScholar;
+  onNavigateToRead?: (surahNumber: number, ayahNumber: number) => void;
 }
 
 type InlineSection = 'none' | 'tafsir' | 'reflection';
@@ -327,6 +328,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   onReflectionSaved,
   readerProfile = 'adult',
   preferredScholar = 'Ibn Kathir',
+  onNavigateToRead,
 }) => {
   const [activeSection, setActiveSection] = useState<InlineSection>('none');
   const [copied, setCopied] = useState(false);
@@ -342,6 +344,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const [playbackRatio, setPlaybackRatio] = useState(0);
   const [isReciting, setIsReciting] = useState(false);
   const [playbackPhase, setPlaybackPhase] = useState<'recitation' | 'translation' | 'tafsir' | 'idle'>('idle');
+  const [audioSources, setAudioSources] = useState<{
+    translation: AudioSourceTier | null;
+    tafsir: AudioSourceTier | null;
+  }>({ translation: null, tafsir: null });
 
   // Preferred scholar & provenance modal state
   const [selectedScholar, setSelectedScholar] = useState<string>(preferredScholar);
@@ -827,32 +833,62 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
   return (
     <article
-      className="bg-white dark:bg-[#0A1E17] rounded-3xl border border-emerald-900/10 dark:border-emerald-800/35 shadow-xs overflow-hidden transition-colors"
+      className="bg-white dark:bg-[#0B3027] rounded-3xl border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden transition-colors"
       aria-labelledby={`verse-heading-${verse.id}`}
     >
       {/* Clean Unboxed Header Row (100% Localized) */}
-      <div className="px-5 sm:px-7 py-4 border-b border-slate-100 dark:border-emerald-900/30 flex items-center justify-between gap-3">
+      <div className="px-5 sm:px-7 py-4 border-b border-slate-100 dark:border-emerald-900/35 flex items-center justify-between gap-3">
         <div>
           <h2
             id={`verse-heading-${verse.id}`}
-            className="text-sm sm:text-base font-bold text-emerald-950 dark:text-emerald-50 flex items-center gap-2 flex-wrap"
+            className="text-sm sm:text-base font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2 flex-wrap"
           >
-            {/* Chosen Ayah Number at the start inside the circular symbol without duplication */}
+            {/* Chosen Ayah Number at the start inside the circular symbol — clickable to open in Read page */}
             <AyahCartouche
               number={effectiveVerseNumberStr}
               size="md"
-              className="text-amber-700 dark:text-amber-400"
+              className="text-amber-700 dark:text-[#F4B900]"
+              title={
+                onNavigateToRead
+                  ? `${t.tafsirTab === 'Tafsir' ? 'Read in Quran' : 'Lire dans le Coran'} (${verse.surahNumber}:${baseRangeBounds.start})`
+                  : undefined
+              }
+              onClick={
+                onNavigateToRead
+                  ? () => {
+                      const firstNum =
+                        parseInt(String(effectiveVerseNumberStr).split('-')[0], 10) ||
+                        baseRangeBounds.start;
+                      onNavigateToRead(verse.surahNumber, firstNum);
+                    }
+                  : undefined
+              }
             />
-            <span>
-              {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
-            </span>
+            {onNavigateToRead ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const firstNum =
+                    parseInt(String(effectiveVerseNumberStr).split('-')[0], 10) ||
+                    baseRangeBounds.start;
+                  onNavigateToRead(verse.surahNumber, firstNum);
+                }}
+                className="hover:text-[#006D53] dark:hover:text-[#F4B900] transition-colors cursor-pointer text-start"
+              >
+                {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
+              </button>
+            ) : (
+              <span>
+                {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
+              </span>
+            )}
             {totalCards !== undefined && totalCards > 1 && (
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-900/10 dark:bg-emerald-400/15 text-emerald-800 dark:text-emerald-300 font-semibold">
-                #{cardIndex !== undefined ? cardIndex + 1 : 1} of {totalCards}
+              <span className="text-xs font-mono text-slate-400 dark:text-[#9BAFA7] font-normal tabular-nums">
+                · {cardIndex !== undefined ? cardIndex + 1 : 1}/{totalCards}
               </span>
             )}
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">
             <span>{localizedDetails.surahMeaning}</span>
             <span className="mx-1.5" aria-hidden="true">
               ·
@@ -870,7 +906,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           <button
             type="button"
             onClick={handleDownloadStoryCard}
-            className="min-h-[40px] min-w-[40px] p-2 rounded-xl text-slate-500 hover:text-emerald-800 dark:text-slate-400 dark:hover:text-emerald-300 hover:bg-emerald-900/5 transition-colors flex items-center justify-center cursor-pointer"
+            className="min-h-[40px] min-w-[40px] p-2 rounded-xl text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5 transition-colors flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             title={storyExported ? t.storyCardSaved : t.storyCardTooltip}
             aria-label={t.storyCardTooltip}
           >
@@ -884,7 +920,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           <button
             type="button"
             onClick={handleCopy}
-            className="min-h-[40px] min-w-[40px] p-2 rounded-xl text-slate-500 hover:text-emerald-800 dark:text-slate-400 dark:hover:text-emerald-300 hover:bg-emerald-900/5 transition-colors flex items-center justify-center cursor-pointer"
+            className="min-h-[40px] min-w-[40px] p-2 rounded-xl text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5 transition-colors flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             title={t.copyTooltip}
             aria-label={t.copyTooltip}
           >
@@ -894,10 +930,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           <button
             type="button"
             onClick={() => onToggleBookmark(verse.id)}
-            className={`min-h-[40px] min-w-[40px] p-2 rounded-xl transition-colors flex items-center justify-center cursor-pointer ${
+            className={`min-h-[40px] min-w-[40px] p-2 rounded-xl transition-colors flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
               isBookmarked
-                ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10'
-                : 'text-slate-500 hover:text-emerald-800 dark:text-slate-400 dark:hover:text-emerald-300 hover:bg-emerald-900/5'
+                ? 'text-amber-700 dark:text-[#F4B900] bg-amber-500/15'
+                : 'text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5'
             }`}
             title={isBookmarked ? t.removeBookmarkTooltip : t.bookmarkTooltip}
             aria-pressed={isBookmarked}
@@ -928,18 +964,18 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 }
                 aria-label={`${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber})`}
                 aria-pressed={includeBefore}
-                className={`group relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs ${
+                className={`group relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                   includeBefore
-                    ? 'bg-emerald-800 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-600 shadow-xs ring-1 ring-emerald-500/40'
-                    : 'bg-[#FAF8F5] dark:bg-emerald-950/40 border-emerald-900/15 dark:border-emerald-800/40 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/40 hover:border-emerald-600/50 hover:scale-[1.03]'
+                    ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
+                    : 'bg-[#FAF8F5] dark:bg-[#061B16]/70 border-emerald-900/15 dark:border-emerald-800/40 text-emerald-900 dark:text-[#F5F7F2] hover:bg-emerald-900/10 dark:hover:bg-emerald-900/40 hover:border-[#006D53]'
                 }`}
               >
                 {/* Arrow and Sign indicator badge */}
                 <span
                   className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
                     includeBefore
-                      ? 'text-amber-300 dark:text-amber-200'
-                      : 'text-emerald-800 dark:text-emerald-300'
+                      ? 'text-[#F4B900]'
+                      : 'text-[#006D53] dark:text-emerald-300'
                   }`}
                 >
                   <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180 transition-transform group-hover:-translate-x-0.5 rtl:group-hover:translate-x-0.5" />
@@ -970,10 +1006,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 }
                 aria-label={`${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber})`}
                 aria-pressed={includeAfter}
-                className={`group relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs ${
+                className={`group relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border transition-all duration-200 cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                   includeAfter
-                    ? 'bg-emerald-800 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-600 shadow-xs ring-1 ring-emerald-500/40'
-                    : 'bg-[#FAF8F5] dark:bg-emerald-950/40 border-emerald-900/15 dark:border-emerald-800/40 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/40 hover:border-emerald-600/50 hover:scale-[1.03]'
+                    ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
+                    : 'bg-[#FAF8F5] dark:bg-[#061B16]/70 border-emerald-900/15 dark:border-emerald-800/40 text-emerald-900 dark:text-[#F5F7F2] hover:bg-emerald-900/10 dark:hover:bg-emerald-900/40 hover:border-[#006D53]'
                 }`}
               >
                 {/* Ornate Quranic Ayah Cartouche with the Verse Number Inside */}
@@ -987,8 +1023,8 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 <span
                   className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
                     includeAfter
-                      ? 'text-amber-300 dark:text-amber-200'
-                      : 'text-emerald-800 dark:text-emerald-300'
+                      ? 'text-[#F4B900]'
+                      : 'text-[#006D53] dark:text-emerald-300'
                   }`}
                 >
                   {includeAfter ? (
@@ -1003,19 +1039,19 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           </div>
         )}
 
-        {/* LEVEL 1: Original Verified Quranic Arabic (Uthmani Script) with Word-by-Word Recitation Sync & Circular Ayah Symbols */}
+        {/* LEVEL 1: Original Verified Quranic Arabic (Uthmani Script) on Warm Mushaf Surface (#F7F0E2 / #061B16) */}
         <section aria-label="Level 1: Verified Uthmani Arabic">
           <div
-            className="p-5 sm:p-7 rounded-2xl bg-[#FAF8F5] dark:bg-[#071711] border border-emerald-900/10 dark:border-emerald-800/30"
+            className="p-5 sm:p-7 rounded-2xl bg-[#F7F0E2] dark:bg-[#061B16] border border-amber-900/12 dark:border-emerald-800/35"
             style={{
               fontSize: `${Math.round(26 * (readerProfile === 'kids' ? Math.max(arabicScale, 1.3) : arabicScale))}px`,
-              lineHeight: 2.15,
+              lineHeight: 2.25,
             }}
           >
             <p
               dir="rtl"
               lang="ar"
-              className="font-arabic text-right text-emerald-950 dark:text-emerald-50 select-text antialiased font-normal"
+              className="font-arabic text-right text-emerald-950 dark:text-[#F5F7F2] select-text antialiased font-normal"
             >
               {tokenizedArabicSegments.map((seg, segIdx) => (
                 <React.Fragment key={segIdx}>
@@ -1026,7 +1062,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                         <span
                           className={`inline-block rounded-lg px-0.5 transition-colors duration-150 ${
                             isWordActive
-                              ? 'bg-amber-400/35 dark:bg-amber-400/30 text-emerald-950 dark:text-amber-200 underline decoration-amber-500 decoration-2 underline-offset-8'
+                              ? 'bg-[#F4B900]/35 dark:bg-[#F4B900]/30 text-emerald-950 dark:text-[#F4B900] underline decoration-[#F4B900] decoration-2 underline-offset-8'
                               : ''
                           }`}
                         >
@@ -1035,8 +1071,26 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                       </React.Fragment>
                     );
                   })}
-                  <span className="inline-flex items-center align-middle mx-1 text-amber-700 dark:text-amber-400 select-none">
-                    <AyahCartouche number={seg.verseNumber} size="inline" />
+                  <span className="inline-flex items-center align-middle mx-1 text-amber-800 dark:text-[#F4B900] select-none">
+                    <AyahCartouche
+                      number={seg.verseNumber}
+                      size="inline"
+                      title={
+                        onNavigateToRead
+                          ? `${verse.surahNumber}:${seg.verseNumber}`
+                          : undefined
+                      }
+                      onClick={
+                        onNavigateToRead
+                          ? () => {
+                              const vNum =
+                                parseInt(String(seg.verseNumber).split('-')[0], 10) ||
+                                baseRangeBounds.start;
+                              onNavigateToRead(verse.surahNumber, vNum);
+                            }
+                          : undefined
+                      }
+                    />
                   </span>{' '}
                 </React.Fragment>
               ))}
@@ -1044,7 +1098,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           </div>
 
           {showTransliteration && verse.transliteration && (
-            <p className="mt-2.5 px-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400 italic leading-relaxed">
+            <p className="mt-2.5 px-2 text-xs sm:text-sm text-slate-500 dark:text-[#9BAFA7] italic leading-relaxed">
               {verse.transliteration}
             </p>
           )}
@@ -1053,9 +1107,16 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         {/* LEVEL 2: Certified Human Translation with Word-by-Word Highlighting when Spoken */}
         {translationObj && translationObj.text.trim().length > 0 && (
           <section aria-label="Level 2: Certified Translation" className="space-y-1.5">
+            {audioSources.translation && (
+              <div className="flex items-center">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#006D53]/15 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 border border-emerald-700/30">
+                  Audio: {audioSources.translation}
+                </span>
+              </div>
+            )}
             <blockquote
               style={{ fontSize: `${readingScale * 1.125}rem` }}
-              className="text-slate-800 dark:text-slate-100 leading-relaxed font-serif"
+              className="text-slate-800 dark:text-[#F5F7F2] leading-relaxed font-serif"
             >
               &ldquo;
               {translationWords.map((word, idx) => {
@@ -1065,7 +1126,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                     <span
                       className={`inline-block rounded-md px-0.5 transition-colors duration-150 ${
                         isWordActive
-                          ? 'bg-amber-400/35 dark:bg-amber-400/30 text-emerald-950 dark:text-amber-200 underline decoration-amber-500 decoration-2 underline-offset-4'
+                          ? 'bg-[#F4B900]/35 dark:bg-[#F4B900]/30 text-emerald-950 dark:text-[#F4B900] underline decoration-[#F4B900] decoration-2 underline-offset-4'
                           : ''
                       }`}
                     >
@@ -1076,7 +1137,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               })}
               &rdquo;
             </blockquote>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-[#9BAFA7]">
               — {translationObj.translator}
             </p>
           </section>
@@ -1086,14 +1147,14 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         {readerProfile === 'kids' && (
           <section
             aria-label="Level 4: Kids & Family Story Companion"
-            className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 dark:bg-emerald-950/40 border border-amber-500/25 dark:border-amber-500/20 space-y-3"
+            className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 dark:bg-[#061B16]/70 border border-amber-500/25 dark:border-amber-500/20 space-y-3"
           >
             <div className="space-y-1">
-              <h3 className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                <Heart className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <h3 className="text-xs font-bold text-amber-900 dark:text-[#F4B900] flex items-center gap-1.5">
+                <Heart className="w-3.5 h-3.5 text-amber-600 dark:text-[#F4B900] shrink-0" />
                 <span>{ageBundle.kids.title}</span>
               </h3>
-              <p className="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">
+              <p className="text-sm text-slate-800 dark:text-[#F5F7F2] leading-relaxed">
                 {ageBundle.kids.storyText}
               </p>
             </div>
@@ -1101,18 +1162,18 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             <div className="pt-2.5 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="space-y-1">
                 <span className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                  <Users className="w-3.5 h-3.5 text-[#006D53] dark:text-emerald-400" />
                   {ageBundle.kids.familyQuestionTitle}
                 </span>
-                <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
+                <p className="text-slate-700 dark:text-[#F5F7F2] leading-relaxed">
                   {ageBundle.kids.familyQuestion}
                 </p>
               </div>
               <div className="space-y-1">
-                <span className="font-bold text-amber-800 dark:text-amber-300 block">
+                <span className="font-bold text-amber-800 dark:text-[#F4B900] block">
                   {ageBundle.kids.tryTodayLabel}
                 </span>
-                <p className="text-slate-700 dark:text-slate-200 leading-relaxed">
+                <p className="text-slate-700 dark:text-[#F5F7F2] leading-relaxed">
                   {ageBundle.kids.tryTodayAction}
                 </p>
               </div>
@@ -1124,15 +1185,15 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         {readerProfile === 'teen' && (
           <section
             aria-label="Level 4: Teen Key Takeaway"
-            className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/35 border border-emerald-900/10 dark:border-emerald-800/35 space-y-2"
+            className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-2"
           >
             <div className="flex items-center justify-between text-xs font-bold text-emerald-900 dark:text-emerald-300">
               <span>{t.teenTakeawayTitle}</span>
-              <span className="font-arabic text-sm text-amber-700 dark:text-amber-400">
+              <span className="font-arabic text-sm text-amber-700 dark:text-[#F4B900]">
                 {rootItem.termArabic} · {rootItem.root}
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-700 dark:text-[#F5F7F2] leading-relaxed">
               {ageBundle.teenKeyTakeaway}
             </p>
           </section>
@@ -1161,14 +1222,15 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 setActiveSection('tafsir');
               }
             }}
+            onAudioSourcesResolved={setAudioSources}
           />
         </div>
 
-        {/* Single-Row Disclosure Bar (Tafsir · Reflection) */}
+        {/* Single-Row 2-Segment Disclosure Bar (Tafsir · Reflection) */}
         <div
           className={`grid ${
             availableCitations.length > 0 ? 'grid-cols-2' : 'grid-cols-1'
-          } gap-1.5 p-1 rounded-2xl bg-emerald-950/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40`}
+          } gap-2 p-1 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/80 border border-emerald-900/10 dark:border-emerald-800/40`}
         >
           {/* Level 3: Inline Classical Tafsir Toggle (only displayed when citations exist in selected language) */}
           {availableCitations.length > 0 && (
@@ -1176,10 +1238,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               type="button"
               onClick={() => toggleSection('tafsir')}
               aria-expanded={activeSection === 'tafsir'}
-              className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+              className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                 activeSection === 'tafsir'
-                  ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
-                  : 'text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
+                  ? 'bg-[#006D53] text-white shadow-2xs'
+                  : 'text-emerald-950 dark:text-[#F5F7F2] hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
               }`}
             >
               <BookOpen className="w-3.5 h-3.5 shrink-0" />
@@ -1197,16 +1259,18 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             type="button"
             onClick={() => toggleSection('reflection')}
             aria-expanded={activeSection === 'reflection'}
-            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+            className={`min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
               activeSection === 'reflection'
-                ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
-                : 'text-emerald-900 dark:text-emerald-200 hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
+                ? 'bg-[#006D53] text-white shadow-2xs'
+                : 'text-emerald-950 dark:text-[#F5F7F2] hover:bg-emerald-900/10 dark:hover:bg-emerald-900/30'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+            <Sparkles className="w-3.5 h-3.5 shrink-0 text-[#F4B900]" />
             <span className="truncate">{t.reflectionTab}</span>
             {hasSavedNotes && (
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Saved notes" />
+              <span className="text-[#F4B900] font-bold shrink-0" title="Saved notes">
+                ·
+              </span>
             )}
             {activeSection === 'reflection' ? (
               <ChevronUp className="w-3.5 h-3.5 shrink-0" />
@@ -1218,32 +1282,23 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
         {/* INLINE PANEL 1: LEVEL 3 CLASSICAL & EXPERT TAFSIR WITH PROVENANCE AUDIT */}
         {activeSection === 'tafsir' && availableCitations.length > 0 && (
-          <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/30 border border-emerald-900/10 dark:border-emerald-800/30 space-y-4">
+          <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-4">
             {/* Interactive Scholar Selector Bar (Segmented Control) */}
             {availableCitations.length > 1 && (
-              <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-emerald-950/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40 text-xs">
-                {availableCitations.map((c) => {
+              <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-emerald-950/5 dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 text-xs">
+                {availableCitations.map((c, idx) => {
                   const isActive = currentCitation?.scholar.toLowerCase() === c.scholar.toLowerCase();
-                  const isAiLecture =
-                    c.sourceType === 'ai_translated_expert' ||
-                    c.sourceType === 'expert_transcription';
                   return (
                     <button
-                      key={c.scholar}
+                      key={`${c.scholar}-${idx}`}
                       type="button"
                       onClick={() => setSelectedScholar(c.scholar)}
-                      className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                      className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                         isActive
-                          ? 'bg-white dark:bg-emerald-800 text-emerald-950 dark:text-emerald-50 shadow-2xs font-bold'
-                          : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100 hover:bg-white/40 dark:hover:bg-emerald-900/30'
+                          ? 'bg-[#006D53] text-white shadow-2xs font-bold'
+                          : 'text-slate-600 dark:text-[#9BAFA7] hover:text-emerald-900 dark:hover:text-[#F5F7F2] hover:bg-white/40 dark:hover:bg-emerald-900/30'
                       }`}
                     >
-                      {isAiLecture && (
-                        <span
-                          className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"
-                          title="Transcribed Lecture"
-                        />
-                      )}
                       <span>{c.scholar}</span>
                     </button>
                   );
@@ -1252,46 +1307,47 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             )}
 
             {currentCitation && isTrustedTafsirText ? (
-              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 space-y-3.5 shadow-2xs">
-                {/* Header: Scholar info + Provenance Badge + View Original Source Trigger */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0B3027]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-3.5 shadow-2xs">
+                {/* Header: Scholar info + Unboxed Provenance Metadata + View Original Source Trigger */}
                 <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-emerald-900/40">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-sm font-bold text-emerald-950 dark:text-emerald-200">
+                      <h3 className="text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
                         {currentCitation.scholar}
                       </h3>
                       <span className="text-slate-400" aria-hidden="true">
                         ·
                       </span>
-                      <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                      <span className="text-xs text-slate-600 dark:text-[#9BAFA7] font-medium">
                         {currentCitation.sourceBook}{' '}
                         {currentCitation.century ? `(${currentCitation.century})` : ''}
                       </span>
-                    </div>
-
-                    {/* 3-Tier Classification Provenance Badge */}
-                    <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                      {currentCitation.sourceType === 'ai_translated_expert' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-500/15 text-amber-900 dark:text-amber-200 border border-amber-500/35">
-                          <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
-                          <span>{t.badgeAiTranslated}</span>
-                        </span>
-                      ) : currentCitation.sourceType === 'ai_synthesis' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-purple-500/15 text-purple-900 dark:text-purple-200 border border-purple-500/35">
-                          <Sparkles className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />
-                          <span>{t.badgeAiSynthesis}</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
-                          <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                          <span>{t.badgeClassical}</span>
+                      {audioSources.tafsir && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#006D53]/15 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 border border-emerald-700/30">
+                          Audio: {audioSources.tafsir}
                         </span>
                       )}
+                    </div>
 
+                    {/* Clean Unboxed Provenance Classification */}
+                    <div className="flex items-center gap-2 flex-wrap pt-0.5 text-[11px] text-emerald-800 dark:text-[#F4B900] font-medium">
+                      <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {currentCitation.sourceType === 'ai_translated_expert'
+                          ? t.badgeAiTranslated
+                          : currentCitation.sourceType === 'ai_synthesis'
+                          ? t.badgeAiSynthesis
+                          : t.badgeClassical}
+                      </span>
                       {currentCitation.sourceReference && (
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:inline truncate max-w-xs font-mono">
-                          · {currentCitation.sourceReference.split(',')[0]}
-                        </span>
+                        <>
+                          <span className="text-slate-400" aria-hidden="true">
+                            ·
+                          </span>
+                          <span className="text-slate-500 dark:text-[#9BAFA7] hidden sm:inline truncate max-w-xs font-mono">
+                            {currentCitation.sourceReference.split(',')[0]}
+                          </span>
+                        </>
                       )}
                     </div>
                   </div>
@@ -1300,11 +1356,11 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                   <button
                     type="button"
                     onClick={() => setProvenanceModalOpen(true)}
-                    className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-emerald-200 bg-[#FAF8F5] dark:bg-emerald-900/30 border border-emerald-900/15 dark:border-emerald-700/40 hover:bg-emerald-800 hover:text-white dark:hover:bg-emerald-700 transition-colors shadow-2xs cursor-pointer shrink-0"
+                    className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-[#F5F7F2] bg-[#FAF8F5] dark:bg-[#061B16] border border-emerald-900/15 dark:border-emerald-700/40 hover:bg-[#006D53] hover:text-white transition-colors shadow-2xs cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
                     title={t.viewProvenanceBtn}
                     aria-label={t.viewProvenanceBtn}
                   >
-                    <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-[#F4B900]" />
                     <span>{t.viewProvenanceBtn}</span>
                   </button>
                 </div>
@@ -1315,9 +1371,9 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                   currentCitation.originalArabicRaw.trim() !== currentCitation.text.trim() && (
                     <div
                       dir="rtl"
-                      className="p-3 rounded-xl bg-amber-500/5 dark:bg-black/20 border border-amber-600/15 dark:border-emerald-800/30 text-right"
+                      className="p-3.5 rounded-xl bg-[#F7F0E2] dark:bg-[#061B16] border border-amber-900/12 dark:border-emerald-800/30 text-right"
                     >
-                      <p className="font-arabic text-sm text-slate-800 dark:text-amber-50 leading-loose line-clamp-2 select-text">
+                      <p className="font-arabic text-sm text-slate-800 dark:text-[#F5F7F2] leading-loose line-clamp-2 select-text">
                         &ldquo;{currentCitation.originalArabicRaw}&rdquo;
                       </p>
                     </div>
@@ -1329,7 +1385,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                     /[\u0600-\u06FF]/.test(currentCitation.text.slice(0, 80)) ? 'rtl' : undefined
                   }
                   style={{ fontSize: `${readingScale * 0.95}rem` }}
-                  className={`leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line ${
+                  className={`leading-relaxed text-slate-800 dark:text-[#F5F7F2] whitespace-pre-line ${
                     /[\u0600-\u06FF]/.test(currentCitation.text.slice(0, 80))
                       ? 'font-arabic text-right leading-loose'
                       : ''
@@ -1346,16 +1402,16 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 )}
               </div>
             ) : (
-              <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/50 dark:bg-emerald-950/20 border border-amber-900/10 dark:border-emerald-800/20 text-center space-y-2.5">
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+              <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/50 dark:bg-[#061B16]/50 border border-amber-900/10 dark:border-emerald-800/20 text-center space-y-2.5">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-[#9BAFA7]">
                   {t.tafsirNoDataText}
                 </p>
                 <button
                   type="button"
                   onClick={() => setProvenanceModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-emerald-200 bg-white dark:bg-emerald-900/40 border border-emerald-900/15 dark:border-emerald-700/40 hover:bg-emerald-800 hover:text-white transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-[#F5F7F2] bg-white dark:bg-[#0B3027] border border-emerald-900/15 dark:border-emerald-700/40 hover:bg-[#006D53] hover:text-white transition-colors cursor-pointer"
                 >
-                  <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-[#F4B900]" />
                   <span>{t.viewProvenanceBtn}</span>
                 </button>
               </div>
@@ -1371,12 +1427,12 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                   {ageBundle.teenGlossary.map((item) => (
                     <div
                       key={item.term}
-                      className="p-2.5 rounded-xl bg-white dark:bg-emerald-950/50 border border-emerald-900/10 dark:border-emerald-800/30"
+                      className="p-2.5 rounded-xl bg-white dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/30"
                     >
-                      <span className="font-bold text-emerald-950 dark:text-emerald-200 block">
+                      <span className="font-bold text-emerald-950 dark:text-[#F5F7F2] block">
                         {item.term}
                       </span>
-                      <span className="text-slate-600 dark:text-slate-300">{item.meaning}</span>
+                      <span className="text-slate-600 dark:text-[#9BAFA7]">{item.meaning}</span>
                     </div>
                   ))}
                 </div>
@@ -1387,10 +1443,10 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
         {/* INLINE PANEL 2: LEVEL 4 PERSONAL REFLECTION WITH MOOD TAGS (100% Localized) */}
         {activeSection === 'reflection' && (
-          <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/30 border border-emerald-900/10 dark:border-emerald-800/30 space-y-4">
+          <div className="p-5 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-4">
             {/* Mood Selector for Journal Filtering */}
             <div className="space-y-1.5">
-              <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+              <span className="block text-xs font-bold text-emerald-900 dark:text-[#F5F7F2]">
                 {t.moodLabel}
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -1402,10 +1458,11 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                         key={m}
                         type="button"
                         onClick={() => setSelectedMood(active ? undefined : m)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                        aria-pressed={active}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                           active
-                            ? 'bg-emerald-800 text-white dark:bg-emerald-700'
-                            : 'bg-white dark:bg-emerald-950/50 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-emerald-800/40 hover:border-emerald-600'
+                            ? 'bg-[#006D53] text-white'
+                            : 'bg-white dark:bg-[#0B3027] text-slate-600 dark:text-[#9BAFA7] border border-slate-200 dark:border-emerald-800/40 hover:border-[#006D53]'
                         }`}
                       >
                         {moodDict[m]}
@@ -1421,11 +1478,11 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               <div className="flex items-center justify-between">
                 <label
                   htmlFor={`reflection-notes-${verse.id}`}
-                  className="block text-xs font-bold text-emerald-900 dark:text-emerald-300"
+                  className="block text-xs font-bold text-emerald-900 dark:text-[#F5F7F2]"
                 >
                   {t.reflectionNotepadTitle}
                 </label>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="text-[11px] text-slate-500 dark:text-[#9BAFA7]">
                   {t.reflectionNotepadHint}
                 </span>
               </div>
@@ -1437,7 +1494,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 placeholder={t.reflectionNotepadPlaceholder}
                 rows={5}
                 style={{ fontSize: `${readingScale * 0.9}rem` }}
-                className="w-full p-3.5 leading-relaxed rounded-2xl bg-white dark:bg-emerald-950/50 border border-slate-200 dark:border-emerald-800/50 focus:outline-none focus:ring-2 focus:ring-emerald-600 placeholder:text-slate-400 dark:placeholder:text-emerald-300/40 text-slate-800 dark:text-slate-100 resize-y"
+                className="w-full p-3.5 leading-relaxed rounded-2xl bg-white dark:bg-[#0B3027] border border-slate-200 dark:border-emerald-800/50 focus:outline-none focus:ring-2 focus:ring-[#006D53] placeholder:text-slate-400 dark:placeholder:text-[#9BAFA7]/60 text-slate-800 dark:text-[#F5F7F2] resize-y"
               />
             </div>
 
@@ -1447,17 +1504,17 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                   type="button"
                   onClick={handleExportPPTX}
                   disabled={isExportingPPTX}
-                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-emerald-200 bg-emerald-900/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40 hover:bg-emerald-900/10 transition-colors cursor-pointer disabled:opacity-50"
+                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-[#F5F7F2] bg-emerald-900/5 dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 hover:bg-emerald-900/10 transition-colors cursor-pointer disabled:opacity-50"
                   title={t.exportPPTX}
                   aria-label={t.exportPPTX}
                 >
-                  <Presentation className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <Presentation className="w-3.5 h-3.5 text-amber-600 dark:text-[#F4B900]" />
                   <span>{isExportingPPTX ? '...' : t.exportPPTX}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => ExportService.exportToPDF()}
-                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 bg-emerald-900/5 dark:bg-emerald-950/60 border border-emerald-900/10 dark:border-emerald-800/40 hover:bg-emerald-900/10 transition-colors cursor-pointer"
+                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#9BAFA7] bg-emerald-900/5 dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 hover:bg-emerald-900/10 transition-colors cursor-pointer"
                   title={t.exportPDF}
                   aria-label={t.exportPDF}
                 >
@@ -1469,8 +1526,8 @@ export const VerseCard: React.FC<VerseCardProps> = ({
               <button
                 type="button"
                 onClick={handleSaveReflection}
-                className={`min-h-[42px] inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-all cursor-pointer ${
-                  isSaved ? 'bg-emerald-600' : 'bg-emerald-800 hover:bg-emerald-700'
+                className={`min-h-[42px] inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+                  isSaved ? 'bg-emerald-600' : 'bg-[#006D53] hover:bg-emerald-700'
                 }`}
               >
                 {isSaved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
@@ -1479,6 +1536,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             </div>
           </div>
         )}
+
       </div>
 
       <ScholarProvenanceModal

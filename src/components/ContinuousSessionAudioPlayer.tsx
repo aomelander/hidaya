@@ -42,6 +42,7 @@ interface ContinuousSessionAudioPlayerProps {
   verses: QuranVerseFixture[];
   language: Language;
   onActiveVerseChange?: (verseId: string) => void;
+  onNavigateToRead?: (surahNumber: number, ayahNumber: number) => void;
   onClose?: () => void;
   inlinePage?: boolean;
 }
@@ -127,6 +128,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   verses,
   language,
   onActiveVerseChange,
+  onNavigateToRead,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -829,30 +831,30 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
         : ({ en: 'No playable recording for this passage in the selected language. Missing recordings are skipped.', sv: 'Ingen spelbar inspelning för detta avsnitt på det valda språket. Saknade inspelningar hoppas över.', fr: 'Aucun enregistrement disponible pour ce passage dans la langue choisie. Les enregistrements manquants sont ignorés.', ar: 'لا يتوفر تسجيل قابل للتشغيل لهذا المقطع باللغة المختارة. يتم تجاوز التسجيلات المفقودة.' })[language]}</p>}
 
       {/* Main Audio Sanctuary Container */}
-      <div className="p-5 sm:p-7 rounded-3xl bg-white dark:bg-[#0A1E17] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-6">
+      <div className="p-5 sm:p-7 rounded-3xl bg-white dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-6">
         {/* Header (Title only; subtitle removed) */}
         <div className="flex items-center gap-3 border-b border-slate-100 dark:border-emerald-900/30 pb-4">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-800 text-amber-300 flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="w-10 h-10 rounded-2xl bg-[#006D53] text-[#F4B900] flex items-center justify-center shrink-0 shadow-2xs">
             <Headphones className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-emerald-50">
+            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
               {t.title}
             </h2>
           </div>
         </div>
 
         {/* ACTIVE PASSAGE CARD WITH PLAY & CONTROL BAR ON TOP */}
-        <div className="rounded-2xl bg-[#FAF8F5] dark:bg-[#071711] border border-emerald-900/10 dark:border-emerald-800/30 overflow-hidden shadow-2xs">
+        <div className="rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16] border border-emerald-900/10 dark:border-emerald-800/30 overflow-hidden shadow-2xs">
           {/* Card Top: Controls & Info */}
-          <div className="p-4 sm:p-5 bg-emerald-950/5 dark:bg-emerald-950/40 border-b border-emerald-900/10 dark:border-emerald-800/30 space-y-4">
+          <div className="p-4 sm:p-5 bg-emerald-950/5 dark:bg-[#08231C]/80 border-b border-emerald-900/10 dark:border-emerald-800/30 space-y-4">
             
             {/* 1. Play & Control Bar on TOP */}
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={cycleSpeed}
-                className="min-h-[42px] px-3 py-2 rounded-xl border border-slate-200 dark:border-emerald-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer tabular-nums hover:border-emerald-600 transition-colors bg-white dark:bg-[#0A1E17]"
+                className="min-h-[42px] px-3 py-2 rounded-xl border border-slate-200 dark:border-emerald-800/40 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer tabular-nums hover:border-[#006D53] transition-colors bg-white dark:bg-[#0B3027] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
                 aria-label="Playback speed"
               >
                 {playbackRate}x
@@ -863,7 +865,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                   type="button"
                   onClick={handlePrev}
                   disabled={currentIndex === 0}
-                  className="min-h-[44px] min-w-[44px] rounded-xl border border-slate-200 dark:border-emerald-800/40 flex items-center justify-center text-slate-700 dark:text-slate-200 disabled:opacity-30 cursor-pointer hover:border-emerald-600 transition-colors bg-white dark:bg-[#0A1E17]"
+                  className="min-h-[44px] min-w-[44px] rounded-xl border border-slate-200 dark:border-emerald-800/40 flex items-center justify-center text-slate-700 dark:text-slate-200 disabled:opacity-30 cursor-pointer hover:border-[#006D53] transition-colors bg-white dark:bg-[#0B3027] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
                   aria-label="Previous verse"
                 >
                   <SkipBack className="w-5 h-5" />
@@ -872,7 +874,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                 <button
                   type="button"
                   onClick={togglePlay}
-                  className="w-14 h-14 rounded-full bg-emerald-800 hover:bg-emerald-700 text-amber-300 flex items-center justify-center shadow-md transition-transform active:scale-95 cursor-pointer ring-4 ring-emerald-800/20"
+                  className="w-14 h-14 rounded-full bg-[#006D53] hover:bg-emerald-700 text-[#F4B900] flex items-center justify-center shadow-md transition-transform active:scale-95 cursor-pointer ring-4 ring-[#006D53]/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
                   aria-label={isPlaying ? 'Pause' : 'Play'}
                 >
                   {isPlaying ? (
@@ -886,7 +888,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                   type="button"
                   onClick={handleNext}
                   disabled={currentIndex >= displayedVerses.length - 1}
-                  className="min-h-[44px] min-w-[44px] rounded-xl border border-slate-200 dark:border-emerald-800/40 flex items-center justify-center text-slate-700 dark:text-slate-200 disabled:opacity-30 cursor-pointer hover:border-emerald-600 transition-colors bg-white dark:bg-[#0A1E17]"
+                  className="min-h-[44px] min-w-[44px] rounded-xl border border-slate-200 dark:border-emerald-800/40 flex items-center justify-center text-slate-700 dark:text-slate-200 disabled:opacity-30 cursor-pointer hover:border-[#006D53] transition-colors bg-white dark:bg-[#0B3027] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
                   aria-label="Next verse"
                 >
                   <SkipForward className="w-5 h-5" />
@@ -900,7 +902,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                   setIsMuted(nextMute);
                   if (audioRef.current) audioRef.current.muted = nextMute;
                 }}
-                className="min-h-[42px] min-w-[42px] p-2 rounded-xl border border-slate-200 dark:border-emerald-800/40 flex items-center justify-center text-slate-700 dark:text-slate-300 cursor-pointer hover:border-emerald-600 transition-colors bg-white dark:bg-[#0A1E17]"
+                className="min-h-[42px] min-w-[42px] p-2 rounded-xl border border-slate-200 dark:border-emerald-800/40 flex items-center justify-center text-slate-700 dark:text-slate-300 cursor-pointer hover:border-[#006D53] transition-colors bg-white dark:bg-[#0B3027] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
                 aria-label={isMuted ? 'Unmute' : 'Mute'}
               >
                 {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -910,8 +912,8 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
             {/* Playback Phase Indicator Banner */}
             {isPlaying && playbackPhase !== 'idle' && (
               <div className="flex items-center justify-center">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 animate-pulse">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-800 dark:text-[#F4B900] border border-amber-500/30 animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-[#F4B900] animate-ping" />
                   <span>
                     {playbackPhase === 'recitation'
                       ? `${t.phaseRecitation} (${activeCardReciter.name})`
@@ -934,9 +936,9 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                 type="button"
                 onClick={toggleRecitation}
                 aria-pressed={includeRecitation}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer border ${
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                   includeRecitation
-                    ? 'bg-emerald-800 text-white border-emerald-700 shadow-2xs font-semibold'
+                    ? 'bg-[#006D53] text-white border-emerald-700 shadow-2xs font-semibold'
                     : 'bg-white dark:bg-[#071913] border-emerald-900/15 dark:border-emerald-800/40 text-slate-600 dark:text-slate-400 hover:border-emerald-600'
                 }`}
               >
@@ -979,6 +981,15 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                   number={currentVerse.verseNumber}
                   size="md"
                   className="text-amber-700 dark:text-amber-400"
+                  onClick={
+                    onNavigateToRead
+                      ? () => {
+                          const vNum =
+                            parseInt(String(currentVerse.verseNumber).split('-')[0], 10) || 1;
+                          onNavigateToRead(currentVerse.surahNumber, vNum);
+                        }
+                      : undefined
+                  }
                 />
                 <span className="font-bold text-emerald-950 dark:text-emerald-100 text-sm">
                   {localizedDetails?.surahPrefix || 'Surah'}{' '}
@@ -1033,7 +1044,19 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                       );
                     })}
                     <span className="inline-flex items-center align-middle mx-1 text-amber-700 dark:text-amber-400 select-none">
-                      <AyahCartouche number={seg.verseNumber} size="inline" />
+                      <AyahCartouche
+                        number={seg.verseNumber}
+                        size="inline"
+                        onClick={
+                          onNavigateToRead
+                            ? () => {
+                                const vNum =
+                                  parseInt(String(seg.verseNumber).split('-')[0], 10) || 1;
+                                onNavigateToRead(currentVerse.surahNumber, vNum);
+                              }
+                            : undefined
+                        }
+                      />
                     </span>{' '}
                   </React.Fragment>
                 ))}

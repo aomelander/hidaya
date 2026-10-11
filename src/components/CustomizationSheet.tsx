@@ -43,7 +43,6 @@ import {
 import { SessionDepthSelector } from './SessionDepthSelector';
 import { ExplanationDepthSelector } from './ExplanationDepthSelector';
 import { SphereFilter } from './SphereFilter';
-import { EntryModeTabs } from './EntryModeTabs';
 import { OfflineCacheService } from '../services/offlineCacheService';
 import { StorageService } from '../services/storage';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
@@ -88,6 +87,11 @@ export interface CustomizationSheetProps {
   // Perspective Mode
   perspectiveMode: PerspectiveMode;
   onTogglePerspective: () => void;
+  // Optional Workspace Pages (Read & North Star)
+  showReadPage?: boolean;
+  onToggleShowReadPage?: () => void;
+  showNorthStarPage?: boolean;
+  onToggleShowNorthStarPage?: () => void;
 }
 
 const LANGUAGE_OPTIONS: { code: Language; label: string; native: string }[] = [
@@ -367,6 +371,10 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   onToggleHighContrast,
   perspectiveMode,
   onTogglePerspective,
+  showReadPage = true,
+  onToggleShowReadPage,
+  showNorthStarPage = true,
+  onToggleShowNorthStarPage,
 }) => {
   const [isCachingBookmarksAudio, setIsCachingBookmarksAudio] = useState(false);
   const [isIngestionModalOpen, setIsIngestionModalOpen] = useState(false);
@@ -413,8 +421,8 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       dir={language === 'ar' ? 'rtl' : 'ltr'}
       className={
         inlinePage
-          ? 'w-full max-w-2xl mx-auto rounded-3xl flex flex-col bg-white dark:bg-[#0A1E17] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden'
-          : 'w-full max-w-xl max-h-[85vh] rounded-t-2xl overflow-y-auto flex flex-col bg-[#FAF8F5] dark:bg-[#081813] border-t border-emerald-900/20 dark:border-emerald-700/40 shadow-2xl transition-transform animate-in slide-in-from-bottom duration-300'
+          ? 'w-full max-w-2xl mx-auto rounded-3xl flex flex-col bg-white dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden'
+          : 'w-full max-w-xl max-h-[85vh] rounded-t-2xl overflow-y-auto flex flex-col bg-[#FAF8F5] dark:bg-[#061B16] border-t border-emerald-900/20 dark:border-emerald-700/40 shadow-2xl transition-transform animate-in slide-in-from-bottom duration-300'
       }
     >
       {!inlinePage && (
@@ -426,17 +434,17 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       {/* Header */}
       <div className="px-6 py-4 border-b border-slate-100 dark:border-emerald-900/30 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-emerald-800/10 dark:bg-emerald-700/20 text-emerald-800 dark:text-emerald-300 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-emerald-800/10 dark:bg-[#006D53]/30 text-emerald-800 dark:text-[#F4B900] flex items-center justify-center">
             <SlidersHorizontal className="w-4 h-4" />
           </div>
           <div>
             <h2
               id="customization-title"
-              className="text-base sm:text-lg font-bold text-emerald-950 dark:text-emerald-50 leading-tight"
+              className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2] leading-tight"
             >
               {t.title}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-[#9BAFA7]">
               {t.subtitle}
             </p>
           </div>
@@ -446,7 +454,7 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 cursor-pointer"
+            className="w-9 h-9 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             aria-label="Close preferences"
           >
             <X className="w-4 h-4" />
@@ -460,7 +468,7 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
         {(onLanguageChange || onToggleDark) && (
           <div className="space-y-3">
             <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5 text-amber-600" />
+              <Globe className="w-3.5 h-3.5 text-[#F4B900]" />
               {t.languageTab}
             </span>
 
@@ -471,14 +479,15 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
                     key={opt.code}
                     type="button"
                     onClick={() => onLanguageChange(opt.code)}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                    aria-pressed={language === opt.code}
+                    className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                       language === opt.code
-                        ? 'bg-emerald-800 text-white border-emerald-700 shadow-2xs'
-                        : 'bg-[#FAF8F5] dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300 hover:border-emerald-600'
+                        ? 'bg-[#006D53] text-white border-emerald-700 shadow-2xs'
+                        : 'bg-[#FAF8F5] dark:bg-[#061B16]/60 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300 hover:border-emerald-600'
                     }`}
                   >
                     <span>{opt.native}</span>
-                    {language === opt.code && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    {language === opt.code && <Check className="w-3.5 h-3.5 shrink-0 text-[#F4B900]" />}
                   </button>
                 ))}
               </div>
@@ -488,10 +497,10 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
               <button
                 type="button"
                 onClick={onToggleDark}
-                className="w-full p-3.5 rounded-2xl bg-[#FAF8F5] dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+                className="w-full p-3.5 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/60 border border-emerald-900/10 dark:border-emerald-800/30 flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
               >
                 <span>{t.themeLabel}</span>
-                <span className="inline-flex items-center gap-1.5 text-emerald-800 dark:text-amber-400">
+                <span className="inline-flex items-center gap-1.5 text-emerald-800 dark:text-[#F4B900]">
                   {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                   <span>{isDark ? t.darkMode : t.lightMode}</span>
                 </span>
@@ -500,11 +509,125 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
           </div>
         )}
 
+        {/* Section 0.25: Optional Navigation Pages (Show/Hide Read & North Star Pages) */}
+        {(onToggleShowReadPage || onToggleShowNorthStarPage) && (
+          <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
+            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-[#F4B900]" />
+              <span>
+                {language === 'ar'
+                  ? 'الصفحات الاختيارية في شريط التنقل'
+                  : language === 'sv'
+                  ? 'Valfria sidor i navigeringen'
+                  : language === 'fr'
+                  ? 'Pages optionnelles de navigation'
+                  : 'Optional Navigation Pages'}
+              </span>
+            </span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {onToggleShowReadPage && (
+                <button
+                  type="button"
+                  onClick={onToggleShowReadPage}
+                  aria-pressed={showReadPage}
+                  className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+                    showReadPage
+                      ? 'bg-[#006D53] text-white border-emerald-700 shadow-2xs'
+                      : 'bg-[#FAF8F5] dark:bg-[#061B16]/60 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div>
+                    <p className="text-xs font-bold">
+                      {language === 'ar'
+                        ? 'صفحة قراءة القرآن (Read)'
+                        : language === 'sv'
+                        ? 'Sidan Läs Koranen (Read)'
+                        : language === 'fr'
+                        ? 'Page Lire le Coran (Read)'
+                        : 'Read Quran Page (Read)'}
+                    </p>
+                    <p
+                      className={`text-[10px] mt-0.5 ${
+                        showReadPage ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {showReadPage
+                        ? language === 'ar'
+                          ? 'ظاهرة في الشريط السفلي'
+                          : language === 'sv'
+                          ? 'Visas i menyraden'
+                          : language === 'fr'
+                          ? 'Affichée dans la barre'
+                          : 'Shown in navigation'
+                        : language === 'ar'
+                        ? 'مخفية'
+                        : language === 'sv'
+                        ? 'Dold'
+                        : language === 'fr'
+                        ? 'Masquée'
+                        : 'Hidden'}
+                    </p>
+                  </div>
+                  {showReadPage && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
+                </button>
+              )}
+
+              {onToggleShowNorthStarPage && (
+                <button
+                  type="button"
+                  onClick={onToggleShowNorthStarPage}
+                  aria-pressed={showNorthStarPage}
+                  className={`p-3.5 rounded-2xl border text-start flex items-center justify-between transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+                    showNorthStarPage
+                      ? 'bg-[#006D53] text-white border-emerald-700 shadow-2xs'
+                      : 'bg-[#FAF8F5] dark:bg-[#061B16]/60 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <div>
+                    <p className="text-xs font-bold">
+                      {language === 'ar'
+                        ? 'صفحة نجمة الهداية (North Star)'
+                        : language === 'sv'
+                        ? 'Sidan Ledstjärna (North Star)'
+                        : language === 'fr'
+                        ? 'Page Étoile du Jour (North Star)'
+                        : 'North Star Page (Étoile)'}
+                    </p>
+                    <p
+                      className={`text-[10px] mt-0.5 ${
+                        showNorthStarPage ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      {showNorthStarPage
+                        ? language === 'ar'
+                          ? 'ظاهرة في الشريط السفلي'
+                          : language === 'sv'
+                          ? 'Visas i menyraden'
+                          : language === 'fr'
+                          ? 'Affichée dans la barre'
+                          : 'Shown in navigation'
+                        : language === 'ar'
+                        ? 'مخفية'
+                        : language === 'sv'
+                        ? 'Dold'
+                        : language === 'fr'
+                        ? 'Masquée'
+                        : 'Hidden'}
+                    </p>
+                  </div>
+                  {showNorthStarPage && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Section 0.5: Reader Experience (Standard, Teen 13-17, Kids & Family 8+) */}
         {onReaderProfileChange && (
           <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
             <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-amber-600" />
+              <Users className="w-3.5 h-3.5 text-[#F4B900]" />
               {pLabels.sectionTitle}
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -521,10 +644,11 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
                     key={prof.id}
                     type="button"
                     onClick={() => onReaderProfileChange(prof.id)}
-                    className={`p-3 rounded-2xl border text-start transition-all cursor-pointer ${
+                    aria-pressed={active}
+                    className={`p-3 rounded-2xl border text-start transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                       active
-                        ? 'bg-emerald-800 text-white border-emerald-700 shadow-2xs'
-                        : 'bg-[#FAF8F5] dark:bg-emerald-950/30 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-200 hover:border-emerald-600'
+                        ? 'bg-[#006D53] text-white border-emerald-700 shadow-2xs'
+                        : 'bg-[#FAF8F5] dark:bg-[#061B16]/60 border-emerald-900/10 dark:border-emerald-800/30 text-slate-700 dark:text-slate-200 hover:border-emerald-600'
                     }`}
                   >
                     <p className="text-xs font-bold">{prof.label}</p>
@@ -539,21 +663,6 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
                 );
               })}
             </div>
-          </div>
-        )}
-
-        {/* Section 0.6: Contemplation Focus (In This Moment · Big Questions · Character & Growth) */}
-        {onEntryModeChange && (
-          <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-emerald-900/30">
-            <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-amber-600" />
-              {sLabels.entryModeTitle}
-            </span>
-            <EntryModeTabs
-              activeMode={activeMode}
-              onSelectMode={onEntryModeChange}
-              language={language}
-            />
           </div>
         )}
 

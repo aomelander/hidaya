@@ -31,15 +31,15 @@ export const EntryModeTabs: React.FC<EntryModeTabsProps> = ({
     >
       <div
         role="tablist"
-        className="flex items-center p-1 rounded-2xl bg-emerald-900/5 dark:bg-emerald-950/40 border border-emerald-900/10 dark:border-emerald-800/30 max-w-xl mx-auto rtl:space-x-reverse"
+        className="flex items-center p-1 rounded-2xl bg-[#FAF8F5] dark:bg-[#061B16]/80 border border-emerald-900/10 dark:border-emerald-800/40 w-full rtl:space-x-reverse"
       >
         <button
           type="button"
           onClick={() => onSelectMode('moment')}
-          className={`flex-1 min-h-[42px] py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer text-center whitespace-nowrap truncate ${
+          className={`flex-1 min-h-[40px] py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer text-center whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
             activeMode === 'moment'
-              ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
-              : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
+              ? 'bg-[#006D53] text-white shadow-2xs'
+              : 'text-slate-600 dark:text-[#9BAFA7] hover:text-emerald-900 dark:hover:text-[#F5F7F2]'
           }`}
           aria-selected={activeMode === 'moment'}
           role="tab"
@@ -56,10 +56,10 @@ export const EntryModeTabs: React.FC<EntryModeTabsProps> = ({
         <button
           type="button"
           onClick={() => onSelectMode('questions')}
-          className={`flex-1 min-h-[42px] py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer text-center whitespace-nowrap truncate ${
+          className={`flex-1 min-h-[40px] py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer text-center whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
             activeMode === 'questions'
-              ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
-              : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
+              ? 'bg-[#006D53] text-white shadow-2xs'
+              : 'text-slate-600 dark:text-[#9BAFA7] hover:text-emerald-900 dark:hover:text-[#F5F7F2]'
           }`}
           aria-selected={activeMode === 'questions'}
           role="tab"
@@ -76,10 +76,10 @@ export const EntryModeTabs: React.FC<EntryModeTabsProps> = ({
         <button
           type="button"
           onClick={() => onSelectMode('growth')}
-          className={`flex-1 min-h-[42px] py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer text-center whitespace-nowrap truncate ${
+          className={`flex-1 min-h-[40px] py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer text-center whitespace-nowrap truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
             activeMode === 'growth'
-              ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs'
-              : 'text-slate-600 dark:text-slate-300 hover:text-emerald-800 dark:hover:text-emerald-300'
+              ? 'bg-[#006D53] text-white shadow-2xs'
+              : 'text-slate-600 dark:text-[#9BAFA7] hover:text-emerald-900 dark:hover:text-[#F5F7F2]'
           }`}
           aria-selected={activeMode === 'growth'}
           role="tab"

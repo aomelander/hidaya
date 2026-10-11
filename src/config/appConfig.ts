@@ -26,6 +26,8 @@ export const APP_CONFIG = {
     INITIAL_VERSE_ID: '3:134',
     DEFAULT_ENTRY_MODE: 'moment' as EntryMode,
     READER_PROFILE: 'adult' as const,
+    SHOW_NORTH_STAR_PAGE: true,
+    SHOW_READ_PAGE: true,
   },
 
   // Local Storage Keys
@@ -46,6 +48,8 @@ export const APP_CONFIG = {
     INQUIRER_MODE: 'hidaya_pref_inquirer_mode',
     READER_PROFILE: 'hidaya_pref_reader_profile',
     STREAK_DATA: 'hidaya_streak_data',
+    SHOW_NORTH_STAR_PAGE: 'hidaya_pref_show_north_star',
+    SHOW_READ_PAGE: 'hidaya_pref_show_read_page',
   },
 
   // Limits and Thresholds

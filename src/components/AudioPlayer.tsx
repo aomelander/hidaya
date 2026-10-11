@@ -34,6 +34,7 @@ import { AVAILABLE_RECITERS, getAudioUrlsForVerseRange } from '../services/audio
 import { StorageService } from '../services/storage';
 
 import { OfflineCacheService } from '../services/offlineCacheService';
+import { SpeechService } from '../services/speechSynthesisService';
 import {
   fetchAyahAudioPlaylist,
   StoredAudioMetadata,
@@ -41,6 +42,7 @@ import {
 
 export type AudioStreamMode = 'recitation' | 'translation' | 'tafsir';
 export type ActivePhase = 'idle' | 'recitation' | 'translation' | 'tafsir';
+export type AudioSourceTier = 'GitHub' | 'Server' | 'Browser';
 
 interface AudioPlayerProps {
   surahVerseId: string;
@@ -55,11 +57,19 @@ interface AudioPlayerProps {
   language?: Language;
   translationSource?: string;
   tafsirSource?: string;
+  tafsirLanguage?: Language;
   onPlaybackProgress?: (
     progressRatio: number,
     isPlaying: boolean,
     phase?: ActivePhase
   ) => void;
+  autoPlayOnAdvance?: boolean;
+  onPlayingStateChange?: (isPlaying: boolean) => void;
+  onPlaybackComplete?: () => void;
+  onAudioSourcesResolved?: (sources: {
+    translation: AudioSourceTier | null;
+    tafsir: AudioSourceTier | null;
+  }) => void;
 }
 
 const PLAYER_STRINGS: Record<
@@ -220,8 +230,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   language = 'en',
   translationSource,
   tafsirSource,
+  tafsirLanguage,
   onPlaybackProgress,
+  autoPlayOnAdvance = false,
+  onPlayingStateChange,
+  onPlaybackComplete,
+  onAudioSourcesResolved,
 }) => {
+  const effectiveTafsirLang: Language = tafsirLanguage || language;
   const [streamMode, setStreamMode] = useState<AudioStreamMode>('recitation');
   const [activePhase, setActivePhase] = useState<ActivePhase>('idle');
   const [reciterId, setReciterId] = useState<ReciterId>(() => StorageService.getPreferredReciter());
@@ -239,11 +255,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   // Stored neural audio states
   const [translationMetadata, setTranslationMetadata] = useState<StoredAudioMetadata | null>(null);
   const [tafsirMetadata, setTafsirMetadata] = useState<StoredAudioMetadata | null>(null);
+  const [translationFallbackTier, setTranslationFallbackTier] = useState<'Server' | 'Browser'>('Server');
+  const [tafsirFallbackTier, setTafsirFallbackTier] = useState<'Server' | 'Browser'>('Server');
 
   // Multi-phase sequential additions to audio read
   const hasTranslationText = Boolean(language !== 'ar' && translationText && translationText.trim().length > 0);
   const hasTafsirText = Boolean(tafsirText && tafsirText.trim().length > 0);
 
+  const [includeRecitationInRead, setIncludeRecitationInRead] = useState<boolean>(true);
   const [includeTranslationInRead, setIncludeTranslationInRead] = useState<boolean>(() => hasTranslationText);
   const [includeTafsirInRead, setIncludeTafsirInRead] = useState<boolean>(false);
 
@@ -254,6 +273,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const metadataRequestIdRef = useRef(0);
   const playSeqRef = useRef(0);
   const storedTrackIndex = useRef(0);
+  const pendingAutoStartRef = useRef(false);
   const p = PLAYER_STRINGS[language] || PLAYER_STRINGS.en;
 
   const { resolvedSurah, resolvedVerse } = useMemo(() => {
@@ -287,20 +307,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const controller = new AbortController();
 
     playSeqRef.current += 1;
+    SpeechService.cancel();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-    setIsPlaying(false);
-    setActivePhase('idle');
     setCurrentTrackIndex(0);
     setCurrentTime(0);
     setHasPlaybackError(false);
     setPlaybackNotice(null);
-    setStreamMode('recitation');
     setTranslationMetadata(null);
     setTafsirMetadata(null);
-    onPlaybackProgress?.(0, false, 'idle');
+    if (!autoPlayOnAdvance) {
+      setIsPlaying(false);
+      setActivePhase('idle');
+      onPlaybackProgress?.(0, false, 'idle');
+    } else {
+      pendingAutoStartRef.current = true;
+    }
 
     const loadMetadata = async () => {
       try {
@@ -323,7 +347,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 verseNumbers: verseNumbers || [Number(resolvedVerse)],
                 surahNumber: resolvedSurah,
                 ayahNumber: resolvedVerse,
-                language,
+                language: effectiveTafsirLang,
                 type: 'tafsir',
                 source: tafsirSource,
                 ayahId,
@@ -337,6 +361,36 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
         setTranslationMetadata(transMeta);
         setTafsirMetadata(tafMeta);
+
+        // If autoPlayOnAdvance was triggered by transitioning to the next verse, start playing with the same parameters
+        if (pendingAutoStartRef.current) {
+          pendingAutoStartRef.current = false;
+          if (!includeRecitationInRead && includeTranslationInRead && hasTranslationText) {
+            if (transMeta?.status === 'available' && transMeta.record?.audioUrl) {
+              storedTrackIndex.current = 0;
+              playUrl(transMeta.record.audioUrl, 'translation');
+            } else {
+              playTranslationStep();
+            }
+          } else if (!includeRecitationInRead && includeTafsirInRead) {
+            if (hasTafsirText) {
+              if (tafMeta?.status === 'available' && tafMeta.record?.audioUrl) {
+                storedTrackIndex.current = 0;
+                playUrl(tafMeta.record.audioUrl, 'tafsir');
+              } else {
+                playTafsirStep();
+              }
+            } else {
+              // Skip Tafsir if it does not exist in the chosen language
+              finishVersePlaybackOrAdvance();
+            }
+          } else {
+            const firstRecUrl = recitationUrls[0] || '';
+            if (firstRecUrl) {
+              playUrl(firstRecUrl, 'recitation');
+            }
+          }
+        }
       } catch {
         // Fallbacks are handled gracefully in playback
       }
@@ -373,6 +427,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const totalTracks = streamMode === 'recitation' ? Math.max(1, recitationUrls.length) : 1;
 
   useEffect(() => {
+    if (autoPlayOnAdvance && pendingAutoStartRef.current) return;
     playSeqRef.current += 1;
     audioRef.current?.pause();
     setIsPlaying(false);
@@ -381,7 +436,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setCurrentTime(0);
     setDuration(0);
     onPlaybackProgress?.(0, false, 'idle');
-  }, [resolvedSurah, resolvedVerse, reciterId, streamMode, language, translationSource, tafsirSource]);
+  }, [reciterId, streamMode, language]);
 
   useEffect(() => {
     let cancelled = false;
@@ -438,19 +493,112 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     [totalTracks]
   );
 
-  const stopPlayback = () => {
+  const stopPlayback = (notifyStopped = true) => {
     playSeqRef.current += 1;
+    pendingAutoStartRef.current = false;
+    SpeechService.cancel();
     audioRef.current?.pause();
     setIsPlaying(false);
     setActivePhase('idle');
     setPlaybackNotice(null);
+    if (notifyStopped) {
+      onPlayingStateChange?.(false);
+    }
     onPlaybackProgress?.(0, false, 'idle');
   };
+
+  const finishVersePlaybackOrAdvance = () => {
+    onPlaybackProgress?.(1, false, 'idle');
+    if (isLooping) {
+      setCurrentTrackIndex(0);
+      storedTrackIndex.current = 0;
+      if (audioRef.current) audioRef.current.currentTime = 0;
+      if (streamMode === 'translation') playTranslationStep();
+      else if (streamMode === 'tafsir') playTafsirStep();
+      else playUrl(recitationUrls[0], 'recitation');
+      return;
+    }
+    if (onPlaybackComplete) {
+      onPlaybackComplete();
+      return;
+    }
+    stopPlayback(true);
+  };
+
+  const resolvedTranslationTier: AudioSourceTier | null = useMemo(() => {
+    if (!hasTranslationText) return null;
+    if (translationMetadata?.status === 'available' && translationMetadata.record?.audioUrl) {
+      return 'GitHub';
+    }
+    return SpeechService.isServerTtsConfigured() ? translationFallbackTier : 'Browser';
+  }, [hasTranslationText, translationMetadata, translationFallbackTier]);
+
+  const resolvedTafsirTier: AudioSourceTier | null = useMemo(() => {
+    if (!hasTafsirText) return null;
+    if (tafsirMetadata?.status === 'available' && tafsirMetadata.record?.audioUrl) {
+      return 'GitHub';
+    }
+    return SpeechService.isServerTtsConfigured() ? tafsirFallbackTier : 'Browser';
+  }, [hasTafsirText, tafsirMetadata, tafsirFallbackTier]);
+
+  useEffect(() => {
+    onAudioSourcesResolved?.({
+      translation: resolvedTranslationTier,
+      tafsir: resolvedTafsirTier,
+    });
+  }, [resolvedTranslationTier, resolvedTafsirTier, onAudioSourcesResolved]);
+
+  // Pre-warm/cache Translation and Tafsir audio (stored MP3 or neural TTS) so transitions have zero lag
+  const warmUpQueuedPhases = useCallback(() => {
+    if (includeTranslationInRead && hasTranslationText) {
+      const transUrls = translationMetadata?.audioUrls || (translationMetadata?.record?.audioUrl ? [translationMetadata.record.audioUrl] : []);
+      if (transUrls.length > 0) {
+        transUrls.forEach((u) => {
+          fetch(u, { method: 'GET' }).catch(() => {});
+        });
+      } else {
+        void SpeechService.prefetchAudio(translationText, language).then((tier) => {
+          setTranslationFallbackTier(tier === 'server' ? 'Server' : 'Browser');
+        });
+      }
+    }
+    if (includeTafsirInRead && hasTafsirText) {
+      const tafUrls = tafsirMetadata?.audioUrls || (tafsirMetadata?.record?.audioUrl ? [tafsirMetadata.record.audioUrl] : []);
+      if (tafUrls.length > 0) {
+        tafUrls.forEach((u) => {
+          fetch(u, { method: 'GET' }).catch(() => {});
+        });
+      } else {
+        void SpeechService.prefetchAudio(tafsirText, effectiveTafsirLang).then((tier) => {
+          setTafsirFallbackTier(tier === 'server' ? 'Server' : 'Browser');
+        });
+      }
+    }
+  }, [
+    includeTranslationInRead,
+    hasTranslationText,
+    translationMetadata,
+    translationText,
+    language,
+    includeTafsirInRead,
+    hasTafsirText,
+    tafsirMetadata,
+    tafsirText,
+    effectiveTafsirLang,
+  ]);
+
+  // Also warm up whenever the user activates Translation or Tafsir while already playing or after metadata loads
+  useEffect(() => {
+    if (isPlaying && activePhase === 'recitation') {
+      warmUpQueuedPhases();
+    }
+  }, [isPlaying, activePhase, includeTranslationInRead, includeTafsirInRead, translationMetadata, tafsirMetadata, warmUpQueuedPhases]);
 
   const playUrl = (url: string, phase: ActivePhase) => {
     const audio = audioRef.current;
     if (!audio || !url) { stopPlayback(); return; }
     const request = ++playSeqRef.current;
+    SpeechService.cancel();
     window.dispatchEvent(new CustomEvent('hidaya-playback-owner', { detail: audio }));
     audio.pause();
     if (audio.src !== new URL(url, window.location.href).href) audio.src = url;
@@ -458,12 +606,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     audio.muted = isMuted;
     setActivePhase(phase);
     setIsPlaying(true);
+    onPlayingStateChange?.(true);
+    onPlaybackProgress?.(0, true, phase);
     setHasPlaybackError(false);
     setPlaybackNotice(null);
+    if (phase === 'recitation') {
+      warmUpQueuedPhases();
+    }
     void audio.play().catch((error) => {
       if (request !== playSeqRef.current) return;
       if (error?.name === 'NotAllowedError') {
         setIsPlaying(false);
+        onPlayingStateChange?.(false);
         setPlaybackNotice('blocked');
         return;
       }
@@ -473,32 +627,135 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const playTafsirStep = () => {
-    if (tafsirMetadata?.status === 'available' && tafsirMetadata.record) {
+    if (!hasTafsirText) {
+      // Skip Tafsir cleanly if it does not exist in the chosen language
+      finishVersePlaybackOrAdvance();
+      return;
+    }
+    if (tafsirMetadata?.status === 'available' && tafsirMetadata.record?.audioUrl) {
       storedTrackIndex.current = 0;
       playUrl(tafsirMetadata.record.audioUrl, 'tafsir');
-    } else stopPlayback();
+    } else {
+      const request = ++playSeqRef.current;
+      window.dispatchEvent(new CustomEvent('hidaya-playback-owner', { detail: audioRef.current }));
+      setActivePhase('tafsir');
+      setIsPlaying(true);
+      onPlayingStateChange?.(true);
+      onPlaybackProgress?.(0, true, 'tafsir');
+      setHasPlaybackError(false);
+      setPlaybackNotice(null);
+      void SpeechService.speak(tafsirText, effectiveTafsirLang, {
+        rate: playbackRate,
+        targetAudioElement: audioRef.current,
+        onProviderResolved: (tier) => {
+          setTafsirFallbackTier(tier === 'server' ? 'Server' : 'Browser');
+        },
+        onProgress: (ratio) => {
+          if (request !== playSeqRef.current) return;
+          onPlaybackProgress?.(ratio, true, 'tafsir');
+        },
+        onEnd: () => {
+          if (request !== playSeqRef.current) return;
+          finishVersePlaybackOrAdvance();
+        },
+        onError: () => {
+          if (request !== playSeqRef.current) return;
+          stopPlayback();
+        },
+      });
+    }
   };
 
   const playTranslationStep = () => {
-    if (translationMetadata?.status === 'available' && translationMetadata.record) {
+    if (includeTafsirInRead && hasTafsirText) {
+      const tafUrls = tafsirMetadata?.audioUrls || (tafsirMetadata?.record?.audioUrl ? [tafsirMetadata.record.audioUrl] : []);
+      if (tafUrls.length > 0) {
+        tafUrls.forEach((u) => { fetch(u, { method: 'GET' }).catch(() => {}); });
+      } else {
+        void SpeechService.prefetchAudio(tafsirText, effectiveTafsirLang).then((tier) => {
+          setTafsirFallbackTier(tier === 'server' ? 'Server' : 'Browser');
+        });
+      }
+    }
+    if (translationMetadata?.status === 'available' && translationMetadata.record?.audioUrl) {
       storedTrackIndex.current = 0;
       playUrl(translationMetadata.record.audioUrl, 'translation');
-    } else if (includeTafsirInRead) playTafsirStep();
-    else stopPlayback();
+    } else if (hasTranslationText) {
+      const request = ++playSeqRef.current;
+      window.dispatchEvent(new CustomEvent('hidaya-playback-owner', { detail: audioRef.current }));
+      setActivePhase('translation');
+      setIsPlaying(true);
+      onPlayingStateChange?.(true);
+      onPlaybackProgress?.(0, true, 'translation');
+      setHasPlaybackError(false);
+      setPlaybackNotice(null);
+      void SpeechService.speak(translationText, language, {
+        rate: playbackRate,
+        targetAudioElement: audioRef.current,
+        onProviderResolved: (tier) => {
+          setTranslationFallbackTier(tier === 'server' ? 'Server' : 'Browser');
+        },
+        onProgress: (ratio) => {
+          if (request !== playSeqRef.current) return;
+          onPlaybackProgress?.(ratio, true, 'translation');
+        },
+        onEnd: () => {
+          if (request !== playSeqRef.current) return;
+          if (includeTafsirInRead && hasTafsirText) {
+            playTafsirStep();
+          } else {
+            finishVersePlaybackOrAdvance();
+          }
+        },
+        onError: () => {
+          if (request !== playSeqRef.current) return;
+          if (includeTafsirInRead && hasTafsirText) {
+            playTafsirStep();
+          } else {
+            stopPlayback();
+          }
+        },
+      });
+    } else if (includeTafsirInRead && hasTafsirText) {
+      playTafsirStep();
+    } else {
+      finishVersePlaybackOrAdvance();
+    }
   };
 
   const togglePlay = () => {
     setPlaybackNotice(null);
     if (isPlaying) {
       playSeqRef.current += 1;
+      pendingAutoStartRef.current = false;
+      SpeechService.cancel();
       audioRef.current?.pause();
       setIsPlaying(false);
+      onPlayingStateChange?.(false);
       onPlaybackProgress?.(duration > 0 ? currentTime / duration : 0, false, activePhase);
       return;
     }
-    if (activePhase !== 'idle' && audioRef.current?.src) { playUrl(audioRef.current.src, activePhase); return; }
-    if (streamMode === 'translation') { playTranslationStep(); return; }
-    if (streamMode === 'tafsir') { playTafsirStep(); return; }
+    if (activePhase !== 'idle' && audioRef.current?.src && !audioRef.current.src.startsWith('data:')) {
+      playUrl(audioRef.current.src, activePhase);
+      return;
+    }
+    if (includeRecitationInRead) {
+      setStreamMode('recitation');
+      playUrl(recitationUrls[currentTrackIndex] || recitationUrls[0], 'recitation');
+      return;
+    }
+    if (includeTranslationInRead && hasTranslationText) {
+      setStreamMode('translation');
+      playTranslationStep();
+      return;
+    }
+    if (includeTafsirInRead && hasTafsirText) {
+      setStreamMode('tafsir');
+      playTafsirStep();
+      return;
+    }
+    setIncludeRecitationInRead(true);
+    setStreamMode('recitation');
     playUrl(recitationUrls[currentTrackIndex] || recitationUrls[0], 'recitation');
   };
 
@@ -561,19 +818,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
     }
 
-    // 4. End of all phases
-    onPlaybackProgress?.(1, false, 'idle');
-    if (isLooping) {
-      setCurrentTrackIndex(0);
-      storedTrackIndex.current = 0;
-      if (audioRef.current) audioRef.current.currentTime = 0;
-      playUrl(recitationUrls[0], 'recitation');
-    } else {
-      setIsPlaying(false);
-      setActivePhase('idle');
-      setCurrentTrackIndex(0);
-      setCurrentTime(0);
-    }
+    // 4. End of all phases for this verse
+    finishVersePlaybackOrAdvance();
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -608,6 +854,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const restart = () => {
     setPlaybackNotice(null);
+    SpeechService.cancel();
     if (audioRef.current) audioRef.current.currentTime = 0;
     setCurrentTrackIndex(0);
     setCurrentTime(0);
@@ -652,80 +899,104 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         }}
       />
 
-      <p className="text-xs text-slate-500" role="note">{({ en: 'Highlighting is approximate, based on playback duration; word timestamps are unavailable.', sv: 'Markeringen är ungefärlig och baseras på ljudets längd; tidsstämplar för ord saknas.', fr: 'Le surlignage est approximatif, basé sur la durée audio ; les horodatages des mots ne sont pas disponibles.', ar: 'تمييز الكلمات تقريبي حسب مدة التسجيل؛ لا تتوفر توقيتات الكلمات.' })[language]}</p>
-      {/* Row 1: Direct Stream Mode Switcher + Reciter / Offline / Loop Controls */}
+      <p className="text-xs text-slate-500 dark:text-[#9BAFA7]" role="note">{({ en: 'Highlighting is approximate, based on playback duration; word timestamps are unavailable.', sv: 'Markeringen är ungefärlig och baseras på ljudets längd; tidsstämplar för ord saknas.', fr: 'Le surlignage est approximatif, basé sur la durée audio ; les horodatages des mots ne sont pas disponibles.', ar: 'تمييز الكلمات تقريبي حسب مدة التسجيل؛ لا تتوفر توقيتات الكلمات.' })[language]}</p>
+      {/* Unified Top Div: Stream & Queue Selector with + / ✓ at the beginning of each button + Reciter / Offline / Loop Controls */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-900/10 dark:border-emerald-800/30 pb-2">
         <div
-          className="flex items-center gap-1 p-0.5 rounded-xl bg-white dark:bg-[#071913] border border-emerald-900/15 dark:border-emerald-700/40 text-xs"
+          className="flex flex-wrap items-center gap-1 p-0.5 rounded-xl bg-white dark:bg-[#071913] border border-emerald-900/15 dark:border-emerald-700/40 text-xs"
           role="group"
           aria-label="Audio stream type"
         >
-          {/* 1. Recitation Tab (always available) */}
+          {/* 1. Recitation Button with + / ✓ at the beginning */}
           <button
             type="button"
             onClick={() => {
-              playSeqRef.current += 1;
+              const nextVal = !includeRecitationInRead;
+              if (!nextVal && !includeTranslationInRead && !includeTafsirInRead) {
+                setIncludeRecitationInRead(true);
+              } else {
+                setIncludeRecitationInRead(nextVal);
+              }
               setStreamMode('recitation');
             }}
-            aria-pressed={streamMode === 'recitation'}
+            aria-pressed={includeRecitationInRead}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-              streamMode === 'recitation'
+              includeRecitationInRead
                 ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs font-bold'
                 : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
             }`}
           >
-            <Headphones className="w-3.5 h-3.5 text-amber-400" />
+            {includeRecitationInRead ? (
+              <Check className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            ) : (
+              <Plus className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            )}
+            <Headphones className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span>{p.recitationTab}</span>
           </button>
 
-          {/* 2. Translation Tab (ALWAYS VISIBLE whenever translation text is available) */}
-          {hasTranslationText && translationMetadata?.status === 'available' && (
+          {/* 2. Translation Button with + / ✓ at the beginning */}
+          {hasTranslationText && (
             <button
               type="button"
               onClick={() => {
-                playSeqRef.current += 1;
-                setStreamMode('translation');
+                const nextVal = !includeTranslationInRead;
+                setIncludeTranslationInRead(nextVal);
+                if (nextVal && !includeRecitationInRead) {
+                  setStreamMode('translation');
+                }
               }}
-              aria-pressed={streamMode === 'translation'}
+              aria-pressed={includeTranslationInRead}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                streamMode === 'translation'
+                includeTranslationInRead
                   ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs font-bold'
                   : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
               }`}
             >
-              <Languages className="w-3.5 h-3.5 text-amber-500" />
+              {includeTranslationInRead ? (
+                <Check className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              ) : (
+                <Plus className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              )}
+              <Languages className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>
                 {p.translationTab} ({language.toUpperCase()})
               </span>
             </button>
           )}
 
-          {/* 3. Tafsir Tab (ALWAYS VISIBLE whenever tafsir text is available) */}
-          {hasTafsirText && tafsirMetadata?.status === 'available' && (
+          {/* 3. Tafsir Button with + / ✓ at the beginning (only shown if Tafsir exists in the chosen language) */}
+          {hasTafsirText && (
             <button
               type="button"
               onClick={() => {
-                playSeqRef.current += 1;
-                setStreamMode('tafsir');
+                const nextVal = !includeTafsirInRead;
+                setIncludeTafsirInRead(nextVal);
+                if (nextVal && !includeRecitationInRead && !includeTranslationInRead) {
+                  setStreamMode('tafsir');
+                }
               }}
-              aria-pressed={streamMode === 'tafsir'}
+              aria-pressed={includeTafsirInRead}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                streamMode === 'tafsir'
+                includeTafsirInRead
                   ? 'bg-emerald-800 text-white dark:bg-emerald-700 shadow-2xs font-bold'
                   : 'text-slate-600 dark:text-slate-300 hover:text-emerald-900 dark:hover:text-emerald-100'
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
-              <span>
-                {p.tafsirTab}
-              </span>
+              {includeTafsirInRead ? (
+                <Check className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              ) : (
+                <Plus className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              )}
+              <BookOpen className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+              <span>{p.tafsirTab}</span>
             </button>
           )}
         </div>
 
         {/* Action Controls: Reciter selector + Offline Save + Loop */}
         <div className="flex items-center gap-1.5 text-xs">
-          {streamMode === 'recitation' && (
+          {includeRecitationInRead && (
             <div className="relative">
               <button
                 type="button"
@@ -807,81 +1078,19 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         </div>
       </div>
 
-      {/* Row 2: "ADD TO AUDIO READ" Continuous Contemplation Options (Visible whenever Translation or Tafsir is available) */}
-      {(translationMetadata?.status === 'available' || tafsirMetadata?.status === 'available') && (
-        <div className="flex flex-wrap items-center justify-between gap-1.5 pt-0.5 pb-1">
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-[11px] font-semibold text-emerald-950 dark:text-emerald-200 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-500" />
-              <span>{p.addToAudioRead}</span>
+      {/* Active Phase Banner during continuous playback */}
+      {isPlaying && activePhase !== 'idle' && (
+        <div className="flex items-center justify-end pt-0.5">
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-800/15 dark:bg-emerald-800/30 text-emerald-900 dark:text-emerald-200 text-[10px] font-semibold animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>
+              {activePhase === 'recitation'
+                ? p.playingRecitation
+                : activePhase === 'translation'
+                ? p.playingTranslation
+                : p.playingTafsir}
             </span>
-
-            {/* Toggle: Add Translation to Audio Read */}
-            {hasTranslationText && translationMetadata?.status === 'available' && (
-              <button
-                type="button"
-                onClick={() => setIncludeTranslationInRead(!includeTranslationInRead)}
-                aria-pressed={includeTranslationInRead}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
-                  includeTranslationInRead
-                    ? 'bg-amber-500/15 border-amber-600/40 text-amber-900 dark:text-amber-200 shadow-2xs font-semibold'
-                    : 'bg-white/70 dark:bg-[#071913]/70 border-emerald-900/10 dark:border-emerald-800/40 text-slate-600 dark:text-slate-400 hover:border-emerald-600'
-                }`}
-                title={
-                  includeTranslationInRead
-                    ? 'Translation is queued after recitation'
-                    : 'Add translation to sequential reading'
-                }
-              >
-                {includeTranslationInRead ? (
-                  <Check className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                ) : (
-                  <Plus className="w-3 h-3 text-slate-400" />
-                )}
-                <span>{includeTranslationInRead ? p.translationAdded : p.addTranslation}</span>
-              </button>
-            )}
-
-            {/* Toggle: Add Tafsir to Audio Read */}
-            {hasTafsirText && tafsirMetadata?.status === 'available' && (
-              <button
-                type="button"
-                onClick={() => setIncludeTafsirInRead(!includeTafsirInRead)}
-                aria-pressed={includeTafsirInRead}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
-                  includeTafsirInRead
-                    ? 'bg-emerald-500/15 border-emerald-600/40 text-emerald-900 dark:text-emerald-200 shadow-2xs font-semibold'
-                    : 'bg-white/70 dark:bg-[#071913]/70 border-emerald-900/10 dark:border-emerald-800/40 text-slate-600 dark:text-slate-400 hover:border-emerald-600'
-                }`}
-                title={
-                  includeTafsirInRead
-                    ? 'Classical Tafsir is queued after recitation/translation'
-                    : 'Add classical tafsir to sequential reading'
-                }
-              >
-                {includeTafsirInRead ? (
-                  <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                ) : (
-                  <Plus className="w-3 h-3 text-slate-400" />
-                )}
-                <span>{includeTafsirInRead ? p.tafsirAdded : p.addTafsir}</span>
-              </button>
-            )}
           </div>
-
-          {/* Active Phase Banner during continuous playback */}
-          {isPlaying && activePhase !== 'idle' && (
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-800/15 dark:bg-emerald-800/30 text-emerald-900 dark:text-emerald-200 text-[10px] font-semibold animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>
-                {activePhase === 'recitation'
-                  ? p.playingRecitation
-                  : activePhase === 'translation'
-                  ? p.playingTranslation
-                  : p.playingTafsir}
-              </span>
-            </div>
-          )}
         </div>
       )}
 
