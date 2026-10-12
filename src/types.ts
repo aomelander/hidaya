@@ -299,6 +299,8 @@ export interface VerseCardPreferences {
   includeRecitationByDefault: boolean;
   includeTranslationByDefault: boolean;
   includeTafsirByDefault: boolean;
+  playbackSpeed?: number;
+  showTajweedColors?: boolean;
   tvMode: boolean;
 }
 

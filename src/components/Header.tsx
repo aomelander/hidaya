@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useRef } from 'react';
-import { BookOpen, SlidersHorizontal, Search, X, Play, Pause } from 'lucide-react';
+import { BookOpen, SlidersHorizontal, Search, X } from 'lucide-react';
 import { Language, QuickPill } from '../types';
 import { getDictionary } from '../lib/i18n/dictionaries';
 import { VoiceSearchButton } from './VoiceSearchButton';
@@ -31,6 +31,8 @@ export interface HeaderProps {
   onVoiceTranscript?: (transcript: string) => void;
   onSelectPill?: (pill: QuickPill) => void;
   onSelectTodayFocus?: (passageId: string) => void;
+  onSelectSurah?: (surahNumber: number, ayahNumber?: number) => void;
+  onSelectBookmark?: (verseId: string) => void;
   // Global Audio Play/Pause
   isGlobalPlaying?: boolean;
   onToggleGlobalPlay?: () => void;
@@ -51,6 +53,8 @@ export const Header: React.FC<HeaderProps> = ({
   onVoiceTranscript,
   onSelectPill,
   onSelectTodayFocus,
+  onSelectSurah,
+  onSelectBookmark,
   isGlobalPlaying = false,
   onToggleGlobalPlay,
 }) => {
@@ -86,9 +90,6 @@ export const Header: React.FC<HeaderProps> = ({
     inputRef.current?.focus();
   };
 
-  const playLabel = isGlobalPlaying
-    ? language === 'ar' ? 'إيقاف مؤقت' : language === 'fr' ? 'Pause' : language === 'sv' ? 'Pausa' : 'Pause'
-    : language === 'ar' ? 'تشغيل الآية' : language === 'fr' ? 'Écouter' : language === 'sv' ? 'Spela' : 'Play';
 
   return (
     <header
@@ -196,39 +197,24 @@ export const Header: React.FC<HeaderProps> = ({
               onSelectTodayFocus?.(id);
               setIsSuggestionsOpen(false);
             }}
+            onSelectSurah={(surahNumber, ayahNumber) => {
+              onSelectSurah?.(surahNumber, ayahNumber);
+              setIsSuggestionsOpen(false);
+            }}
+            onSelectBookmark={(verseId) => {
+              onSelectBookmark?.(verseId);
+              setIsSuggestionsOpen(false);
+            }}
           />
         </div>
 
-        {/* Zone 3: Global Play/Pause Control & Preferences Action Button */}
+        {/* Zone 3: Preferences Action Button */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Global Play/Pause Button */}
-          {onToggleGlobalPlay && (
-            <button
-              type="button"
-              onClick={onToggleGlobalPlay}
-              className={`min-h-[38px] px-2.5 sm:px-3.5 py-1.5 rounded-xl border transition-all inline-flex items-center gap-1.5 text-xs font-bold cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                isGlobalPlaying
-                  ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-500 shadow-xs'
-                  : 'bg-[#006D53] hover:bg-emerald-700 text-white border-[#006D53] shadow-xs'
-              }`}
-              title={playLabel}
-              aria-label={playLabel}
-            >
-              {isGlobalPlaying ? (
-                <Pause className="w-4 h-4 fill-current shrink-0" />
-              ) : (
-                <Play className="w-4 h-4 fill-current shrink-0" />
-              )}
-              <span className="hidden sm:inline">{playLabel}</span>
-            </button>
-          )}
-
-          {/* Preferences Button */}
           {onOpenPreferences && (
             <button
               type="button"
               onClick={onOpenPreferences}
-              className={`min-h-[38px] px-2.5 sm:px-3 py-1.5 rounded-xl border transition-all inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
+              className={`min-h-[38px] px-2.5 sm:px-3.5 py-1.5 rounded-xl border transition-all inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
                 isPreferencesOpen
                   ? 'bg-[#006D53] text-white border-[#006D53] shadow-2xs'
                   : 'bg-emerald-950/5 dark:bg-[#0B3027]/80 border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2] hover:border-[#006D53]'

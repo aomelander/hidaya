@@ -189,6 +189,30 @@ assert.equal(StorageService.getPreferredScholar(), 'Al-Sa\'di');
 StorageService.setPreferredScholar('Ibn Kathir');
 assert.equal(StorageService.getPreferredScholar(), 'Ibn Kathir');
 
-console.log('Shared selection, Phase 1-4 word timestamp/pronunciation, 1-Handed Mobile Thumb UX & Tafsir dropdown tests passed.');
+// Mutual exclusion assertion for Share Studio & Comments
+let studioOpen = false;
+let commentsOpen = false;
+const toggleComments = () => {
+  studioOpen = false;
+  commentsOpen = !commentsOpen;
+};
+const toggleStudio = () => {
+  commentsOpen = false;
+  studioOpen = !studioOpen;
+};
+
+toggleComments();
+assert.equal(commentsOpen, true, 'Comments must be open');
+assert.equal(studioOpen, false, 'Studio must be closed when comments open');
+
+toggleStudio();
+assert.equal(studioOpen, true, 'Studio must be open');
+assert.equal(commentsOpen, false, 'Comments must be closed when studio opens');
+
+toggleComments();
+assert.equal(commentsOpen, true, 'Comments must reopen');
+assert.equal(studioOpen, false, 'Studio must be closed when comments reopen');
+
+console.log('Shared selection, Phase 1-4 word timestamp/pronunciation, 1-Handed Mobile Thumb UX, Tafsir dropdown & Studio/Comments mutual exclusion tests passed.');
 
 

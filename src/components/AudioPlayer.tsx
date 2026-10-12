@@ -279,7 +279,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
+  const [playbackRate, setPlaybackRate] = useState<number>(() => StorageService.getCardPreferences().playbackSpeed || 1);
   const [isLooping, setIsLooping] = useState<boolean>(() =>
     defaultLoop !== undefined ? defaultLoop : StorageService.getCardPreferences().loopVerse
   );
@@ -1026,6 +1026,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       if (defaultIncludeRecitation === undefined) setIncludeRecitationInRead(prefs.includeRecitationByDefault);
       if (defaultIncludeTranslation === undefined) setIncludeTranslationInRead(prefs.includeTranslationByDefault);
       if (defaultIncludeTafsir === undefined) setIncludeTafsirInRead(prefs.includeTafsirByDefault);
+      if (prefs.playbackSpeed) {
+        setPlaybackRate(prefs.playbackSpeed);
+        if (audioRef.current) audioRef.current.playbackRate = prefs.playbackSpeed;
+      }
     };
     window.addEventListener('hidaya-preferences-updated', handlePrefChange);
     window.addEventListener('storage', handlePrefChange);

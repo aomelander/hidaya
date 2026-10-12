@@ -244,6 +244,9 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       phaseRecitation: 'Récitation Arabe',
       phaseTranslation: 'Traduction',
       phaseTafsir: 'Tafsir Classique (si disponible dans la langue)',
+      audioSpeedLabel: 'Vitesse de récitation audio',
+      tajweedLabel: 'Couleurs des règles de Tajweed (Texte Uthmani)',
+      tajweedDesc: 'Colore les règles de récitation (Ghunnah, Qalqalah, Ikhfa, Madd) sur les lettres arabes.',
       reciterLabel: 'Voix du Récitateur Coranique',
       scholarLabel: 'Exégète (Tafsir) préféré',
       sec3Title: '3. Personnalisation de la Carte Universelle',
@@ -308,6 +311,9 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       phaseRecitation: 'Arabic Recitation',
       phaseTranslation: 'Translation',
       phaseTafsir: 'Classical Tafsir (when available in chosen language)',
+      audioSpeedLabel: 'Recitation Playback Speed',
+      tajweedLabel: 'Color-Coded Tajweed Rules (Uthmani Text)',
+      tajweedDesc: 'Subtly colors recitation rules (Ghunnah, Qalqalah, Ikhfa, Madd) on Arabic letters.',
       reciterLabel: 'Quranic Reciter Voice',
       scholarLabel: 'Preferred Tafsir Scholar',
       sec3Title: '3. Universal Verse Card Customization',
@@ -372,6 +378,9 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       phaseRecitation: 'Arabisk recitation',
       phaseTranslation: 'Översättning',
       phaseTafsir: 'Klassisk Tafsir (om tillgänglig på valt språk)',
+      audioSpeedLabel: 'Uppspelningshastighet',
+      tajweedLabel: 'Färgkodade Tajweed-regler (Uthmani)',
+      tajweedDesc: 'Subtil färgläggning av recitationsregler (Ghunnah, Qalqalah, Ikhfa, Madd).',
       reciterLabel: 'Recitatör',
       scholarLabel: 'Föredragen Tafsir-lärd',
       sec3Title: '3. Anpassa det Universella Verskortet',
@@ -436,6 +445,9 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       phaseRecitation: 'التلاوة القرآنية (عربي)',
       phaseTranslation: 'الترجمة الصوتية',
       phaseTafsir: 'التفسير الكلاسيكي (إن توفر باللغة المختارة)',
+      audioSpeedLabel: 'سرعة التلاوة الصوتية',
+      tajweedLabel: 'ألوان أحكام التجويد (الرسم العثماني)',
+      tajweedDesc: 'تمييز لطيف لأحكام التجويد (الغنّة، القلقلة، الإخفاء، المدود) بألوان هادئة.',
       reciterLabel: 'صوت القارئ المفضل',
       scholarLabel: 'المفسر المفضل',
       sec3Title: '٣. تخصيص بطاقة الآية الموحدة',
@@ -807,6 +819,59 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
               {prefs.loopVerse && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
             </button>
           </div>
+        </div>
+
+        {/* Audio Playback Speed Selector */}
+        <div className="space-y-2 pt-1">
+          <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+            {labels.audioSpeedLabel}
+          </span>
+          <div className="grid grid-cols-4 gap-2">
+            {[0.75, 1, 1.25, 1.5].map((speed) => {
+              const active = (prefs.playbackSpeed || 1) === speed;
+              return (
+                <button
+                  key={speed}
+                  type="button"
+                  onClick={() => updatePref({ playbackSpeed: speed })}
+                  aria-pressed={active}
+                  className={`min-h-[42px] px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border text-center flex items-center justify-center ${
+                    active
+                      ? 'bg-[#006D53] text-white border-transparent shadow-xs'
+                      : 'bg-[#F7F0E2] dark:bg-[#0C2920] text-emerald-950 dark:text-[#F5F7F2] border-emerald-900/10 dark:border-emerald-800/40 hover:border-[#006D53]'
+                  }`}
+                >
+                  <span>{speed}x</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Tajweed Colored Rules Switch */}
+        <div className="p-3.5 rounded-2xl bg-white dark:bg-[#061B16] border border-emerald-900/10 dark:border-emerald-800/40 flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
+              {labels.tajweedLabel}
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-[#9BAFA7] mt-0.5">
+              {labels.tajweedDesc}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => updatePref({ showTajweedColors: !prefs.showTajweedColors })}
+            aria-pressed={prefs.showTajweedColors}
+            className={`w-12 h-6.5 rounded-full transition-colors relative cursor-pointer shrink-0 ${
+              prefs.showTajweedColors ? 'bg-[#006D53]' : 'bg-slate-300 dark:bg-slate-700'
+            }`}
+          >
+            <span
+              className={`block w-5 h-5 rounded-full bg-white shadow-xs transition-transform absolute top-0.5 ${
+                prefs.showTajweedColors ? 'start-6' : 'start-0.5'
+              }`}
+            />
+          </button>
         </div>
 
         {/* Reciter & Preferred Scholar */}

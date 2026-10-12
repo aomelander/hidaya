@@ -138,6 +138,7 @@ export const VerseMemorizationView: React.FC<VerseMemorizationViewProps> = ({
   const [isCompleted, setIsCompleted] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
+  const [micError, setMicError] = useState<string | null>(null);
 
   const verifierRef = useRef<VoiceVerificationController | null>(null);
   const labels = MEMO_LABELS[language] || MEMO_LABELS.en;
@@ -198,6 +199,7 @@ export const VerseMemorizationView: React.FC<VerseMemorizationViewProps> = ({
     setVoiceVerifiedIndices(new Set());
     setIsCompleted(false);
     setLiveTranscript('');
+    setMicError(null);
   };
 
   const handleToggleVoiceVerification = () => {
@@ -206,6 +208,8 @@ export const VerseMemorizationView: React.FC<VerseMemorizationViewProps> = ({
       setIsListening(false);
       return;
     }
+
+    setMicError(null);
 
     // Ensure words are masked before starting voice verification if currently in 'visible'
     if (maskMode === 'visible') {
@@ -243,8 +247,19 @@ export const VerseMemorizationView: React.FC<VerseMemorizationViewProps> = ({
         setIsListening(false);
         setIsCompleted(true);
       },
-      onError: () => {
+      onError: (err) => {
         setIsListening(false);
+        if (err && err !== 'aborted') {
+          setMicError(
+            err === 'not-allowed'
+              ? language === 'fr'
+                ? 'Accès au micro refusé. Veuillez autoriser le microphone dans votre navigateur.'
+                : language === 'ar'
+                ? 'تم رفض إذن الميكروفون. يرجى تفعيل الميكروفون في المتصفح.'
+                : 'Microphone access blocked. Please allow microphone permissions.'
+              : String(err)
+          );
+        }
       },
     });
   };
@@ -421,6 +436,20 @@ export const VerseMemorizationView: React.FC<VerseMemorizationViewProps> = ({
               {liveTranscript}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Microphone Error Notice */}
+      {micError && (
+        <div className="px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-900 dark:text-[#F4B900] flex items-center justify-between gap-2">
+          <span>⚠️ {micError}</span>
+          <button
+            type="button"
+            onClick={() => setMicError(null)}
+            className="text-[10px] font-bold uppercase underline opacity-80 hover:opacity-100 cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>

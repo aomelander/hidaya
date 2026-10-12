@@ -47,17 +47,22 @@ export function useGuidanceSearch(activeLanguage: Language = 'en') {
       }
     }
 
-    switch (sessionDepth) {
-      case '2min':
-        return baseList.slice(0, 1);
-      case '10min':
-        return baseList.slice(0, 5);
-      case '30min':
-        return baseList.slice(0, 5);
-      case '60min':
-      default:
-        return baseList;
+    // Only apply session depth slice if we are in general guidance mode with more than 5 results and not a direct passage sequence
+    if (baseList.length > 5) {
+      switch (sessionDepth) {
+        case '2min':
+          return baseList.slice(0, 1);
+        case '10min':
+          return baseList.slice(0, 5);
+        case '30min':
+          return baseList.slice(0, 15);
+        case '60min':
+        default:
+          return baseList;
+      }
     }
+
+    return baseList;
   }, [selectedPassages, activeSphere, sessionDepth]);
 
   // Execute guidance query and automatically cache returned passages for offline reading

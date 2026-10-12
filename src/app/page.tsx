@@ -19,6 +19,7 @@ import {
   ReaderProfile,
   PreferredScholar,
   VerseCardPreferences,
+  QueryAnalysisResponse,
 } from '../types';
 import { Locale, getDictionary } from '../lib/i18n/dictionaries';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
@@ -78,6 +79,13 @@ export default function App() {
   const [perspectiveMode, setPerspectiveMode] = useState<PerspectiveMode>('devotional');
   const [activeAudioVerseId, setActiveAudioVerseId] = useState<string | null>(null);
   const [isGlobalPlaying, setIsGlobalPlaying] = useState<boolean>(false);
+  const [isContinuousReading, setIsContinuousReading] = useState<boolean>(false);
+  const savedContemplationStateRef = useRef<{
+    passages: QuranVerseFixture[];
+    index: number;
+    audioId: string | null;
+    analysis: QueryAnalysisResponse | null;
+  } | null>(null);
 
   useEffect(() => {
     const handlePlaybackState = (e: Event) => {
@@ -301,8 +309,8 @@ export default function App() {
     const targetVerse = displayedPassages[resolvedIdx];
     setActiveAudioVerseId(targetVerse.id);
 
-    // If autoPlayOnSwipe preference is enabled or global play was active, trigger playback for new verse
-    if (cardPreferences.autoPlayOnSwipe || isGlobalPlaying) {
+    // Only trigger playback for new verse if global play was ALREADY actively playing
+    if (isGlobalPlaying) {
       window.dispatchEvent(
         new CustomEvent('hidaya-global-toggle-play', {
           detail: { action: 'play', ayahId: targetVerse.id },
@@ -469,6 +477,39 @@ export default function App() {
     }
   };
 
+  // Toggle Continuous Quran Reading Mode: remembers current contemplation verse and restores it on exit
+  const handleToggleContinuousReading = async () => {
+    if (isContinuousReading) {
+      // Exit continuous reading mode: restore previous contemplation state
+      if (savedContemplationStateRef.current) {
+        const saved = savedContemplationStateRef.current;
+        setSelectedPassages(saved.passages);
+        setActiveVerseIndex(saved.index);
+        if (saved.audioId) setActiveAudioVerseId(saved.audioId);
+        if (saved.analysis) setAnalysisResult(saved.analysis);
+        savedContemplationStateRef.current = null;
+      }
+      setIsContinuousReading(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Enter continuous reading mode: save current state and load sequential surah verses starting from current ayah
+      const currentVerse = displayedPassages[activeVerseIndex] || displayedPassages[0];
+      if (!currentVerse) return;
+
+      savedContemplationStateRef.current = {
+        passages: [...displayedPassages],
+        index: activeVerseIndex,
+        audioId: activeAudioVerseId,
+        analysis: analysisResult,
+      };
+      setIsContinuousReading(true);
+
+      const surahNumber = currentVerse.surahNumber;
+      const ayahNumber = parseInt(String(currentVerse.verseNumber).split('-')[0], 10) || 1;
+      await handleNavigateToRead(surahNumber, ayahNumber);
+    }
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     executeSearch(searchQuery, language);
@@ -520,15 +561,25 @@ export default function App() {
             executeSearch(passageId, language);
           }
         }}
-        isGlobalPlaying={isGlobalPlaying}
-        onToggleGlobalPlay={handleToggleGlobalPlay}
+        onSelectSurah={(surahNumber, ayahNumber = 1) => {
+          handleNavigateToRead(surahNumber, ayahNumber);
+        }}
+        onSelectBookmark={(verseId) => {
+          const match = QURAN_FIXTURES.find((f) => f.id === verseId);
+          if (match) {
+            handleSelectSpecificVerse(match);
+          } else {
+            setSearchQuery(verseId);
+            executeSearch(verseId, language);
+          }
+        }}
       />
 
-      {/* Dedicated Tab Viewport — Each Onglet Manages Its Own Page With Zero Popups */}
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      {/* Dedicated Tab Viewport — Edge-to-Edge Full-Width Responsive with Safe Touch Margins */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-2 sm:px-4 py-2 sm:py-4">
         {/* TAB 1: GUIDANCE (Search, Topics & Inline Verse Study — Universal Sanctuary Reels Mode) */}
         {activeNavTab === 'guidance' && (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {isAnalyzing && (
               <div className="text-center py-10 space-y-3" role="status" aria-live="polite">
                 <div className="w-9 h-9 border-2 border-[#006D53] border-t-transparent rounded-full animate-spin mx-auto" />
@@ -557,12 +608,12 @@ export default function App() {
                 <section
                   id="passages-section"
                   aria-label="Quranic Passages"
-                  className="space-y-3 sm:space-y-4"
+                  className="space-y-2.5 sm:space-y-3"
                   onTouchStart={handleContainerTouchStart}
                   onTouchEnd={handleContainerTouchEnd}
                 >
-                  {/* Reels / Stories Segmented Progress Bar */}
-                  {totalVerses > 1 && (
+                  {/* Surah Name & Ayah Indicator Bar (Multi-verse segmented bar or single-verse banner) */}
+                  {totalVerses > 1 ? (
                     <div className="space-y-2 px-1">
                       {/* Segmented Bar */}
                       <div className="flex items-center gap-1 sm:gap-1.5" role="tablist" aria-label="Passage progression">
@@ -638,6 +689,26 @@ export default function App() {
                         </div>
                       </div>
                     </div>
+                  ) : (
+                    <div className="flex items-center justify-between px-2 py-1 text-xs text-slate-500 dark:text-[#9BAFA7]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const firstNum =
+                            parseInt(String(currentVerse.verseNumber || currentVerse.id).split('-')[0], 10) || 1;
+                          handleNavigateToRead(currentVerse.surahNumber, firstNum);
+                        }}
+                        className="hover:underline cursor-pointer transition-colors font-semibold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2"
+                        title={language === 'fr' ? 'Lancer la lecture dans le Coran' : 'Read in Quran'}
+                      >
+                        <span className="font-bold text-sm text-emerald-950 dark:text-[#F5F7F2]">
+                          {currentVerse.surahNameTransliterated}
+                        </span>
+                        <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-emerald-900/10 dark:bg-emerald-800/30 text-[#006D53] dark:text-[#F4B900]">
+                          {currentVerse.id}
+                        </span>
+                      </button>
+                    </div>
                   )}
 
                   {/* Single Active Universal Verse Card */}
@@ -671,6 +742,9 @@ export default function App() {
                       preferredScholar={preferredScholar}
                       onNavigateToRead={handleNavigateToRead}
                       isActive={true}
+                      isGlobalPlaying={isGlobalPlaying}
+                      isContinuousReading={isContinuousReading}
+                      onToggleContinuousReading={handleToggleContinuousReading}
                       onNextVerse={() => handleAdvanceToVerse(safeIndex + 1)}
                       onPreviousVerse={() => handleAdvanceToVerse(safeIndex - 1)}
                       cardPreferences={cardPreferences}
