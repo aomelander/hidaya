@@ -64,6 +64,18 @@ function getServerSupabaseClient(): SupabaseClient | null {
 // In-memory cache for Ayah UUID resolution from surahNumber + ayahNumber
 const AYAH_ID_CACHE = new Map<string, string>();
 
+// Bounded in-memory caches for server metadata lookups and internal archive records
+const LOOKUP_CACHE = new Map<string, { result: AyahAudioLookupResult; timestamp: number }>();
+const INTERNAL_RECORD_CACHE = new Map<string, { record: InternalAyahAudioRecord; timestamp: number }>();
+const MAX_SERVER_CACHE_ENTRIES = 500;
+const SERVER_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+export function clearServerAudioCaches(): void {
+  AYAH_ID_CACHE.clear();
+  LOOKUP_CACHE.clear();
+  INTERNAL_RECORD_CACHE.clear();
+}
+
 /**
  * Resolves an Ayah UUID from surah number and ayah number.
  */
@@ -286,6 +298,13 @@ export async function lookupAyahAudio(params: {
     ayahId = (await resolveAyahId(surahNumber, ayahNumber)) || undefined;
   }
 
+  const cacheKey = `${ayahId || ''}:${surahNumber || ''}:${ayahNumber || ''}:${languageCode.toLowerCase()}:${audioType}:${params.source || ''}`;
+  const now = Date.now();
+  const cachedLookup = LOOKUP_CACHE.get(cacheKey);
+  if (cachedLookup && now - cachedLookup.timestamp < SERVER_CACHE_TTL_MS) {
+    return cachedLookup.result;
+  }
+
   if (!ayahId) {
     return {
       status: 'unavailable',
@@ -358,7 +377,7 @@ export async function lookupAyahAudio(params: {
           ? row.timestamps_jsonb
           : undefined;
 
-        return {
+        const result: AyahAudioLookupResult = {
           status: 'available',
           record: {
             id: row.id,
@@ -375,12 +394,18 @@ export async function lookupAyahAudio(params: {
             timestamps: parsedTimestamps,
           },
         };
+
+        if (LOOKUP_CACHE.size >= MAX_SERVER_CACHE_ENTRIES) {
+          const oldest = LOOKUP_CACHE.keys().next().value;
+          if (oldest) LOOKUP_CACHE.delete(oldest);
+        }
+        LOOKUP_CACHE.set(cacheKey, { result, timestamp: now });
+        return result;
       }
     } catch {
       // Missing database records remain unavailable.
     }
   }
-
 
   return {
     status: 'unavailable',
@@ -395,6 +420,13 @@ export async function lookupAyahAudio(params: {
 export async function getInternalAyahAudioRecord(id: string): Promise<InternalAyahAudioRecord | null> {
   if (!isValidUuid(id)) return null;
 
+  // 1. Check in-memory server cache first (avoids duplicate DB query on seeking range requests)
+  const now = Date.now();
+  const cached = INTERNAL_RECORD_CACHE.get(id);
+  if (cached && now - cached.timestamp < SERVER_CACHE_TTL_MS) {
+    return cached.record;
+  }
+
   // 2. Check Supabase if configured
   const supabase = getServerSupabaseClient();
   if (supabase) {
@@ -406,7 +438,13 @@ export async function getInternalAyahAudioRecord(id: string): Promise<InternalAy
         .single();
 
       if (!error && data) {
-        return data as InternalAyahAudioRecord;
+        const record = data as InternalAyahAudioRecord;
+        if (INTERNAL_RECORD_CACHE.size >= MAX_SERVER_CACHE_ENTRIES) {
+          const oldest = INTERNAL_RECORD_CACHE.keys().next().value;
+          if (oldest) INTERNAL_RECORD_CACHE.delete(oldest);
+        }
+        INTERNAL_RECORD_CACHE.set(id, { record, timestamp: now });
+        return record;
       }
     } catch (err) {
       console.warn('Failed to retrieve internal ayah_audio record from DB:', err);

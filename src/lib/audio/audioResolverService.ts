@@ -31,9 +31,21 @@ export const AUDIO_CACHE_NAME = 'hidaya-audio-v3';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Client-side in-memory cache and in-flight request deduplication map
+const METADATA_IN_MEMORY_CACHE = new Map<string, { data: StoredAudioMetadata; timestamp: number }>();
+const METADATA_IN_FLIGHT_REQUESTS = new Map<string, Promise<StoredAudioMetadata>>();
+const MAX_CLIENT_METADATA_CACHE = 250;
+const CLIENT_METADATA_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+export function clearClientAudioMetadataCache(): void {
+  METADATA_IN_MEMORY_CACHE.clear();
+  METADATA_IN_FLIGHT_REQUESTS.clear();
+}
+
 /**
  * Resolves stored neural audio metadata for translation or tafsir from the server API.
  * Never connects directly to Supabase with service keys on the client.
+ * Features in-memory caching and in-flight deduplication for instant 0ms repeated resolution.
  */
 export async function fetchAyahAudioMetadata(params: {
   surahNumber: number;
@@ -50,6 +62,24 @@ export async function fetchAyahAudioMetadata(params: {
   const cleanAyah = String(ayahNumber).split('-')[0].trim();
   if (!cleanAyah) return { status: 'unavailable' };
 
+  const cacheKey = `${surahNumber}:${cleanAyah}:${(language || 'en').toLowerCase()}:${type}:${params.source || ''}:${ayahId || ''}`;
+  const now = Date.now();
+
+  if (signal?.aborted) {
+    return { status: 'unavailable', message: 'Aborted' };
+  }
+
+  const cached = METADATA_IN_MEMORY_CACHE.get(cacheKey);
+  if (cached && now - cached.timestamp < CLIENT_METADATA_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  // Deduplicate concurrent in-flight requests for identical parameters
+  const existingInFlight = METADATA_IN_FLIGHT_REQUESTS.get(cacheKey);
+  if (existingInFlight && !signal?.aborted) {
+    return existingInFlight;
+  }
+
   const queryParams = new URLSearchParams({
     surah: String(surahNumber),
     verse: cleanAyah,
@@ -65,27 +95,53 @@ export async function fetchAyahAudioMetadata(params: {
     queryParams.set('ayahId', ayahId.trim());
   }
 
-  try {
-    const res = await fetch(`/api/ayah-audio/metadata?${queryParams.toString()}`, {
-      signal,
-    });
-    if (!res.ok) {
+  const fetchPromise = (async (): Promise<StoredAudioMetadata> => {
+    try {
+      const res = await fetch(`/api/ayah-audio/metadata?${queryParams.toString()}`, {
+        signal,
+      });
+      if (!res.ok) {
+        return {
+          status: 'unavailable',
+          message: `HTTP error ${res.status} resolving audio stream`,
+        };
+      }
+
+      const data = (await res.json()) as StoredAudioMetadata;
+      if (data.record && (data.record.languageCode !== language || data.record.audioType !== type)) {
+        return { status: 'unavailable' };
+      }
+
+      // Cache positive response in client memory
+      if (data.status === 'available') {
+        if (METADATA_IN_MEMORY_CACHE.size >= MAX_CLIENT_METADATA_CACHE) {
+          const oldestKey = METADATA_IN_MEMORY_CACHE.keys().next().value;
+          if (oldestKey) METADATA_IN_MEMORY_CACHE.delete(oldestKey);
+        }
+        METADATA_IN_MEMORY_CACHE.set(cacheKey, { data, timestamp: now });
+      }
+
+      return data;
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        return { status: 'unavailable', message: 'Aborted' };
+      }
+      console.warn('Network error resolving audio metadata:', err);
       return {
         status: 'unavailable',
-        message: `HTTP error ${res.status} resolving audio stream`,
+        message: 'Network error connecting to audio resolver service.',
       };
     }
+  })();
 
-    const data = (await res.json()) as StoredAudioMetadata;
-    if (data.record && (data.record.languageCode !== language || data.record.audioType !== type)) return { status: 'unavailable' };
-    return data;
-  } catch (err) {
-    console.warn('Network error resolving audio metadata:', err);
-    return {
-      status: 'unavailable',
-      message: 'Network error connecting to audio resolver service.',
-    };
+  if (!signal?.aborted) {
+    METADATA_IN_FLIGHT_REQUESTS.set(cacheKey, fetchPromise);
+    fetchPromise.finally(() => {
+      METADATA_IN_FLIGHT_REQUESTS.delete(cacheKey);
+    });
   }
+
+  return fetchPromise;
 }
 
 /**

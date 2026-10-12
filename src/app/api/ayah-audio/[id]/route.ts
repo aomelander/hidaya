@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getInternalAyahAudioRecord } from '../../../../lib/audio/ayahAudioServerService';
 import { extractZipStoredMember } from '../../../../lib/audio/zipExtractor';
 
+import { resolveArchiveUrl } from '../../../../config/audioConfig';
+
 export const dynamic = 'force-dynamic';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -46,7 +48,7 @@ export async function GET(
   try {
     // 2. Extract ZIP_STORED member safely from release archive
     const audioBuffer = await extractZipStoredMember(
-      record.archive_url,
+      resolveArchiveUrl(record.archive_url),
       record.archive_member
     );
 

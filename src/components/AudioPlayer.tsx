@@ -122,6 +122,8 @@ const PLAYER_STRINGS: Record<
     playingTranslation: string;
     playingTafsir: string;
     neuralAudioBadge: string;
+    retryLabel: string;
+    loadingAudio: string;
   }
 > = {
   en: {
@@ -151,6 +153,8 @@ const PLAYER_STRINGS: Record<
     playingTranslation: 'Reading Certified Translation',
     playingTafsir: 'Explaining Classical Tafsir',
     neuralAudioBadge: 'Neural Audio',
+    retryLabel: 'Retry',
+    loadingAudio: 'Loading audio...',
   },
   sv: {
     verseLabel: 'Vers',
@@ -179,6 +183,8 @@ const PLAYER_STRINGS: Record<
     playingTranslation: 'Läser översättning',
     playingTafsir: 'Förklarar Tafsir',
     neuralAudioBadge: 'Neural röst',
+    retryLabel: 'Försök igen',
+    loadingAudio: 'Laddar ljud...',
   },
   fr: {
     verseLabel: 'Verset',
@@ -207,6 +213,8 @@ const PLAYER_STRINGS: Record<
     playingTranslation: 'Lecture traduction',
     playingTafsir: 'Explication Tafsir',
     neuralAudioBadge: 'Audio neuronal',
+    retryLabel: 'Réessayer',
+    loadingAudio: 'Chargement audio...',
   },
   ar: {
     verseLabel: 'الآية',
@@ -235,6 +243,8 @@ const PLAYER_STRINGS: Record<
     playingTranslation: 'قراءة الترجمة المعتمدة',
     playingTafsir: 'بيان التفسير المأثور',
     neuralAudioBadge: 'تسجيل صوتي',
+    retryLabel: 'إعادة المحاولة',
+    loadingAudio: 'جاري تحميل الصوت...',
   },
 };
 
@@ -276,6 +286,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [activePhase, setActivePhase] = useState<ActivePhase>('idle');
   const [reciterId, setReciterId] = useState<ReciterId>(() => StorageService.getPreferredReciter());
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -638,79 +649,63 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (defaultIncludeTafsir !== undefined) setIncludeTafsirInRead(defaultIncludeTafsir);
   }, [defaultIncludeTafsir]);
 
-  // Pre-fetch audio URL into in-memory Blob ObjectURL and CacheStorage for instant 0ms playback & offline resilience
-  const prefetchUrlToBlob = useCallback((url: string) => {
-    if (!url) return;
-    // Proactive CacheStorage caching (N+1)
-    void OfflineCacheService.cacheVerseAudio(url);
-
-    if (blobUrlCacheRef.current.has(url)) return;
-    fetch(url, { method: 'GET' })
-      .then((res) => (res.ok ? res.blob() : null))
-      .then((blob) => {
-        if (blob && blob.size > 0 && !blobUrlCacheRef.current.has(url)) {
-          const objUrl = URL.createObjectURL(blob);
-          blobUrlCacheRef.current.set(url, objUrl);
-        }
-      })
-      .catch(() => {});
+  const isDataSaver = useMemo(() => {
+    if (typeof navigator !== 'undefined' && 'connection' in navigator) {
+      return Boolean((navigator as any).connection?.saveData);
+    }
+    return false;
   }, []);
 
-  // Pre-warm/cache Recitation, Translation, and Tafsir audio so transitions have zero lag
-  const warmUpQueuedPhases = useCallback(() => {
-    recitationUrls.forEach((u) => prefetchUrlToBlob(u));
-    if (includeTranslationInRead && hasTranslationText) {
-      const transUrls =
-        translationMetadata?.audioUrls ||
-        (translationMetadata?.record?.audioUrl ? [translationMetadata.record.audioUrl] : []);
-      if (transUrls.length > 0) {
-        transUrls.forEach((u) => prefetchUrlToBlob(u));
-      } else {
-        void SpeechService.prefetchAudio(translationText, language).then((tier) => {
-          setTranslationFallbackTier(tier === 'server' ? 'Server' : (null as any));
-        });
+  // Pre-cache single track into Service Worker CacheStorage without double-downloading or JS heap bloat
+  const prefetchSingleTrack = useCallback((url: string) => {
+    if (!url || isDataSaver) return;
+    void OfflineCacheService.cacheVerseAudio(url);
+  }, [isDataSaver]);
+
+  // Pre-warm only the next likely phase (priority on current track, selective preloading)
+  const warmUpNextPhase = useCallback(() => {
+    if (isDataSaver) return;
+    if (activePhase === 'recitation' || activePhase === 'idle') {
+      if (includeTranslationInRead && hasTranslationText) {
+        const transUrl = translationMetadata?.record?.audioUrl || translationMetadata?.audioUrls?.[0];
+        if (transUrl) prefetchSingleTrack(transUrl);
+      } else if (includeTafsirInRead && hasTafsirText) {
+        const tafUrl = tafsirMetadata?.record?.audioUrl || tafsirMetadata?.audioUrls?.[0];
+        if (tafUrl) prefetchSingleTrack(tafUrl);
+      } else if (nextVerseAudioUrl) {
+        prefetchSingleTrack(nextVerseAudioUrl);
       }
-    }
-    if (includeTafsirInRead && hasTafsirText) {
-      const tafUrls =
-        tafsirMetadata?.audioUrls ||
-        (tafsirMetadata?.record?.audioUrl ? [tafsirMetadata.record.audioUrl] : []);
-      if (tafUrls.length > 0) {
-        tafUrls.forEach((u) => prefetchUrlToBlob(u));
-      } else {
-        void SpeechService.prefetchAudio(tafsirText, effectiveTafsirLang).then((tier) => {
-          setTafsirFallbackTier(tier === 'server' ? 'Server' : (null as any));
-        });
+    } else if (activePhase === 'translation') {
+      if (includeTafsirInRead && hasTafsirText) {
+        const tafUrl = tafsirMetadata?.record?.audioUrl || tafsirMetadata?.audioUrls?.[0];
+        if (tafUrl) prefetchSingleTrack(tafUrl);
+      } else if (nextVerseAudioUrl) {
+        prefetchSingleTrack(nextVerseAudioUrl);
       }
-    }
-    // Proactively pre-cache Next Verse (N+1) Recitation and Translation in memory & CacheStorage
-    if (nextVerseAudioUrl) {
-      prefetchUrlToBlob(nextVerseAudioUrl);
-    }
-    if (nextVerseTranslationText) {
-      void SpeechService.prefetchAudio(nextVerseTranslationText, language);
+    } else if (activePhase === 'tafsir') {
+      if (nextVerseAudioUrl) {
+        prefetchSingleTrack(nextVerseAudioUrl);
+      }
     }
   }, [
-    recitationUrls,
-    prefetchUrlToBlob,
+    isDataSaver,
+    activePhase,
     includeTranslationInRead,
     hasTranslationText,
     translationMetadata,
-    translationText,
-    language,
     includeTafsirInRead,
     hasTafsirText,
     tafsirMetadata,
-    tafsirText,
-    effectiveTafsirLang,
     nextVerseAudioUrl,
-    nextVerseTranslationText,
+    prefetchSingleTrack,
   ]);
 
-  // Proactively pre-warm as soon as metadata resolves (even before Play is tapped) and when playing
+  // Selectively pre-warm the next track only when actively playing to conserve bandwidth
   useEffect(() => {
-    warmUpQueuedPhases();
-  }, [translationMetadata, tafsirMetadata, includeTranslationInRead, includeTafsirInRead, warmUpQueuedPhases]);
+    if (isPlaying) {
+      warmUpNextPhase();
+    }
+  }, [isPlaying, warmUpNextPhase]);
 
   // iOS Lock-Screen MediaSession + Screen WakeLock for uninterrupted continuous playback when iPhone sleeps
   useEffect(() => {
@@ -803,24 +798,59 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     audio.muted = isMuted;
     setActivePhase(phase);
     setIsPlaying(true);
+    setIsLoadingAudio(true);
     onPlayingStateChange?.(true);
     onPlaybackProgress?.(0, true, phase);
     setHasPlaybackError(false);
     setPlaybackNotice(null);
-    if (phase === 'recitation') {
-      warmUpQueuedPhases();
-    }
-    void audio.play().catch((error) => {
+    warmUpNextPhase();
+
+    void audio.play().then(() => {
+      if (request === playSeqRef.current) {
+        setIsLoadingAudio(false);
+      }
+    }).catch((error) => {
       if (request !== playSeqRef.current) return;
+      setIsLoadingAudio(false);
       if (error?.name === 'NotAllowedError') {
         setIsPlaying(false);
         onPlayingStateChange?.(false);
         setPlaybackNotice('blocked');
         return;
       }
+      if (error?.name === 'AbortError') {
+        // Interrupted by rapid track switching or pause; do not show failure
+        return;
+      }
       setHasPlaybackError(true);
       stopPlayback();
     });
+  };
+
+  // Sync playback state when returning from mobile browser background
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && audioRef.current) {
+        if (audioRef.current.paused && isPlaying) {
+          setIsPlaying(false);
+          setIsLoadingAudio(false);
+          onPlayingStateChange?.(false);
+          onPlaybackProgress?.(duration > 0 ? currentTime / duration : 0, false, activePhase);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isPlaying, currentTime, duration, activePhase, onPlayingStateChange, onPlaybackProgress]);
+
+  const retryPlayback = () => {
+    setHasPlaybackError(false);
+    setPlaybackNotice(null);
+    if (activePhase !== 'idle' && audioRef.current?.src) {
+      playUrl(audioRef.current.src, activePhase);
+    } else {
+      togglePlay();
+    }
   };
 
   const playTafsirStep = () => {
@@ -1177,8 +1207,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           preload="metadata"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
+          onWaiting={() => setIsLoadingAudio(true)}
+          onCanPlay={() => setIsLoadingAudio(false)}
+          onPlaying={() => {
+            setIsLoadingAudio(false);
+            setHasPlaybackError(false);
+          }}
           onEnded={handleEnded}
           onError={() => {
+            setIsLoadingAudio(false);
             if (activePhase === 'idle') return;
             setHasPlaybackError(true);
             if (activePhase === 'translation' && includeTafsirInRead) playTafsirStep();
@@ -1200,8 +1237,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         preload="metadata"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
+        onWaiting={() => setIsLoadingAudio(true)}
+        onCanPlay={() => setIsLoadingAudio(false)}
+        onPlaying={() => {
+          setIsLoadingAudio(false);
+          setHasPlaybackError(false);
+        }}
         onEnded={handleEnded}
         onError={() => {
+          setIsLoadingAudio(false);
           if (activePhase === 'idle') return;
           setHasPlaybackError(true);
           if (activePhase === 'translation' && includeTafsirInRead) playTafsirStep();
@@ -1425,9 +1469,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       )}
 
       {hasPlaybackError && (
-        <div className="flex items-center gap-1.5 p-2 rounded-xl bg-red-500/10 border border-red-500/25 text-xs text-red-800 dark:text-red-300">
-          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-600" />
-          <span>{p.errorLabel}</span>
+        <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-red-500/10 border border-red-500/25 text-xs text-red-800 dark:text-red-300">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-600" />
+            <span>{p.errorLabel}</span>
+          </div>
+          <button
+            type="button"
+            onClick={retryPlayback}
+            className="px-2 py-0.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-900 dark:text-red-200 font-semibold cursor-pointer transition-colors"
+          >
+            {p.retryLabel}
+          </button>
         </div>
       )}
 
@@ -1449,9 +1502,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             type="button"
             onClick={togglePlay}
             className="flex items-center justify-center w-10 h-10 rounded-full text-white shadow-sm transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer bg-emerald-800 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600"
-            aria-label={isPlaying ? p.pauseLabel : p.playLabel}
+            aria-label={isLoadingAudio ? p.loadingAudio : isPlaying ? p.pauseLabel : p.playLabel}
           >
-            {isPlaying ? (
+            {isLoadingAudio ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : isPlaying ? (
               <Pause className="w-5 h-5 fill-current" />
             ) : (
               <Play className="w-5 h-5 fill-current ms-0.5" />

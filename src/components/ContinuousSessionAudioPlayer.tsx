@@ -556,6 +556,9 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
                 setPlaybackNotice('blocked');
                 return;
               }
+              if ((error as DOMException)?.name === 'AbortError') {
+                return;
+              }
               cleanup();
               fallbackSpeak();
             }

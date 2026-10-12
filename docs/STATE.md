@@ -372,9 +372,26 @@ Implemented the comprehensive UX/UI redesign and accessibility enhancement acros
 4. **Tafsir Scholar Dropdown Selection**:
    - Replaced the previous fixed header div inside the Tafsir section with a clean, accessible `<select>` dropdown menu allowing readers to immediately switch between all available scholars (`availableCitations`).
    - Persisted scholar preference changes via `StorageService.setPreferredScholar`.
-5. **Verification**:
-   - `npm run typecheck` & `npm run lint`: 0 errors.
-   - `npm test`: 10/10 test suites passed.
+## 2026-10-12 — Milestone 60: Phase 3 Fast & Reliable Audio, In-Flight Deduplication & Memory-Bounded Caching
+
+1. **Phase 2 Completion & Sanctuary Layout Polish**:
+   - VerseCard and AudioPlayer headless audio-first architecture confirmed with no layout regressions.
+   - Preserved full audio controls, offline toggling, loop state, and multi-phase progression across Arabic Recitation, Human Translation, and Classical Tafsir.
+2. **Audio Latency Diagnostics & Measured Benchmark**:
+   - In-memory metadata & record lookups resolve in **0ms** (down from ~18ms simulated network, and hundreds of ms on live cold connection).
+   - In-flight request deduplication prevents redundant parallel network fetches for both ZIP Central Directories and extracted MP3 audio members.
+3. **HTTP Range & Seeking Verification**:
+   - Verified HTTP 206 Partial Content range requests, open-ended seeking (`bytes=50000-`), byte slices, and 416 range boundary rejection.
+   - Service Worker `hidaya-audio-v3` handles offline range slicing seamlessly with zero JavaScript heap bloat.
+4. **Resilience & Autoplay Safeguards**:
+   - Handled browser autoplay blocks gracefully with user-actionable notifications (`playbackNotice === 'blocked'`).
+   - Handled rapid track switching and `AbortError` cancellations without unhandled rejections or overlapping audio streams.
+   - Synchronized mobile background visibility (`visibilitychange`) with audio playback status.
+5. **Centralized Audio Source Configuration**:
+   - Isolated CDN hosts and fallback policies in `src/config/audioConfig.ts` with zero credentials or paid external services.
+6. **Verification**:
+   - `npm test`: Ayah Audio (9/9), Audit (10/10), and Fast & Reliable Audio Phase 3 (6/6) tests passed.
+   - `npm run lint` & `tsc --noEmit`: 0 errors.
    - Production compilation verified via `compile_applet`.
 
 

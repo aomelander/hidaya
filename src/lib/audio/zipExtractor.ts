@@ -38,11 +38,13 @@ const MAX_REDIRECTS = 5;
 const MAX_CACHED_CD_ARCHIVES = 30;
 const CD_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const CD_CACHE = new Map<string, CachedCentralDirectory>();
+const IN_FLIGHT_CD_FETCHES = new Map<string, Promise<CachedCentralDirectory>>();
 
 const MAX_CACHED_MP3_ENTRIES = 24;
 const MAX_CACHED_MP3_TOTAL_BYTES = 25 * 1024 * 1024; // 25 MB total across cached MP3s
 const MP3_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const MP3_CACHE = new Map<string, CachedMp3Entry>();
+const IN_FLIGHT_MEMBER_EXTRACTIONS = new Map<string, Promise<Buffer>>();
 let currentMp3CacheBytes = 0;
 
 const ALLOWED_ARCHIVE_HOSTS = new Set([
@@ -56,6 +58,8 @@ const ALLOWED_ARCHIVE_HOSTS = new Set([
 export function clearZipExtractorCaches(): void {
   CD_CACHE.clear();
   MP3_CACHE.clear();
+  IN_FLIGHT_CD_FETCHES.clear();
+  IN_FLIGHT_MEMBER_EXTRACTIONS.clear();
   currentMp3CacheBytes = 0;
 }
 
@@ -692,16 +696,22 @@ async function getOrFetchCentralDirectory(
 ): Promise<CachedCentralDirectory> {
   const now = Date.now();
   const cached = CD_CACHE.get(archiveUrl);
-  if (cached && now - cached.timestamp < CD_CACHE_TTL_MS && fetchImpl === fetch) {
+  if (cached && now - cached.timestamp < CD_CACHE_TTL_MS) {
     return cached;
   }
 
-  // Step 1: Fetch final up-to-65,557 bytes
-  const {
-    buffer: tailBuffer,
-    contentRange: tailRange,
-    resolvedUrl,
-  } = await fetchArchiveTail(archiveUrl, fetchImpl);
+  const inFlight = fetchImpl === fetch ? IN_FLIGHT_CD_FETCHES.get(archiveUrl) : undefined;
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const fetchPromise = (async () => {
+    // Step 1: Fetch final up-to-65,557 bytes
+    const {
+      buffer: tailBuffer,
+      contentRange: tailRange,
+      resolvedUrl,
+    } = await fetchArchiveTail(archiveUrl, fetchImpl);
 
   const archiveSize = tailRange.total;
   const tailStartOffset = tailRange.start;
@@ -755,7 +765,19 @@ async function getOrFetchCentralDirectory(
     if (JSON.stringify([...members]).length * 2 <= 16 * 1024 * 1024) CD_CACHE.set(archiveUrl, entry);
   }
 
-  return entry;
+    return entry;
+  })();
+
+  if (fetchImpl === fetch) {
+    IN_FLIGHT_CD_FETCHES.set(archiveUrl, fetchPromise);
+    fetchPromise
+      .catch(() => {})
+      .finally(() => {
+        IN_FLIGHT_CD_FETCHES.delete(archiveUrl);
+      });
+  }
+
+  return fetchPromise;
 }
 
 /**
@@ -784,19 +806,22 @@ export async function extractZipStoredMember(
   const cacheKey = `${archiveUrl}::${memberPath}`;
   const now = Date.now();
 
-  if (!customFetch) {
-    const cachedMp3 = MP3_CACHE.get(cacheKey);
-    if (cachedMp3 && now - cachedMp3.timestamp < MP3_CACHE_TTL_MS) {
-      return cachedMp3.buffer;
-    }
+  const cachedMp3 = MP3_CACHE.get(cacheKey);
+  if (cachedMp3 && now - cachedMp3.timestamp < MP3_CACHE_TTL_MS) {
+    return cachedMp3.buffer;
+  }
+  const inFlight = IN_FLIGHT_MEMBER_EXTRACTIONS.get(cacheKey);
+  if (inFlight) {
+    return inFlight;
   }
 
-  // 1. Locate Central Directory via HTTP Range
-  const cdIndex = await getOrFetchCentralDirectory(archiveUrl, fetchImpl);
-  const memberEntry = cdIndex.members.get(memberPath);
-  if (!memberEntry) {
-    throw new Error(`Member "${memberPath}" not found in archive`);
-  }
+  const extractionPromise = (async () => {
+    // 1. Locate Central Directory via HTTP Range
+    const cdIndex = await getOrFetchCentralDirectory(archiveUrl, fetchImpl);
+    const memberEntry = cdIndex.members.get(memberPath);
+    if (!memberEntry) {
+      throw new Error(`Member "${memberPath}" not found in archive`);
+    }
 
   validateMemberEntryMetadata(memberPath, memberEntry, cdIndex.archiveSize);
 
@@ -873,32 +898,40 @@ export async function extractZipStoredMember(
   }
 
   // 5. Cache bounded individual MP3 buffer
-  if (!customFetch) {
-    const previous = MP3_CACHE.get(cacheKey);
-    if (previous) { currentMp3CacheBytes -= previous.byteSize; MP3_CACHE.delete(cacheKey); }
-    while (
-      (MP3_CACHE.size >= MAX_CACHED_MP3_ENTRIES ||
-        currentMp3CacheBytes + memberBuffer.length > MAX_CACHED_MP3_TOTAL_BYTES) &&
-      MP3_CACHE.size > 0
-    ) {
-      const oldestKey = MP3_CACHE.keys().next().value;
-      if (!oldestKey) break;
-      const removed = MP3_CACHE.get(oldestKey);
-      if (removed) {
-        currentMp3CacheBytes = Math.max(0, currentMp3CacheBytes - removed.byteSize);
-      }
-      MP3_CACHE.delete(oldestKey);
+  const previous = MP3_CACHE.get(cacheKey);
+  if (previous) { currentMp3CacheBytes -= previous.byteSize; MP3_CACHE.delete(cacheKey); }
+  while (
+    (MP3_CACHE.size >= MAX_CACHED_MP3_ENTRIES ||
+      currentMp3CacheBytes + memberBuffer.length > MAX_CACHED_MP3_TOTAL_BYTES) &&
+    MP3_CACHE.size > 0
+  ) {
+    const oldestKey = MP3_CACHE.keys().next().value;
+    if (!oldestKey) break;
+    const removed = MP3_CACHE.get(oldestKey);
+    if (removed) {
+      currentMp3CacheBytes = Math.max(0, currentMp3CacheBytes - removed.byteSize);
     }
-
-    if (memberBuffer.length <= MAX_CACHED_MP3_TOTAL_BYTES) {
-      MP3_CACHE.set(cacheKey, {
-        buffer: memberBuffer,
-        timestamp: now,
-        byteSize: memberBuffer.length,
-      });
-      currentMp3CacheBytes += memberBuffer.length;
-    }
+    MP3_CACHE.delete(oldestKey);
   }
 
-  return memberBuffer;
+  if (memberBuffer.length <= MAX_CACHED_MP3_TOTAL_BYTES) {
+    MP3_CACHE.set(cacheKey, {
+      buffer: memberBuffer,
+      timestamp: now,
+      byteSize: memberBuffer.length,
+    });
+    currentMp3CacheBytes += memberBuffer.length;
+  }
+
+    return memberBuffer;
+  })();
+
+  IN_FLIGHT_MEMBER_EXTRACTIONS.set(cacheKey, extractionPromise);
+  extractionPromise
+    .catch(() => {})
+    .finally(() => {
+      IN_FLIGHT_MEMBER_EXTRACTIONS.delete(cacheKey);
+    });
+
+  return extractionPromise;
 }
