@@ -10,7 +10,7 @@ export type ExplanationDepth = 'simple' | 'context' | 'tafsir' | 'study';
 
 export type AudioPlaybackMode = 'quran_only' | 'quran_translation' | 'quran_tafsir';
 
-export type PreferredScholar = 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar' | "Al-Sha'rawi";
+export type PreferredScholar = 'Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar' | "Al-Sha'rawi" | (string & {});
 
 export type TafsirSourceType =
   | 'classical_book'
@@ -270,6 +270,16 @@ export interface SocialComment {
 
 export type SequentialReadingScope = 'surah' | '15' | '100';
 
+export interface WordTimestamp {
+  position: number;
+  word_arabic?: string;
+  word?: string;
+  transliteration?: string;
+  translation?: string;
+  start_ms: number;
+  end_ms: number;
+}
+
 export interface VerseCardPreferences {
   showTransliteration: boolean;
   showTranslation: boolean;
@@ -279,6 +289,10 @@ export interface VerseCardPreferences {
   showCreationStudio: boolean;
   showAudioSourceBadge: boolean;
   expertMode: boolean;
+  showWordByWordDuo?: boolean;
+  enableMemorizationMode?: boolean;
+  showThumbRail?: boolean;
+  enableTapGestures?: boolean;
   sequentialReadingScope: SequentialReadingScope;
   autoPlayOnSwipe: boolean;
   loopVerse: boolean;
@@ -287,6 +301,7 @@ export interface VerseCardPreferences {
   includeTafsirByDefault: boolean;
   tvMode: boolean;
 }
+
 
 
 

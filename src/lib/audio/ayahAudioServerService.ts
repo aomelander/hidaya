@@ -6,6 +6,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { WordTimestamp } from '../../types';
 
 export type AudioStreamType = 'translation' | 'tafsir';
 export type AyahAudioStatus = 'available' | 'processing' | 'unavailable';
@@ -19,6 +20,7 @@ export interface SafeAyahAudioRecord {
   voice?: string;
   durationSeconds?: number;
   attribution?: any;
+  timestamps?: WordTimestamp[];
 }
 
 export interface AyahAudioLookupResult {
@@ -294,18 +296,32 @@ export async function lookupAyahAudio(params: {
   const supabase = getServerSupabaseClient();
   if (supabase) {
     try {
-      const { data, error } = await supabase
+      let queryResult = await supabase
         .from('ayah_audio')
-        .select('id, ayah_id, language_code, audio_type, voice, duration_seconds, attribution')
+        .select('id, ayah_id, language_code, audio_type, voice, duration_seconds, attribution, timestamps_jsonb')
         .eq('ayah_id', ayahId)
         .eq('language_code', languageCode.toLowerCase())
         .eq('audio_type', audioType)
         .order('created_at', { ascending: false })
         .limit(100);
 
+      // Graceful fallback if timestamps_jsonb column is not yet migrated in the target database
+      if (queryResult.error && String(queryResult.error.message || '').includes('timestamps_jsonb')) {
+        queryResult = await supabase
+          .from('ayah_audio')
+          .select('id, ayah_id, language_code, audio_type, voice, duration_seconds, attribution')
+          .eq('ayah_id', ayahId)
+          .eq('language_code', languageCode.toLowerCase())
+          .eq('audio_type', audioType)
+          .order('created_at', { ascending: false })
+          .limit(100) as any;
+      }
+
+      const { data, error } = queryResult;
+
       if (!error && data && data.length > 0) {
         // 1. Try to find candidate matching the requested source/scholar
-        let row = data.find((candidate) => {
+        let row: any = data.find((candidate: any) => {
           return candidate.ayah_id === ayahId &&
             candidate.language_code === languageCode.toLowerCase() &&
             candidate.audio_type === audioType &&
@@ -316,7 +332,7 @@ export async function lookupAyahAudio(params: {
         // but that specific scholar is not recorded for this ayah, fall back to any available
         // verified classical tafsir recording available for that ayah in the target language.
         if (!row && audioType === 'tafsir' && isKnownClassicalScholar(params.source)) {
-          row = data.find((candidate) => {
+          row = data.find((candidate: any) => {
             return candidate.ayah_id === ayahId &&
               candidate.language_code === languageCode.toLowerCase() &&
               candidate.audio_type === audioType;
@@ -325,7 +341,7 @@ export async function lookupAyahAudio(params: {
 
         // 3. Fallback for translation: if source was loosely specified and only one translation recording exists
         if (!row && audioType === 'translation' && data.length === 1) {
-          const onlyRow = data[0];
+          const onlyRow: any = data[0];
           if (onlyRow.ayah_id === ayahId && onlyRow.language_code === languageCode.toLowerCase() && onlyRow.audio_type === audioType) {
             row = onlyRow;
           }
@@ -345,6 +361,10 @@ export async function lookupAyahAudio(params: {
           ? row.attribution.work_title
           : undefined;
 
+        const parsedTimestamps: WordTimestamp[] | undefined = Array.isArray(row.timestamps_jsonb) && row.timestamps_jsonb.length > 0
+          ? row.timestamps_jsonb
+          : undefined;
+
         return {
           status: 'available',
           record: {
@@ -359,6 +379,7 @@ export async function lookupAyahAudio(params: {
               source: attSource,
               scholar: attScholar,
             },
+            timestamps: parsedTimestamps,
           },
         };
       }

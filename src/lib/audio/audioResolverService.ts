@@ -1,4 +1,5 @@
 import { saveAudio } from './boundedAudioCache';
+import { WordTimestamp } from '../../types';
 /**
  * @file src/lib/audio/audioResolverService.ts
  * @description Client-safe audio resolver service for stored neural translation & tafsir audio.
@@ -21,6 +22,7 @@ export interface StoredAudioMetadata {
     voice?: string;
     durationSeconds?: number;
     attribution?: any;
+    timestamps?: WordTimestamp[];
   };
   message?: string;
 }

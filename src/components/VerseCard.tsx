@@ -38,6 +38,8 @@ import {
   Send,
   Play,
   Pause,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import {
   QuranVerseFixture,
@@ -50,6 +52,7 @@ import {
   TafsirCitation,
   SocialComment,
   VerseCardPreferences,
+  WordTimestamp,
 } from '../types';
 import { AudioPlayer, AudioSourceTier } from './AudioPlayer';
 import { StorageService } from '../services/storage';
@@ -58,6 +61,14 @@ import { getAgeAdaptiveContent } from '../data/ageAdaptiveContent';
 import { ScholarProvenanceModal } from './ScholarProvenanceModal';
 import { AyahCartouche } from './AyahCartouche';
 import { SocialCreationStudio } from './SocialCreationStudio';
+import { VerseWordByWordView } from './audio/VerseWordByWordView';
+import { VerseMemorizationView } from './audio/VerseMemorizationView';
+import { ThumbActionRail } from './mobile/ThumbActionRail';
+import {
+  resolveArabicVerseWordTimestamps,
+  findActiveWordIndexByMs,
+  buildWeightedWordTimestamps,
+} from '../lib/audio/wordTimestampsResolver';
 
 import { expandPassage, PassageSelection, visibleVerseNumbers } from '../services/passageSelection';
 
@@ -446,6 +457,43 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const [newCommentMood, setNewCommentMood] = useState<ReflectionMood | undefined>(undefined);
   const [showStudio, setShowStudio] = useState(false);
   const [sharedSuccess, setSharedSuccess] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const [muteNotice, setMuteNotice] = useState<'muted' | 'unmuted' | null>(null);
+  const [showHeartBurst, setShowHeartBurst] = useState(false);
+
+  // Sync global mute state
+  useEffect(() => {
+    const handleMuteChange = (e: Event) => {
+      const muted = (e as CustomEvent)?.detail?.isMuted;
+      if (typeof muted === 'boolean') {
+        setIsAudioMuted(muted);
+      }
+    };
+    window.addEventListener('hidaya-mute-state', handleMuteChange);
+    return () => window.removeEventListener('hidaya-mute-state', handleMuteChange);
+  }, []);
+
+  const triggerGlobalMute = () => {
+    const nextMuted = !isAudioMuted;
+    setIsAudioMuted(nextMuted);
+    setMuteNotice(nextMuted ? 'muted' : 'unmuted');
+    setTimeout(() => setMuteNotice(null), 1000);
+    window.dispatchEvent(
+      new CustomEvent('hidaya-global-toggle-play', {
+        detail: { action: 'toggle-mute' },
+      })
+    );
+  };
+
+  const triggerHaptic = (pattern: number | number[] = 15) => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(pattern);
+      } catch {
+        // Ignore haptic errors
+      }
+    }
+  };
 
   useEffect(() => {
     setSocialComments(StorageService.getSocialComments(verse.id));
@@ -465,24 +513,13 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     setSocialComments(updated);
   };
 
-  const handleShare = async () => {
-    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
-    const shareText = `« ${verse.arabicText} »\n— ${localizedDetails.surahPrefix} ${localizedDetails.surahNameDisplay} (${verse.id})\n${shareUrl}`;
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title: `Hidaya — ${localizedDetails.surahNameDisplay} (${verse.id})`,
-          text: shareText,
-          url: shareUrl,
-        });
-        return;
-      } catch (err: any) {
-        if (err?.name === 'AbortError') return;
-      }
-    }
-    navigator.clipboard?.writeText(shareText);
-    setSharedSuccess(true);
-    setTimeout(() => setSharedSuccess(false), 2000);
+  const handleShare = () => {
+    setShowStudio((prev) => !prev);
+    triggerHaptic(15);
+    setTimeout(() => {
+      const studioEl = cardRef.current?.querySelector('[data-creation-studio="true"]');
+      studioEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 80);
   };
 
   // DOM Refs for Smart Teleprompter Auto-Scroll
@@ -496,14 +533,19 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   const includeAfter = Boolean(selection.after);
   const expandedPassage = useMemo(() => expandPassage(verse, selection), [verse, selection]);
 
-  // Word-by-word recitation & translation sync state
+  // Word-by-word recitation & translation sync state (with exact millisecond timestamps)
   const [playbackRatio, setPlaybackRatio] = useState(0);
+  const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [isReciting, setIsReciting] = useState(false);
   const [playbackPhase, setPlaybackPhase] = useState<'recitation' | 'translation' | 'tafsir' | 'idle'>('idle');
   const [audioSources, setAudioSources] = useState<{
     translation: AudioSourceTier | null;
     tafsir: AudioSourceTier | null;
+    translationTimestamps?: WordTimestamp[];
+    tafsirTimestamps?: WordTimestamp[];
   }>({ translation: null, tafsir: null });
+  const [arabicTimestamps, setArabicTimestamps] = useState<WordTimestamp[]>([]);
+  const [hasExactArabicTimestamps, setHasExactArabicTimestamps] = useState(false);
 
   // Preferred scholar & provenance modal state
   const [selectedScholar, setSelectedScholar] = useState<string>(preferredScholar);
@@ -525,29 +567,91 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     }
   }, [playbackPhase, isReciting]);
 
-  // Touch Swipe Gesture Detection (Swipe Left = Next Verse, Swipe Right = Previous Verse)
+  // Touch & Tap Gesture Detection:
+  // - Horizontal Swipe: Left/Right to advance to Next/Previous Ayah (with haptic feedback)
+  // - Single-Tap: Instant Mute / Unmute (Instagram / TikTok Reels behavior)
+  // - Double-Tap: Instant Like (♥) with Instagram-style bursting heart animation & haptic pulse
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
+  const touchStartTime = useRef<number>(0);
+  const lastTapTimeRef = useRef<number>(0);
+  const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
+    touchStartTime.current = Date.now();
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null || touchStartY.current === null) return;
     const deltaX = e.changedTouches[0].clientX - touchStartX.current;
     const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    const duration = Date.now() - touchStartTime.current;
     touchStartX.current = null;
     touchStartY.current = null;
 
-    if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4) {
+    // Check if user tapped an interactive element (buttons, inputs, cartouche, word blocks)
+    const target = e.target as HTMLElement | null;
+    const isInteractive = Boolean(
+      target?.closest('button') ||
+      target?.closest('input') ||
+      target?.closest('textarea') ||
+      target?.closest('a') ||
+      target?.closest('[role="button"]') ||
+      target?.closest('[role="listitem"]')
+    );
+
+    // 1. Horizontal swipe gesture
+    if (Math.abs(deltaX) > 55 && Math.abs(deltaX) > Math.abs(deltaY) * 1.35) {
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
+      }
+      triggerHaptic(18);
       const isRtl = language === 'ar';
       const isNext = isRtl ? deltaX > 0 : deltaX < 0;
       if (isNext) {
         onNextVerse?.();
       } else {
         onPreviousVerse?.();
+      }
+      return;
+    }
+
+    // 2. Tap Gestures (if enabled in cardPreferences and not on interactive buttons)
+    if (
+      cardPrefs.enableTapGestures !== false &&
+      !isInteractive &&
+      Math.abs(deltaX) < 15 &&
+      Math.abs(deltaY) < 15 &&
+      duration < 320
+    ) {
+      const now = Date.now();
+      const timeSinceLastTap = now - lastTapTimeRef.current;
+
+      if (timeSinceLastTap < 300) {
+        // Double-tap detected: Like with Instagram heart animation
+        if (tapTimeoutRef.current) {
+          clearTimeout(tapTimeoutRef.current);
+          tapTimeoutRef.current = null;
+        }
+        lastTapTimeRef.current = 0;
+        triggerHaptic([20, 50, 20]);
+        if (!isBookmarked) {
+          onToggleBookmark(verse.id);
+        }
+        setShowHeartBurst(true);
+        setTimeout(() => setShowHeartBurst(false), 900);
+      } else {
+        // Potential single-tap: Wait 280ms before executing Mute/Unmute
+        lastTapTimeRef.current = now;
+        if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = setTimeout(() => {
+          lastTapTimeRef.current = 0;
+          triggerHaptic(12);
+          triggerGlobalMute();
+        }, 280);
       }
     }
   };
@@ -794,17 +898,79 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     [translationObj?.text]
   );
 
+  // Resolve exact millisecond word timestamps & word-by-word phonetics/meaning for Arabic recitation
+  useEffect(() => {
+    let cancelled = false;
+    const reciterId = StorageService.getPreferredReciter();
+    resolveArabicVerseWordTimestamps({
+      surahNumber: verse.surahNumber,
+      verseNumber: effectiveVerseNumberStr,
+      reciterId,
+      language,
+      fallbackArabicText: combinedArabicText,
+      fallbackTransliteration: verse.transliteration || '',
+    }).then((res) => {
+      if (!cancelled) {
+        setArabicTimestamps(res.words);
+        setHasExactArabicTimestamps(res.isExact);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [verse.surahNumber, effectiveVerseNumberStr, language, combinedArabicText, verse.transliteration]);
+
   const activeWordIndex = useMemo(() => {
     if (!isReciting || playbackPhase !== 'recitation' || totalArabicWordsCount === 0) return -1;
+    // Use exact millisecond timestamp matching when available and single-verse scope matches
+    if (
+      hasExactArabicTimestamps &&
+      arabicTimestamps.length > 0 &&
+      currentTimeMs > 0 &&
+      !includeBefore &&
+      !includeAfter
+    ) {
+      const exactIdx = findActiveWordIndexByMs(arabicTimestamps, currentTimeMs);
+      if (exactIdx >= 0) {
+        return Math.min(totalArabicWordsCount - 1, exactIdx);
+      }
+    }
     const idx = Math.floor(playbackRatio * totalArabicWordsCount);
     return Math.min(totalArabicWordsCount - 1, Math.max(0, idx));
-  }, [isReciting, playbackPhase, playbackRatio, totalArabicWordsCount]);
+  }, [
+    isReciting,
+    playbackPhase,
+    playbackRatio,
+    totalArabicWordsCount,
+    hasExactArabicTimestamps,
+    arabicTimestamps,
+    currentTimeMs,
+    includeBefore,
+    includeAfter,
+  ]);
 
   const activeTranslationWordIndex = useMemo(() => {
     if (!isReciting || playbackPhase !== 'translation' || translationWords.length === 0) return -1;
+    if (
+      audioSources.translationTimestamps &&
+      audioSources.translationTimestamps.length > 0 &&
+      currentTimeMs > 0
+    ) {
+      const exactIdx = findActiveWordIndexByMs(audioSources.translationTimestamps, currentTimeMs);
+      if (exactIdx >= 0) {
+        return Math.min(translationWords.length - 1, exactIdx);
+      }
+    }
     const idx = Math.floor(playbackRatio * translationWords.length);
     return Math.min(translationWords.length - 1, Math.max(0, idx));
-  }, [isReciting, playbackPhase, playbackRatio, translationWords.length]);
+  }, [
+    isReciting,
+    playbackPhase,
+    playbackRatio,
+    translationWords.length,
+    audioSources.translationTimestamps,
+    currentTimeMs,
+  ]);
 
   const handleCopy = () => {
     const translationPortion = translationObj?.text
@@ -975,9 +1141,51 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
   const activeTafsirWordIndex = useMemo(() => {
     if (!isReciting || playbackPhase !== 'tafsir' || tafsirWords.length === 0) return -1;
+    if (
+      audioSources.tafsirTimestamps &&
+      audioSources.tafsirTimestamps.length > 0 &&
+      currentTimeMs > 0
+    ) {
+      const exactIdx = findActiveWordIndexByMs(audioSources.tafsirTimestamps, currentTimeMs);
+      if (exactIdx >= 0) {
+        return Math.min(tafsirWords.length - 1, exactIdx);
+      }
+    }
     const idx = Math.floor(playbackRatio * tafsirWords.length);
     return Math.min(tafsirWords.length - 1, Math.max(0, idx));
-  }, [isReciting, playbackPhase, playbackRatio, tafsirWords.length]);
+  }, [
+    isReciting,
+    playbackPhase,
+    playbackRatio,
+    tafsirWords.length,
+    audioSources.tafsirTimestamps,
+    currentTimeMs,
+  ]);
+
+  const effectiveDuoTimestamps = useMemo(() => {
+    if (arabicTimestamps.length > 0 && !includeBefore && !includeAfter) {
+      return arabicTimestamps;
+    }
+    const allWords = tokenizedArabicSegments.flatMap((s) => s.words.map((w) => w.word));
+    const translitList = (verse.transliteration || '').trim().split(/\s+/).filter(Boolean);
+    return buildWeightedWordTimestamps(allWords, allWords.length * 650, translitList);
+  }, [arabicTimestamps, includeBefore, includeAfter, tokenizedArabicSegments, verse.transliteration]);
+
+  const hasExactCurrentPhaseTimestamps = useMemo(() => {
+    if (playbackPhase === 'recitation') return hasExactArabicTimestamps;
+    if (playbackPhase === 'translation') {
+      return Boolean(audioSources.translationTimestamps && audioSources.translationTimestamps.length > 0);
+    }
+    if (playbackPhase === 'tafsir') {
+      return Boolean(audioSources.tafsirTimestamps && audioSources.tafsirTimestamps.length > 0);
+    }
+    return false;
+  }, [
+    playbackPhase,
+    hasExactArabicTimestamps,
+    audioSources.translationTimestamps,
+    audioSources.tafsirTimestamps,
+  ]);
 
   // Smart Teleprompter: Keep active line centered smoothly as words wrap and voiceover advances
   useEffect(() => {
@@ -1016,240 +1224,108 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       ref={cardRef}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className={`bg-white dark:bg-[#0B3027] rounded-3xl border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden transition-all ${
+      className={`relative bg-white dark:bg-[#0B3027] rounded-3xl border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden transition-all ${
         cardPrefs.tvMode ? 'p-2 sm:p-4 text-lg' : ''
       }`}
       aria-labelledby={`verse-heading-${verse.id}`}
     >
-      {/* Clean Unboxed Header Row (100% Localized) */}
-      {/* Card Header: Surah metadata and action bar (compact in normal mode, full in expert mode) */}
-      <div className="px-5 sm:px-7 py-3 border-b border-slate-100 dark:border-emerald-900/35 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <div>
-          {cardPrefs.expertMode ? (
+      {/* Instagram-Style Center Bursting Heart on Double-Tap */}
+      {showHeartBurst && (
+        <div
+          className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center animate-out fade-out duration-700"
+          aria-hidden="true"
+        >
+          <div className="p-6 rounded-full bg-black/40 backdrop-blur-xs scale-125 animate-bounce">
+            <Heart className="w-20 h-20 text-red-500 fill-current drop-shadow-lg" />
+          </div>
+        </div>
+      )}
+
+      {/* Ephemeral TikTok / Instagram Style Mute / Unmute Toast */}
+      {muteNotice && (
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-black/75 backdrop-blur-md text-white text-xs font-bold shadow-2xl transition-all"
+          aria-live="polite"
+        >
+          {muteNotice === 'muted' ? (
             <>
-              <h2
-                id={`verse-heading-${verse.id}`}
-                className="text-sm sm:text-base font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2 flex-wrap"
-              >
-                {/* Chosen Ayah Number at the start inside circular symbol */}
-                <AyahCartouche
-                  number={effectiveVerseNumberStr}
-                  size="md"
-                  className="text-amber-700 dark:text-[#F4B900]"
-                  title={
-                    onNavigateToRead
-                      ? `${t.tafsirTab === 'Tafsir' ? 'Read in Quran' : 'Lire dans le Coran'} (${verse.surahNumber}:${baseRangeBounds.start})`
-                      : undefined
-                  }
-                  onClick={
-                    onNavigateToRead
-                      ? () => {
-                          const firstNum =
-                            parseInt(String(effectiveVerseNumberStr).split('-')[0], 10) ||
-                            baseRangeBounds.start;
-                          onNavigateToRead(verse.surahNumber, firstNum);
-                        }
-                      : undefined
-                  }
-                />
-                {onNavigateToRead ? (
-                  <button
-                    type="button"
-                    onClick={() => {
+              <VolumeX className="w-5 h-5 text-red-400" />
+              <span>{language === 'ar' ? 'تم كتم الصوت' : language === 'fr' ? 'Son désactivé' : language === 'sv' ? 'Ljud av' : 'Audio muted'}</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-5 h-5 text-emerald-400" />
+              <span>{language === 'ar' ? 'تم تشغيل الصوت' : language === 'fr' ? 'Son activé' : language === 'sv' ? 'Ljud på' : 'Audio unmuted'}</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Clean Unboxed Header Row (100% Localized Surah Metadata) */}
+      <div className="px-5 sm:px-7 py-3 border-b border-slate-100 dark:border-emerald-900/35 flex items-center justify-between">
+        <div>
+          <h2
+            id={`verse-heading-${verse.id}`}
+            className="text-sm sm:text-base font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2 flex-wrap"
+          >
+            {/* Chosen Ayah Number at the start inside circular symbol */}
+            <AyahCartouche
+              number={effectiveVerseNumberStr}
+              size="md"
+              className="text-amber-700 dark:text-[#F4B900]"
+              title={
+                onNavigateToRead
+                  ? `${t.tafsirTab === 'Tafsir' ? 'Read in Quran' : 'Lire dans le Coran'} (${verse.surahNumber}:${baseRangeBounds.start})`
+                  : undefined
+              }
+              onClick={
+                onNavigateToRead
+                  ? () => {
                       const firstNum =
                         parseInt(String(effectiveVerseNumberStr).split('-')[0], 10) ||
                         baseRangeBounds.start;
                       onNavigateToRead(verse.surahNumber, firstNum);
-                    }}
-                    className="hover:text-[#006D53] dark:hover:text-[#F4B900] transition-colors cursor-pointer text-start"
-                  >
-                    {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
-                  </button>
-                ) : (
-                  <span>
-                    {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
-                  </span>
-                )}
-                {totalCards !== undefined && totalCards > 1 && (
-                  <span className="text-xs font-mono text-slate-400 dark:text-[#9BAFA7] font-normal tabular-nums">
-                    · {cardIndex !== undefined ? cardIndex + 1 : 1}/{totalCards}
-                  </span>
-                )}
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">
-                <span>{localizedDetails.surahMeaning}</span>
-                <span className="mx-1.5" aria-hidden="true">
-                  ·
-                </span>
-                <span>{localizedDetails.revelationTypeDisplay}</span>
-                <span className="mx-1.5" aria-hidden="true">
-                  ·
-                </span>
-                <span className="tabular-nums">{localizedDetails.juzDisplay}</span>
-              </p>
-            </>
-          ) : (
-            <h2 id={`verse-heading-${verse.id}`} className="sr-only">
-              {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay} {effectiveVerseNumberStr}
-            </h2>
-          )}
-        </div>
-
-        {/* Sacred Social Action Bar: Play/Pause, Heart, Comments, Studio, Share, Story PNG, Copy */}
-        <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-end">
-          {/* Global Play / Pause Trigger */}
-          <button
-            type="button"
-            onClick={() => {
-              window.dispatchEvent(
-                new CustomEvent('hidaya-global-toggle-play', {
-                  detail: { action: isReciting ? 'pause' : 'play' },
-                })
-              );
-            }}
-            className={`min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-              isReciting
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-2xs'
-                : 'text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5'
-            }`}
-            title={
-              isReciting
-                ? language === 'ar'
-                  ? 'إيقاف مؤقت'
-                  : language === 'fr'
-                  ? 'Mettre en pause'
-                  : language === 'sv'
-                  ? 'Pausa'
-                  : 'Pause'
-                : language === 'ar'
-                ? 'تشغيل'
-                : language === 'fr'
-                ? 'Lire'
-                : language === 'sv'
-                ? 'Spela'
-                : 'Play'
-            }
-            aria-label={isReciting ? 'Pause' : 'Play'}
-          >
-            {isReciting ? (
-              <Pause className="w-4 h-4 fill-current shrink-0" />
+                    }
+                  : undefined
+              }
+            />
+            {onNavigateToRead ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const firstNum =
+                    parseInt(String(effectiveVerseNumberStr).split('-')[0], 10) ||
+                    baseRangeBounds.start;
+                  onNavigateToRead(verse.surahNumber, firstNum);
+                }}
+                className="hover:text-[#006D53] dark:hover:text-[#F4B900] transition-colors cursor-pointer text-start"
+              >
+                {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
+              </button>
             ) : (
-              <Play className="w-4 h-4 fill-current ms-0.5 shrink-0" />
-            )}
-            {isReciting && (
-              <span className="text-[11px] font-bold uppercase tracking-wider hidden sm:inline">
-                {playbackPhase === 'recitation'
-                  ? language === 'ar'
-                    ? 'تلاوة'
-                    : language === 'fr'
-                    ? 'Récitation'
-                    : language === 'sv'
-                    ? 'Recitation'
-                    : 'Recitation'
-                  : playbackPhase === 'translation'
-                  ? language === 'ar'
-                    ? 'ترجمة'
-                    : language === 'fr'
-                    ? 'Traduction'
-                    : language === 'sv'
-                    ? 'Översättning'
-                    : 'Translation'
-                  : language === 'ar'
-                  ? 'تفسير'
-                  : 'Tafsir'}
+              <span>
+                {localizedDetails.surahPrefix} {localizedDetails.surahNameDisplay}
               </span>
             )}
-          </button>
-
-          {/* Like / Heart */}
-          <button
-            type="button"
-            onClick={() => onToggleBookmark(verse.id)}
-            className={`min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-              isBookmarked
-                ? 'text-red-600 dark:text-red-400 bg-red-500/15'
-                : 'text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5'
-            }`}
-            title={isBookmarked ? t.removeBookmarkTooltip : t.socialLikeTooltip}
-            aria-pressed={isBookmarked}
-            aria-label={isBookmarked ? t.removeBookmarkTooltip : t.socialLikeTooltip}
-          >
-            <Heart className={`w-4 h-4 ${isBookmarked ? 'fill-current' : ''}`} />
-          </button>
-
-          {/* Social Comments (💬) Toggle */}
-          {cardPrefs.showSocialComments && (
-            <button
-              type="button"
-              onClick={() => setShowComments((prev) => !prev)}
-              className={`min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                showComments
-                  ? 'bg-[#006D53] text-white shadow-2xs'
-                  : 'text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5'
-              }`}
-              title={t.socialCommentsBtn}
-              aria-label={t.socialCommentsBtn}
-              aria-expanded={showComments}
-            >
-              <MessageCircle className="w-4 h-4" />
-              {socialComments.length > 0 && (
-                <span className="text-[11px] font-mono tabular-nums font-bold">
-                  {socialComments.length}
-                </span>
-              )}
-            </button>
+            {totalCards !== undefined && totalCards > 1 && (
+              <span className="text-xs font-mono text-slate-400 dark:text-[#9BAFA7] font-normal tabular-nums">
+                · {cardIndex !== undefined ? cardIndex + 1 : 1}/{totalCards}
+              </span>
+            )}
+          </h2>
+          {cardPrefs.expertMode && (
+            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">
+              <span>{localizedDetails.surahMeaning}</span>
+              <span className="mx-1.5" aria-hidden="true">
+                ·
+              </span>
+              <span>{localizedDetails.revelationTypeDisplay}</span>
+              <span className="mx-1.5" aria-hidden="true">
+                ·
+              </span>
+              <span className="tabular-nums">{localizedDetails.juzDisplay}</span>
+            </p>
           )}
-
-          {/* Creation Studio (🎬) Toggle */}
-          {cardPrefs.showCreationStudio && (
-            <button
-              type="button"
-              onClick={() => setShowStudio((prev) => !prev)}
-              className={`min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900] ${
-                showStudio
-                  ? 'bg-amber-600 text-white shadow-2xs'
-                  : 'text-slate-500 hover:text-amber-700 dark:text-[#9BAFA7] dark:hover:text-[#F4B900] hover:bg-amber-500/10'
-              }`}
-              title={t.socialStudioBtn}
-              aria-label={t.socialStudioBtn}
-              aria-expanded={showStudio}
-            >
-              <Film className="w-4 h-4" />
-            </button>
-          )}
-
-          {/* Share (↗) Button */}
-          <button
-            type="button"
-            onClick={handleShare}
-            className="min-h-[40px] min-w-[40px] p-2 rounded-xl text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5 transition-colors flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
-            title={sharedSuccess ? t.sharedSuccess : t.socialShareBtn}
-            aria-label={t.socialShareBtn}
-          >
-            {sharedSuccess ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
-          </button>
-
-          {/* Download 9:16 Story PNG */}
-          <button
-            type="button"
-            onClick={handleDownloadStoryCard}
-            className="min-h-[40px] min-w-[40px] p-2 rounded-xl text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5 transition-colors flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
-            title={storyExported ? t.storyCardSaved : t.storyCardTooltip}
-            aria-label={t.storyCardTooltip}
-          >
-            {storyExported ? <Check className="w-4 h-4 text-emerald-600" /> : <Download className="w-4 h-4" />}
-          </button>
-
-          {/* Copy Verse */}
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="min-h-[40px] min-w-[40px] p-2 rounded-xl text-slate-500 hover:text-emerald-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] hover:bg-emerald-900/5 transition-colors flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
-            title={t.copyTooltip}
-            aria-label={t.copyTooltip}
-          >
-            {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-          </button>
         </div>
       </div>
 
@@ -1258,117 +1334,186 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         {/* LEVEL 1: Original Verified Quranic Arabic (Uthmani Script) on Warm Mushaf Surface (#F7F0E2 / #061B16) */}
         <section ref={arabicSectionRef} aria-label="Level 1: Verified Uthmani Arabic">
           <div
-            className="p-5 sm:p-7 rounded-2xl bg-[#F7F0E2] dark:bg-[#061B16] border border-amber-900/12 dark:border-emerald-800/35 relative"
+            className="p-5 sm:p-7 rounded-2xl bg-[#F7F0E2] dark:bg-[#061B16] border border-amber-900/12 dark:border-emerald-800/35 relative space-y-3"
             style={{
               fontSize: `${Math.round(26 * (readerProfile === 'kids' ? Math.max(arabicScale, 1.3) : arabicScale))}px`,
               lineHeight: 2.25,
             }}
           >
-            <p
-              dir="rtl"
-              lang="ar"
-              className="font-arabic text-right text-emerald-950 dark:text-[#F5F7F2] select-text antialiased font-normal"
-            >
-              {/* Subtle small symbol at the beginning of recited verses to extend preceding verse */}
-              {(canAddBefore || includeBefore) && (
-                <button
-                  type="button"
-                  onClick={() => onSelectionChange?.({ ...selection, before: !includeBefore })}
-                  title={
-                    includeBefore
-                      ? `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour retirer' : 'Click to remove'}`
-                      : `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour ajouter' : 'Click to add'}`
-                  }
-                  aria-label={`${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber})`}
-                  aria-pressed={includeBefore}
-                  className={`inline-flex items-center justify-center align-middle mx-1 px-1.5 py-0.5 rounded-lg text-xs font-sans not-italic transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F4B900] ${
-                    includeBefore
-                      ? 'bg-[#006D53]/20 text-[#006D53] dark:text-[#F4B900] border border-emerald-600/30'
-                      : 'text-amber-900/60 dark:text-[#9BAFA7] hover:text-emerald-800 dark:hover:text-[#F5F7F2] hover:bg-amber-900/10'
-                  }`}
-                >
-                  <span className="font-bold">{includeBefore ? '✓' : '+'}</span>
-                  <span className="text-[10px] tabular-nums font-mono ms-0.5 opacity-80">
-                    {verse.surroundingVerses?.before?.verseNumber}
-                  </span>
-                </button>
-              )}
+            {/* Subtle Mushaf Mode Switcher Pill Bar (Classic Mushaf · Duo Word-by-Word · Memorization Hifz) */}
+            <div className="flex items-center justify-end gap-1.5 text-[11px] font-sans leading-normal">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !cardPrefs.showWordByWordDuo;
+                  const updates = { showWordByWordDuo: next, enableMemorizationMode: false };
+                  StorageService.setCardPreferences(updates);
+                  setCardPrefs((p) => ({ ...p, ...updates }));
+                  window.dispatchEvent(new CustomEvent('hidaya-preferences-updated', { detail: updates }));
+                }}
+                aria-pressed={Boolean(cardPrefs.showWordByWordDuo)}
+                className={`px-2.5 py-1 rounded-xl font-semibold transition-all cursor-pointer ${
+                  cardPrefs.showWordByWordDuo
+                    ? 'bg-[#006D53] text-white shadow-2xs'
+                    : 'bg-white/70 dark:bg-[#0B3027]/70 text-amber-950/75 dark:text-[#9BAFA7] border border-amber-900/12 dark:border-emerald-800/40 hover:text-emerald-900 dark:hover:text-[#F5F7F2]'
+                }`}
+              >
+                {language === 'fr'
+                  ? 'Mot-à-Mot Duo'
+                  : language === 'ar'
+                  ? 'كلمة بكلمة'
+                  : language === 'sv'
+                  ? 'Ord-för-Ord'
+                  : 'Word-by-Word'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !cardPrefs.enableMemorizationMode;
+                  const updates = { enableMemorizationMode: next, showWordByWordDuo: false };
+                  StorageService.setCardPreferences(updates);
+                  setCardPrefs((p) => ({ ...p, ...updates }));
+                  window.dispatchEvent(new CustomEvent('hidaya-preferences-updated', { detail: updates }));
+                }}
+                aria-pressed={Boolean(cardPrefs.enableMemorizationMode)}
+                className={`px-2.5 py-1 rounded-xl font-semibold transition-all cursor-pointer ${
+                  cardPrefs.enableMemorizationMode
+                    ? 'bg-[#006D53] text-white shadow-2xs'
+                    : 'bg-white/70 dark:bg-[#0B3027]/70 text-amber-950/75 dark:text-[#9BAFA7] border border-amber-900/12 dark:border-emerald-800/40 hover:text-emerald-900 dark:hover:text-[#F5F7F2]'
+                }`}
+              >
+                {language === 'fr'
+                  ? 'Mémorisation (Hifz)'
+                  : language === 'ar'
+                  ? 'تحفيظ وتسميع'
+                  : language === 'sv'
+                  ? 'Memorering (Hifz)'
+                  : 'Memorize (Hifz)'}
+              </button>
+            </div>
 
-              {tokenizedArabicSegments.map((seg, segIdx) => (
-                <React.Fragment key={segIdx}>
-                  {seg.words.map(({ word, globalIdx }) => {
-                    const isWordActive = globalIdx === activeWordIndex;
-                    return (
-                      <React.Fragment key={globalIdx}>
-                        <span
-                          data-word-index={globalIdx}
-                          className={`inline-block rounded-lg px-0.5 transition-colors duration-150 ${
-                            isWordActive
-                              ? 'bg-[#F4B900]/35 dark:bg-[#F4B900]/30 text-emerald-950 dark:text-[#F4B900] underline decoration-[#F4B900] decoration-2 underline-offset-8'
-                              : ''
-                          }`}
-                        >
-                          {word}
-                        </span>{' '}
-                      </React.Fragment>
-                    );
-                  })}
-                  <span className="inline-flex items-center align-middle mx-1 text-amber-800 dark:text-[#F4B900] select-none">
-                    <AyahCartouche
-                      number={seg.verseNumber}
-                      size="inline"
-                      title={
-                        onNavigateToRead
-                          ? `${verse.surahNumber}:${seg.verseNumber}`
-                          : undefined
-                      }
-                      onClick={
-                        onNavigateToRead
-                          ? () => {
-                              const vNum =
-                                parseInt(String(seg.verseNumber).split('-')[0], 10) ||
-                                baseRangeBounds.start;
-                              onNavigateToRead(verse.surahNumber, vNum);
-                            }
-                          : undefined
-                      }
-                    />
-                  </span>{' '}
-                </React.Fragment>
-              ))}
+            {cardPrefs.enableMemorizationMode ? (
+              <VerseMemorizationView
+                timestamps={effectiveDuoTimestamps}
+                currentTimeMs={playbackPhase === 'recitation' ? currentTimeMs : 0}
+                activeWordIndex={activeWordIndex}
+                isPlaying={isReciting && playbackPhase === 'recitation'}
+                arabicScale={readerProfile === 'kids' ? Math.max(arabicScale, 1.3) : arabicScale}
+                language={language}
+              />
+            ) : cardPrefs.showWordByWordDuo ? (
+              <VerseWordByWordView
+                timestamps={effectiveDuoTimestamps}
+                currentTimeMs={playbackPhase === 'recitation' ? currentTimeMs : 0}
+                activeWordIndex={activeWordIndex}
+                isPlaying={isReciting && playbackPhase === 'recitation'}
+                arabicScale={readerProfile === 'kids' ? Math.max(arabicScale, 1.3) : arabicScale}
+                showTransliteration={showTransliteration}
+                showWordTranslation={cardPrefs.showTranslation}
+                language={language}
+              />
+            ) : (
+              <p
+                dir="rtl"
+                lang="ar"
+                className="font-arabic text-right text-emerald-950 dark:text-[#F5F7F2] select-text antialiased font-normal"
+              >
+                {/* Subtle small symbol at the beginning of recited verses to extend preceding verse */}
+                {(canAddBefore || includeBefore) && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectionChange?.({ ...selection, before: !includeBefore })}
+                    title={
+                      includeBefore
+                        ? `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour retirer' : 'Click to remove'}`
+                        : `${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour ajouter' : 'Click to add'}`
+                    }
+                    aria-label={`${t.beforeVerse} (${verse.surroundingVerses?.before?.verseNumber})`}
+                    aria-pressed={includeBefore}
+                    className={`inline-flex items-center justify-center align-middle mx-1 px-1.5 py-0.5 rounded-lg text-xs font-sans not-italic transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F4B900] ${
+                      includeBefore
+                        ? 'bg-[#006D53]/20 text-[#006D53] dark:text-[#F4B900] border border-emerald-600/30'
+                        : 'text-amber-900/60 dark:text-[#9BAFA7] hover:text-emerald-800 dark:hover:text-[#F5F7F2] hover:bg-amber-900/10'
+                    }`}
+                  >
+                    <span className="font-bold">{includeBefore ? '✓' : '+'}</span>
+                    <span className="text-[10px] tabular-nums font-mono ms-0.5 opacity-80">
+                      {verse.surroundingVerses?.before?.verseNumber}
+                    </span>
+                  </button>
+                )}
 
-              {/* Subtle small symbol at the end of recited verses to extend following verse */}
-              {(canAddAfter || includeAfter) && (
-                <button
-                  type="button"
-                  onClick={() => onSelectionChange?.({ ...selection, after: !includeAfter })}
-                  title={
-                    includeAfter
-                      ? `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour retirer' : 'Click to remove'}`
-                      : `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour ajouter' : 'Click to add'}`
-                  }
-                  aria-label={`${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber})`}
-                  aria-pressed={includeAfter}
-                  className={`inline-flex items-center justify-center align-middle mx-1 px-1.5 py-0.5 rounded-lg text-xs font-sans not-italic transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F4B900] ${
-                    includeAfter
-                      ? 'bg-[#006D53]/20 text-[#006D53] dark:text-[#F4B900] border border-emerald-600/30'
-                      : 'text-amber-900/60 dark:text-[#9BAFA7] hover:text-emerald-800 dark:hover:text-[#F5F7F2] hover:bg-amber-900/10'
-                  }`}
-                >
-                  <span className="text-[10px] tabular-nums font-mono me-0.5 opacity-80">
-                    {verse.surroundingVerses?.after?.verseNumber}
-                  </span>
-                  <span className="font-bold">{includeAfter ? '✓' : '+'}</span>
-                </button>
-              )}
-            </p>
+                {tokenizedArabicSegments.map((seg, segIdx) => (
+                  <React.Fragment key={segIdx}>
+                    {seg.words.map(({ word, globalIdx }) => {
+                      const isWordActive = globalIdx === activeWordIndex;
+                      return (
+                        <React.Fragment key={globalIdx}>
+                          <span
+                            data-word-index={globalIdx}
+                            className={`inline-block rounded-lg px-0.5 transition-colors duration-150 ${
+                              isWordActive
+                                ? 'bg-[#F4B900]/35 dark:bg-[#F4B900]/30 text-emerald-950 dark:text-[#F4B900] underline decoration-[#F4B900] decoration-2 underline-offset-8'
+                                : ''
+                            }`}
+                          >
+                            {word}
+                          </span>{' '}
+                        </React.Fragment>
+                      );
+                    })}
+                    <span className="inline-flex items-center align-middle mx-1 text-amber-800 dark:text-[#F4B900] select-none">
+                      <AyahCartouche
+                        number={seg.verseNumber}
+                        size="inline"
+                        title={
+                          onNavigateToRead
+                            ? `${verse.surahNumber}:${seg.verseNumber}`
+                            : undefined
+                        }
+                        onClick={
+                          onNavigateToRead
+                            ? () => {
+                                const vNum =
+                                  parseInt(String(seg.verseNumber).split('-')[0], 10) ||
+                                  baseRangeBounds.start;
+                                onNavigateToRead(verse.surahNumber, vNum);
+                              }
+                            : undefined
+                        }
+                      />
+                    </span>{' '}
+                  </React.Fragment>
+                ))}
+
+                {/* Subtle small symbol at the end of recited verses to extend following verse */}
+                {(canAddAfter || includeAfter) && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectionChange?.({ ...selection, after: !includeAfter })}
+                    title={
+                      includeAfter
+                        ? `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour retirer' : 'Click to remove'}`
+                        : `${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber}) — ${language === 'fr' ? 'Cliquer pour ajouter' : 'Click to add'}`
+                    }
+                    aria-label={`${t.afterVerse} (${verse.surroundingVerses?.after?.verseNumber})`}
+                    aria-pressed={includeAfter}
+                    className={`inline-flex items-center justify-center align-middle mx-1 px-1.5 py-0.5 rounded-lg text-xs font-sans not-italic transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#F4B900] ${
+                      includeAfter
+                        ? 'bg-[#006D53]/20 text-[#006D53] dark:text-[#F4B900] border border-emerald-600/30'
+                        : 'text-amber-900/60 dark:text-[#9BAFA7] hover:text-emerald-800 dark:hover:text-[#F5F7F2] hover:bg-amber-900/10'
+                    }`}
+                  >
+                    <span className="text-[10px] tabular-nums font-mono me-0.5 opacity-80">
+                      {verse.surroundingVerses?.after?.verseNumber}
+                    </span>
+                    <span className="font-bold">{includeAfter ? '✓' : '+'}</span>
+                  </button>
+                )}
+              </p>
+            )}
           </div>
 
-          {showTransliteration && verse.transliteration && (
-            <p className="mt-2.5 px-2 text-xs sm:text-sm text-slate-500 dark:text-[#9BAFA7] italic leading-relaxed">
-              {verse.transliteration}
-            </p>
-          )}
         </section>
 
         {/* LEVEL 2: Certified Human Translation with Word-by-Word Highlighting when Spoken */}
@@ -1408,7 +1553,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             <p className="text-xs text-slate-500 dark:text-[#9BAFA7]">
               — {translationObj.translator}
             </p>
-            {isReciting && (
+            {isReciting && !hasExactCurrentPhaseTimestamps && (
               <p className="text-[11px] text-slate-400 dark:text-[#9BAFA7]/70 italic pt-0.5" role="note">
                 {({
                   en: 'Highlighting is approximate, based on playback duration; word timestamps are unavailable.',
@@ -1502,9 +1647,14 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           isActive={isActive}
           onNextVerse={onNextVerse}
           onPreviousVerse={onPreviousVerse}
-          onPlaybackProgress={(ratio, playing, phase) => {
+          onPlaybackProgress={(ratio, playing, phase, timeMs) => {
             setPlaybackRatio(ratio);
             setIsReciting(playing);
+            if (typeof timeMs === 'number') {
+              setCurrentTimeMs(timeMs);
+            } else if (!playing) {
+              setCurrentTimeMs(0);
+            }
             setPlaybackPhase(phase || (playing ? 'recitation' : 'idle'));
             if (phase === 'tafsir' && playing) {
               setActiveSection('tafsir');
@@ -1556,64 +1706,59 @@ export const VerseCard: React.FC<VerseCardProps> = ({
 
             {currentCitation && isTrustedTafsirText ? (
               <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0B3027]/70 border border-emerald-900/10 dark:border-emerald-800/35 space-y-3.5 shadow-2xs">
-                {/* Header: Scholar info + Unboxed Provenance Metadata + View Original Source Trigger (Expert Mode only) */}
-                {cardPrefs.expertMode && (
-                  <div className="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100 dark:border-emerald-900/40">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
-                          {currentCitation.scholar}
-                        </h3>
-                        <span className="text-slate-400" aria-hidden="true">
-                          ·
-                        </span>
-                        <span className="text-xs text-slate-600 dark:text-[#9BAFA7] font-medium">
-                          {currentCitation.sourceBook}{' '}
-                          {currentCitation.century ? `(${currentCitation.century})` : ''}
-                        </span>
-                        {cardPrefs.showAudioSourceBadge && audioSources.tafsir && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#006D53]/15 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 border border-emerald-700/30">
-                            Audio: {audioSources.tafsir}
-                          </span>
-                        )}
-                      </div>
+                {/* Tafsir Scholar Dropdown Selection & Provenance Action */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-slate-100 dark:border-emerald-900/40">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label
+                      htmlFor={`tafsir-scholar-select-${verse.id}`}
+                      className="text-xs font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-1.5"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-[#006D53] dark:text-[#F4B900]" />
+                      <span>
+                        {language === 'ar'
+                          ? 'المفسّر:'
+                          : language === 'fr'
+                          ? 'Savant de Tafsir :'
+                          : language === 'sv'
+                          ? 'Tafsir-lärd:'
+                          : 'Tafsir Scholar:'}
+                      </span>
+                    </label>
+                    <select
+                      id={`tafsir-scholar-select-${verse.id}`}
+                      value={currentCitation.scholar}
+                      onChange={(e) => {
+                        const newScholar = e.target.value;
+                        setSelectedScholar(newScholar);
+                        StorageService.setPreferredScholar(newScholar);
+                      }}
+                      className="text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-[#FAF8F5] dark:bg-[#061B16] border border-emerald-900/15 dark:border-emerald-700/40 text-emerald-950 dark:text-[#F5F7F2] focus:outline-none focus:ring-2 focus:ring-[#006D53] cursor-pointer"
+                    >
+                      {availableCitations.map((c) => (
+                        <option key={c.scholar} value={c.scholar}>
+                          {c.scholar} {c.sourceBook ? `· ${c.sourceBook}` : ''} {c.century ? `(${c.century})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {cardPrefs.showAudioSourceBadge && audioSources.tafsir && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#006D53]/15 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 border border-emerald-700/30">
+                        Audio: {audioSources.tafsir}
+                      </span>
+                    )}
+                  </div>
 
-                      {/* Clean Unboxed Provenance Classification (Expert Mode only) */}
-                      <div className="flex items-center gap-2 flex-wrap pt-0.5 text-[11px] text-emerald-800 dark:text-[#F4B900] font-medium">
-                        <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                        <span>
-                          {currentCitation.sourceType === 'ai_translated_expert'
-                            ? t.badgeAiTranslated
-                            : currentCitation.sourceType === 'ai_synthesis'
-                            ? t.badgeAiSynthesis
-                            : t.badgeClassical}
-                        </span>
-                        {currentCitation.sourceReference && (
-                          <>
-                            <span className="text-slate-400" aria-hidden="true">
-                              ·
-                            </span>
-                            <span className="text-slate-500 dark:text-[#9BAFA7] hidden sm:inline truncate max-w-xs font-mono">
-                              {currentCitation.sourceReference.split(',')[0]}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* "View Original Arabic Source" Drawer/Modal Trigger */}
+                  {cardPrefs.expertMode && (
                     <button
                       type="button"
                       onClick={() => setProvenanceModalOpen(true)}
-                      className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-900 dark:text-[#F5F7F2] bg-[#FAF8F5] dark:bg-[#061B16] border border-emerald-900/15 dark:border-emerald-700/40 hover:bg-[#006D53] hover:text-white transition-colors shadow-2xs cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
+                      className="min-h-[32px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold text-emerald-900 dark:text-[#F5F7F2] bg-[#FAF8F5] dark:bg-[#061B16] border border-emerald-900/15 dark:border-emerald-700/40 hover:bg-[#006D53] hover:text-white transition-colors cursor-pointer shrink-0"
                       title={t.viewProvenanceBtn}
-                      aria-label={t.viewProvenanceBtn}
                     >
                       <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-[#F4B900]" />
                       <span>{t.viewProvenanceBtn}</span>
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* Verbatim Arabic Quote Excerpt Preview (Expert Mode only) */}
                 {cardPrefs.expertMode &&
@@ -1760,8 +1905,33 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         )}
 
         {/* INLINE SOCIAL CREATION STUDIO (1:1 / 9:16 PNG, WebM/MP4 Recited Video, PPTX & PDF) */}
-        {showStudio && cardPrefs.showCreationStudio && (
-          <div className="p-4 sm:p-6 rounded-3xl bg-amber-50/40 dark:bg-[#061B16]/80 border border-amber-500/30 dark:border-amber-500/20 space-y-4">
+        {showStudio && (
+          <div
+            data-creation-studio="true"
+            className="p-4 sm:p-6 rounded-3xl bg-amber-50/40 dark:bg-[#061B16]/80 border border-amber-500/30 dark:border-amber-500/20 space-y-4 animate-in fade-in duration-300"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-amber-500/20">
+              <span className="text-xs font-bold text-amber-950 dark:text-[#F4B900] flex items-center gap-1.5">
+                <Film className="w-4 h-4 text-amber-600 dark:text-[#F4B900]" />
+                <span>
+                  {language === 'ar'
+                    ? 'استوديو المشاركة والتصميم'
+                    : language === 'fr'
+                    ? 'Studio de Partage & Création'
+                    : language === 'sv'
+                    ? 'Delnings- & Skaparstudio'
+                    : 'Share & Creation Studio'}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowStudio(false)}
+                className="text-xs text-slate-500 hover:text-slate-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] p-1.5 rounded-lg hover:bg-amber-500/10 transition-colors cursor-pointer"
+                aria-label="Close studio"
+              >
+                ✕
+              </button>
+            </div>
             <SocialCreationStudio
               verse={verse}
               surahDisplayTitle={`${localizedDetails.surahPrefix} ${localizedDetails.surahNameDisplay} (${verse.id})`}
@@ -1912,6 +2082,28 @@ export const VerseCard: React.FC<VerseCardProps> = ({
         verse={verse}
         language={language}
       />
+
+      {/* Ergonomic 1-Handed Thumb Action Rail (Instagram / TikTok Reels Bottom-Right Thumb Zone) */}
+      {isActive && cardPrefs.showThumbRail !== false && !cardPrefs.tvMode && (
+        <ThumbActionRail
+          isMuted={isAudioMuted}
+          onToggleMute={triggerGlobalMute}
+          isBookmarked={isBookmarked}
+          onToggleBookmark={() => onToggleBookmark(verse.id)}
+          onOpenComments={() => setShowComments((prev) => !prev)}
+          onShare={handleShare}
+          commentsCount={socialComments.length}
+          isPlaying={isReciting}
+          onTogglePlay={() => {
+            window.dispatchEvent(
+              new CustomEvent('hidaya-global-toggle-play', {
+                detail: { action: isReciting ? 'pause' : 'play' },
+              })
+            );
+          }}
+          language={language}
+        />
+      )}
     </article>
   );
 };

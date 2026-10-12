@@ -29,7 +29,7 @@ import {
   Plus,
   Sparkles,
 } from 'lucide-react';
-import { ReciterId, Language } from '../types';
+import { ReciterId, Language, WordTimestamp } from '../types';
 import { AVAILABLE_RECITERS, getAudioUrlsForVerseRange } from '../services/audioReciters';
 import { StorageService } from '../services/storage';
 
@@ -61,7 +61,8 @@ interface AudioPlayerProps {
   onPlaybackProgress?: (
     progressRatio: number,
     isPlaying: boolean,
-    phase?: ActivePhase
+    phase?: ActivePhase,
+    currentTimeMs?: number
   ) => void;
   autoPlayOnAdvance?: boolean;
   defaultLoop?: boolean;
@@ -86,6 +87,8 @@ interface AudioPlayerProps {
   onAudioSourcesResolved?: (sources: {
     translation: AudioSourceTier | null;
     tafsir: AudioSourceTier | null;
+    translationTimestamps?: WordTimestamp[];
+    tafsirTimestamps?: WordTimestamp[];
   }) => void;
 }
 
@@ -600,8 +603,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     onAudioSourcesResolved?.({
       translation: resolvedTranslationTier,
       tafsir: resolvedTafsirTier,
+      translationTimestamps: translationMetadata?.record?.timestamps,
+      tafsirTimestamps: tafsirMetadata?.record?.timestamps,
     });
-  }, [resolvedTranslationTier, resolvedTafsirTier, onAudioSourcesResolved]);
+  }, [
+    resolvedTranslationTier,
+    resolvedTafsirTier,
+    translationMetadata?.record?.timestamps,
+    tafsirMetadata?.record?.timestamps,
+    onAudioSourcesResolved,
+  ]);
 
   // Sync external preference props when updated in Preferences
   useEffect(() => {
@@ -949,7 +960,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     );
   }, [isPlaying, ayahId, activePhase]);
 
-  // Listen for global play/pause toggle from Header
+  // Listen for global play/pause and mute toggles
   useEffect(() => {
     const handleGlobalToggle = (e: Event) => {
       const action = (e as CustomEvent)?.detail?.action;
@@ -965,6 +976,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       } else if (action === 'play') {
         if (isActive && !isPlaying) {
           togglePlay();
+        }
+      } else if (action === 'toggle-mute') {
+        if (audioRef.current) {
+          const next = !audioRef.current.muted;
+          audioRef.current.muted = next;
+          setIsMuted(next);
+          window.dispatchEvent(new CustomEvent('hidaya-mute-state', { detail: { isMuted: next } }));
         }
       }
     };
@@ -1026,7 +1044,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         onPlaybackProgress?.(
           activePhase === 'recitation' ? computeCombinedRatio(currentTrackIndex, cur, dur) : cur / dur,
           true,
-          activePhase === 'idle' ? (streamMode as ActivePhase) : activePhase
+          activePhase === 'idle' ? (streamMode as ActivePhase) : activePhase,
+          Math.round(cur * 1000)
         );
       }
     }
@@ -1089,7 +1108,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         onPlaybackProgress?.(
           computeCombinedRatio(currentTrackIndex, time, duration),
           isPlaying,
-          activePhase
+          activePhase,
+          Math.round(time * 1000)
         );
       }
     }

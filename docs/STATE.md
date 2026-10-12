@@ -323,4 +323,55 @@ Implemented the comprehensive UX/UI redesign and accessibility enhancement acros
    - `npm test`: 9/9 integration & regression tests passed.
    - `compile_applet`: Build succeeded.
 
+## 2026-10-11 — Milestone 57: Execution of Phases 1–4 ("0 € & 0 Lag" Word-by-Word Millisecond Timestamps, Coran Duo Visualizer, 3-Level Hifz Memorization & Voice Verification)
+
+1. **Phase 1 (P0) — Exact Millisecond Word Timestamps (`timestamps_jsonb` + Quran.com API v4)**:
+   - Created `supabase/migrations/20261012_add_timestamps.sql` adding `timestamps_jsonb JSONB DEFAULT '[]'::jsonb` and GIN index `idx_ayah_audio_timestamps` on `public.ayah_audio`.
+   - Updated `src/types.ts`, `src/lib/audio/ayahAudioServerService.ts` (with graceful backward-compatible fallback if column is unmigrated), and `src/lib/audio/audioResolverService.ts` to expose `WordTimestamp[]` (`position`, `word_arabic`, `transliteration`, `translation`, `start_ms`, `end_ms`).
+   - Created `src/lib/audio/wordTimestampsResolver.ts` fetching and caching exact millisecond word segments (`start_ms`, `end_ms`) and word-by-word phonetic transliteration/translation from Quran.com API v4 (`recitations/{id}/by_ayah/{key}` and `verses/by_key/{key}?words=true`) with `localStorage` caching and Madd-weighted acoustic fallback.
+   - Updated `AudioPlayer.tsx` and `VerseCard.tsx` to track `currentTimeMs` (`audio.currentTime * 1000`), highlight words using exact `start_ms <= currentTimeMs <= end_ms` matching, and hide the approximate highlighting notice when exact timestamps are active.
+2. **Phase 2 (P1) — "Coran Duo / Apprentissage" Word-by-Word Visualizer (`VerseWordByWordView.tsx`)**:
+   - Created `src/components/audio/VerseWordByWordView.tsx` rendering right-to-left interactive word blocks (Top: Uthmani Arabic word, Middle: Phonetic transliteration badge, Bottom: Word-by-word meaning) with real-time `currentTimeMs` illumination and `data-word-index` attributes for smooth eye-level teleprompter scrolling.
+   - Added `showWordByWordDuo` preference to `VerseCardPreferences`, `appConfig.ts`, `CustomizationSheet.tsx` (FR, EN, SV, AR), and a 1-tap toggle in the Mushaf header of `VerseCard.tsx`.
+3. **Phase 3 (P2) — 3-Level Interactive Memorization Mode (`VerseMemorizationView.tsx`)**:
+   - Created `src/components/audio/VerseMemorizationView.tsx` implementing 4 zero-CPU CSS mask modes (`visible`, `blur`, `first_letter`, `hidden`) with individual word tap-to-reveal, sequential "Next Word" reveal, and "Reveal All / Reset" controls.
+   - Added `enableMemorizationMode` preference in `CustomizationSheet.tsx` and `VerseCard.tsx`.
+4. **Phase 4 (P3) — Native Arabic Voice Verification (`ar-SA`) & Kaggle `WordBoundary` Script**:
+   - Created `src/services/arabicPronunciationService.ts` using native browser `SpeechRecognition` (`ar-SA`) with Harakat/Alef/Ya/Ta-Marbuta normalization to match spoken Arabic words progressively and highlight verified words in emerald green inside `VerseMemorizationView.tsx` (auto-hidden on Smart TVs without mic support).
+   - Created `scripts/kaggle_edge_tts_timestamps.py` implementing `edge_tts.Communicate` `WordBoundary` MP3 + JSON millisecond timestamp generation for Kaggle and Supabase `timestamps_jsonb` ingestion.
+
+## 2026-10-12 — Milestone 58: 1-Handed Mobile Ergonomics & Instagram/TikTok UX Integration
+
+1. **Ergonomic Bottom-Right Thumb Rail (`ThumbActionRail.tsx`)**:
+   - Built a sleek floating thumb action rail placed in the natural lower-right thumb reach zone for 1-handed mobile operation.
+   - Includes quick-access circular tactile buttons: Mute / Unmute with live state icon, Like (♥) with haptic feedback, Comments (💬) with comment counter, Share (↗), and Play/Pause.
+2. **Instagram & TikTok 1-Handed Touch Gestures**:
+   - **Single-Tap to Mute/Unmute**: Tapping the verse card toggles audio mute on the active recitation/voiceover with an ephemeral center screen pill toast (`🔇 Son coupé` / `🔊 Son activé`).
+   - **Double-Tap to Like**: Double-tapping the card toggles the verse bookmark and triggers a center bursting heart animation (Instagram Reels style) with haptic vibration.
+   - **Horizontal Thumb Swipe**: Fluid left/right horizontal swipe with RTL-awareness (`language === 'ar'`) to advance to the next or previous Ayah with zero lag.
+3. **Preferences & Customization**:
+   - Added `showThumbRail` and `enableTapGestures` toggles in `VerseCardPreferences`, `appConfig.ts`, and Section 3 of `CustomizationSheet.tsx` (localized in FR, EN, SV, AR).
+4. **Verification**:
+   - Passed `npm run typecheck`, `npm run lint`, and `npm test`.
+   - Verified via `compile_applet`.
+
+## 2026-10-12 — Milestone 59: VerseCard Action Bar Streamlining, Share Studio Trigger, Transparent Thumb Rail & Tafsir Dropdown
+
+1. **Header Simplification & Direct Share Studio Trigger**:
+   - Removed the cluttered 7-button top action bar (`div:nth-of-type(1) > div:nth-of-type(2)`), keeping an unboxed, serene Surah metadata header.
+   - Updated `handleShare` so that clicking the Share button (on the thumb rail or via sharing interactions) immediately opens the inline `SocialCreationStudio` directly on the verse card with smooth scroll, giving the user all export formats in one place (1:1 PNG, 9:16 Story PNG, recited WebM video, PPTX, PDF, and quote copying).
+   - Added a dedicated close button (`✕`) to `SocialCreationStudio` and `data-creation-studio="true"` attribute for smooth navigation.
+2. **30% Smaller Transparent Thumb Rail (`ThumbActionRail.tsx`)**:
+   - Scaled the thumb rail buttons down by 30% from 48px to 34px (`w-[34px] h-[34px]`) with scaled icons (`w-3.5 h-3.5`).
+   - Replaced opaque backgrounds with transparent glass styling (`bg-white/10 dark:bg-black/25 backdrop-blur-md border border-white/25 dark:border-white/15 text-white/90 shadow-xs`) and subtle translucent active tints.
+3. **Removal of Redundant Standalone Transliteration Paragraph**:
+   - Removed the separate block transliteration `<p>` component under Level 1 Arabic, as phonetic transliteration is already integrated word-by-word in Coran Duo mode.
+4. **Tafsir Scholar Dropdown Selection**:
+   - Replaced the previous fixed header div inside the Tafsir section with a clean, accessible `<select>` dropdown menu allowing readers to immediately switch between all available scholars (`availableCitations`).
+   - Persisted scholar preference changes via `StorageService.setPreferredScholar`.
+5. **Verification**:
+   - `npm run typecheck` & `npm run lint`: 0 errors.
+   - `npm test`: 10/10 test suites passed.
+   - Production compilation verified via `compile_applet`.
+
 

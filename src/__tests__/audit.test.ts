@@ -150,4 +150,45 @@ const playlistResult = await fetchAyahAudioPlaylist({
 assert(playlistResult.status === 'available' || playlistResult.status === 'unavailable');
 globalThis.fetch = originalFetch;
 
-console.log('Shared selection tests passed: expanded ranges match visible text and audio; malformed ranges are rejected.');
+// Phase 1–4 regressions: Exact millisecond word timestamps & Arabic pronunciation normalization
+const {
+  buildWeightedWordTimestamps,
+  findActiveWordIndexByMs,
+} = await import('../lib/audio/wordTimestampsResolver');
+const {
+  normalizeArabicWordForMatch,
+  isArabicWordMatch,
+} = await import('../services/arabicPronunciationService');
+
+const sampleTs = buildWeightedWordTimestamps(
+  ['وَبَرًّا', 'بِوَالِدَتِي', 'وَلَمْ', 'يَجْعَلْنِي'],
+  4000,
+  ['wa bar-ran', 'bi-waalidatii', 'wa lam', 'yaj-alnii']
+);
+assert.equal(sampleTs.length, 4);
+assert.equal(sampleTs[0].start_ms, 0);
+assert.equal(sampleTs[3].end_ms, 4000);
+assert.equal(findActiveWordIndexByMs(sampleTs, sampleTs[0].start_ms + 50), 0);
+assert.equal(findActiveWordIndexByMs(sampleTs, 3950), 3);
+
+// Arabic Harakat & Alef normalization for native ar-SA voice verification
+assert.equal(normalizeArabicWordForMatch('ٱلرَّحْمَـٰنِ'), normalizeArabicWordForMatch('الرحمن'));
+assert.equal(isArabicWordMatch('ٱلرَّحْمَـٰنِ', 'الرحمان'), true);
+assert.equal(isArabicWordMatch('وَبَرًّا', 'وبرا'), true);
+assert.equal(isArabicWordMatch('رَحْمَةً', 'رحمه'), true);
+
+// 1-Handed Mobile Thumb Zone preferences default verification
+const { APP_CONFIG } = await import('../config/appConfig');
+assert.equal(APP_CONFIG.DEFAULTS.CARD_PREFS.showThumbRail, true);
+assert.equal(APP_CONFIG.DEFAULTS.CARD_PREFS.enableTapGestures, true);
+
+// Tafsir Scholar dropdown preference persistence
+const { StorageService } = await import('../services/storage');
+StorageService.setPreferredScholar('Al-Sa\'di');
+assert.equal(StorageService.getPreferredScholar(), 'Al-Sa\'di');
+StorageService.setPreferredScholar('Ibn Kathir');
+assert.equal(StorageService.getPreferredScholar(), 'Ibn Kathir');
+
+console.log('Shared selection, Phase 1-4 word timestamp/pronunciation, 1-Handed Mobile Thumb UX & Tafsir dropdown tests passed.');
+
+

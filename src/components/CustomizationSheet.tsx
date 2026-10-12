@@ -35,6 +35,7 @@ import {
   MessageCircle,
   Film,
   ShieldCheck,
+  Heart,
 } from 'lucide-react';
 import {
   Language,
@@ -257,6 +258,14 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       layerStudio: 'Studio de création Image / Vidéo / PowerPoint (🎬)',
       layerRoots: 'Racines linguistiques arabes',
       layerAudioBadge: 'Indicateur de source Audio (GitHub / Server / Browser)',
+      layerWordByWordDuo: 'Mode Coran Duo / Mot-à-Mot (Arabe + Phonétique sous chaque mot)',
+      layerWordByWordDuoDesc: 'Affiche chaque mot coranique avec sa translittération phonétique et sa signification synchronisée au milliseconde.',
+      layerMemorization: 'Mode Mémorisation (Hifz : Flou, 1ère Lettre, Masqué & Vérification Vocale)',
+      layerMemorizationDesc: 'Masque progressivement les mots (Flou, 1ère lettre, Masqué) et vérifie votre récitation au micro.',
+      layerThumbRail: 'Boutons de contrôle au pouce (Rail ergonomique bas-droit)',
+      layerThumbRailDesc: 'Boutons tactiles d\'accès rapide sous le pouce droit (Mute, Like, Commentaires, Partage, Play).',
+      layerTapGestures: 'Raccourcis tactiles à une main (Tap = Mute/Unmute, Double-Tap = Like ♥)',
+      layerTapGesturesDesc: 'Touchez la carte une fois pour couper/activer le son, ou deux fois pour aimer avec animation.',
       layerExpertMode: 'Mode Expert / Académique (Tafsir détaillé, provenance & citations)',
       layerExpertModeDesc: 'Affiche la classification de provenance, la citation arabe brute et les indicateurs techniques audio.',
       seqReadingTitle: 'Lecture séquentielle au clic d\'un verset',
@@ -313,6 +322,14 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       layerStudio: 'Image / Video / PowerPoint Creation Studio (🎬)',
       layerRoots: 'Arabic Linguistic Roots',
       layerAudioBadge: 'Audio Source Badge (GitHub / Server / Browser)',
+      layerWordByWordDuo: 'Quran Duo / Word-by-Word Mode (Arabic + Phonetics under each word)',
+      layerWordByWordDuoDesc: 'Displays each Quranic word with its phonetic badge and word meaning with millisecond synchronization.',
+      layerMemorization: 'Interactive Memorization Mode (Hifz: Blur, First Letter, Hidden & Voice Verify)',
+      layerMemorizationDesc: 'Applies progressive CSS masks and native Arabic voice verification for active memorization.',
+      layerThumbRail: 'Ergonomic Thumb Rail (Bottom-Right)',
+      layerThumbRailDesc: 'Quick action floating rail placed naturally under your right thumb for 1-handed mobile use.',
+      layerTapGestures: '1-Handed Tap Shortcuts (Single Tap = Mute/Unmute, Double Tap = Like ♥)',
+      layerTapGesturesDesc: 'Tap the card once to toggle mute, double tap to like with animated heart.',
       layerExpertMode: 'Expert & Scholarly Mode (Detailed Tafsir provenance & citations)',
       layerExpertModeDesc: 'Displays scholarly provenance, raw Arabic quote excerpts, and technical audio tier badges.',
       seqReadingTitle: 'Sequential Reading on Ayah Click',
@@ -369,6 +386,14 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       layerStudio: 'Bild-, Video- & PowerPoint-studio (🎬)',
       layerRoots: 'Arabiska ordstammar',
       layerAudioBadge: 'Ljudkälleindikator (GitHub / Server / Browser)',
+      layerWordByWordDuo: 'Koran Duo / Ord-för-Ord-läge (Arabiska + Fonetik under varje ord)',
+      layerWordByWordDuoDesc: 'Visar varje koraniskt ord med fonetisk translitterering och ord-för-ord-betydelse i realtid.',
+      layerMemorization: 'Interaktivt Memoreringsläge (Hifz: Suddig, Första bokstav, Dold & Röstkontroll)',
+      layerMemorizationDesc: 'Maskerar ord stegvis och verifierar ditt uttal via röstigenkänning.',
+      layerThumbRail: 'Ergonomiska tumknappar (Nere till höger)',
+      layerThumbRailDesc: 'Snabba touchknappar under högra tummen för smidig enhandsnavigering.',
+      layerTapGestures: 'Enhands gester (Tryck = Ljud av/på, Dubbeltryck = Gilla ♥)',
+      layerTapGesturesDesc: 'Klicka på kortet för att tysta/aktivera ljudet, dubbelklicka för att gilla.',
       layerExpertMode: 'Expert- & akademiskt läge (Tafsir-proveniens & citat)',
       layerExpertModeDesc: 'Visar akademisk proveniens, råa arabiska tafsir-citat och tekniska ljudkällor.',
       seqReadingTitle: 'Sekventiell läsning vid klick på vers',
@@ -425,6 +450,14 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
       layerStudio: 'استوديو تصميم الصور والفيديو والعروض (🎬)',
       layerRoots: 'الجذور اللغوية القرآنية',
       layerAudioBadge: 'شارة مصدر الصوت (GitHub / Server / Browser)',
+      layerWordByWordDuo: 'وضع المصحف التفاعلي كلمة بكلمة (مع اللفظ الصوتي والمعنى)',
+      layerWordByWordDuoDesc: 'يعرض كل كلمة قرآنية مستقلة مع النطق الصوتي والترجمة الفورية المتزامنة بالملي ثانية.',
+      layerMemorization: 'وضع التحفيظ والتسميع الذكي (تمويه، أول حرف، إخفاء وتسميع صوتي)',
+      layerMemorizationDesc: 'إخفاء تدريجي للكلمات مع التحقق الصوتي الفوري من صحة التلاوة والحفظ.',
+      layerThumbRail: 'شريط الإبهام السريع بيد واحدة (أسفل اليمين)',
+      layerThumbRailDesc: 'أزرار عائمة تحت متناول الإبهام لكتم الصوت، الإعجاب، التعليق، والمشاركة.',
+      layerTapGestures: 'إيماءات اليد الواحدة (نقرة = كتم/تشغيل الصوت، نقرتان = إعجاب ♥)',
+      layerTapGesturesDesc: 'انقر نقرة واحدة لكتم أو تفعيل الصوت فورياً، ونقرتين للإعجاب مع حركة القلب.',
       layerExpertMode: 'الوضع الأكاديمي والبحثي (توثيق السند، الاقتباسات ومصادر الصوت)',
       layerExpertModeDesc: 'إظهار بيانات التوثيق الأكاديمي، والاقتباس العربي المباشر، ومصادر التسجيلات الصوتية.',
       seqReadingTitle: 'التلاوة التتابعية عند النقر على الآية',
@@ -947,6 +980,34 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
               prefs.showAudioSourceBadge,
               () => updatePref({ showAudioSourceBadge: !prefs.showAudioSourceBadge }),
               labels.layerAudioBadge
+            )}
+            {renderToggleRow(
+              Boolean(prefs.showWordByWordDuo),
+              () => updatePref({ showWordByWordDuo: !prefs.showWordByWordDuo, enableMemorizationMode: false }),
+              labels.layerWordByWordDuo,
+              labels.layerWordByWordDuoDesc,
+              <Sparkles className="w-4 h-4" />
+            )}
+            {renderToggleRow(
+              Boolean(prefs.enableMemorizationMode),
+              () => updatePref({ enableMemorizationMode: !prefs.enableMemorizationMode, showWordByWordDuo: false }),
+              labels.layerMemorization,
+              labels.layerMemorizationDesc,
+              <BookOpen className="w-4 h-4" />
+            )}
+            {renderToggleRow(
+              prefs.showThumbRail !== false,
+              () => updatePref({ showThumbRail: prefs.showThumbRail === false }),
+              labels.layerThumbRail,
+              labels.layerThumbRailDesc,
+              <Sparkles className="w-4 h-4" />
+            )}
+            {renderToggleRow(
+              prefs.enableTapGestures !== false,
+              () => updatePref({ enableTapGestures: prefs.enableTapGestures === false }),
+              labels.layerTapGestures,
+              labels.layerTapGesturesDesc,
+              <Heart className="w-4 h-4" />
             )}
             {renderToggleRow(
               Boolean(prefs.expertMode),

@@ -19,6 +19,26 @@ import { APP_CONFIG } from '../config/appConfig';
 
 const { STORAGE_KEYS, DEFAULTS, LIMITS } = APP_CONFIG;
 
+const memoryStore = new Map<string, string>();
+
+const safeGetItem = (key: string): string | null => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem(key);
+    }
+  } catch {}
+  return memoryStore.get(key) ?? null;
+};
+
+const safeSetItem = (key: string, val: string): void => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(key, val);
+    }
+  } catch {}
+  memoryStore.set(key, val);
+};
+
 export interface StreakData {
   currentStreak: number;
   longestStreak: number;
@@ -360,12 +380,12 @@ export const StorageService = {
   },
 
   /**
-   * Gets the preferred Classical Tafsir scholar ('Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar').
+   * Gets the preferred Classical Tafsir scholar ('Ibn Kathir' | "Al-Sa'di" | 'Al-Muyassar' | any custom verified scholar).
    */
   getPreferredScholar(): PreferredScholar {
     try {
-      const val = localStorage.getItem(STORAGE_KEYS.SCHOLAR) as PreferredScholar | null;
-      if (val === 'Ibn Kathir' || val === "Al-Sa'di" || val === 'Al-Muyassar') return val;
+      const val = safeGetItem(STORAGE_KEYS.SCHOLAR) as PreferredScholar | null;
+      if (val && typeof val === 'string' && val.trim().length > 0) return val;
       return DEFAULTS.PREFERRED_SCHOLAR;
     } catch {
       return DEFAULTS.PREFERRED_SCHOLAR;
@@ -375,9 +395,9 @@ export const StorageService = {
   /**
    * Sets the preferred Classical Tafsir scholar.
    */
-  setPreferredScholar(scholar: PreferredScholar): void {
+  setPreferredScholar(scholar: PreferredScholar | string): void {
     try {
-      localStorage.setItem(STORAGE_KEYS.SCHOLAR, scholar);
+      safeSetItem(STORAGE_KEYS.SCHOLAR, scholar);
     } catch {}
   },
 
