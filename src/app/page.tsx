@@ -20,6 +20,7 @@ import {
   PreferredScholar,
   VerseCardPreferences,
   QueryAnalysisResponse,
+  EntryMode,
 } from '../types';
 import { Locale, getDictionary } from '../lib/i18n/dictionaries';
 import { QURAN_FIXTURES } from '../data/quranFixtures';
@@ -495,9 +496,18 @@ export default function App() {
     }
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    executeSearch(searchQuery, language);
+  const handleSearchSubmit = (e?: React.FormEvent, overrideQuery?: string, modeOverride?: EntryMode) => {
+    e?.preventDefault();
+    const queryToExecute = (overrideQuery !== undefined ? overrideQuery : searchQuery).trim();
+    if (queryToExecute) {
+      if (modeOverride) {
+        setActiveMode(modeOverride);
+      }
+      setSearchQuery(queryToExecute);
+      executeSearch(queryToExecute, language, modeOverride);
+      switchTab('guidance');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const switchTab = (tab: BottomNavTab) => {
@@ -535,8 +545,14 @@ export default function App() {
         onVoiceTranscript={(transcript) => {
           setSearchQuery(transcript);
           executeSearch(transcript, language);
+          switchTab('guidance');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
-        onSelectPill={(pill) => handleQuickPillSelect(pill, language)}
+        onSelectPill={(pill) => {
+          handleQuickPillSelect(pill, language);
+          switchTab('guidance');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         onSelectTodayFocus={(passageId) => {
           const match = QURAN_FIXTURES.find((f) => f.id === passageId);
           if (match) {
@@ -545,6 +561,8 @@ export default function App() {
             setSearchQuery(passageId);
             executeSearch(passageId, language);
           }
+          switchTab('guidance');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onSelectSurah={(surahNumber, ayahNumber = 1) => {
           handleNavigateToRead(surahNumber, ayahNumber);
@@ -557,6 +575,8 @@ export default function App() {
             setSearchQuery(verseId);
             executeSearch(verseId, language);
           }
+          switchTab('guidance');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
 

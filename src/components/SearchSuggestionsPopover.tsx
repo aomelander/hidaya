@@ -37,7 +37,7 @@ import {
   Footprints,
   MessageSquareOff,
 } from 'lucide-react';
-import { Language, QuickPill, QuranVerseFixture } from '../types';
+import { Language, QuickPill, QuranVerseFixture, EntryMode } from '../types';
 import { getTodayNorthStar, getLocalizedText } from '../data/dailyNorthStar';
 import { QUICK_CHOICE_PILLS, QURAN_FIXTURES } from '../data/quranFixtures';
 import { SURAH_CATALOG, SurahCatalogItem } from '../data/surahCatalog';
@@ -51,7 +51,7 @@ export interface SearchSuggestionsPopoverProps {
   onClose: () => void;
   language: Language;
   searchQuery?: string;
-  onSelectQuery: (query: string) => void;
+  onSelectQuery: (query: string, mode?: EntryMode) => void;
   onSelectPill?: (pill: QuickPill) => void;
   onSelectTodayFocus?: (passageId: string) => void;
   onSelectSurah?: (surahNumber: number, ayahNumber?: number) => void;
@@ -524,6 +524,13 @@ export const SearchSuggestionsPopover: React.FC<SearchSuggestionsPopoverProps> =
           type="text"
           value={localSearchInput}
           onChange={(e) => setLocalSearchInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && localSearchInput.trim()) {
+              e.preventDefault();
+              onSelectQuery(localSearchInput.trim());
+              onClose();
+            }
+          }}
           placeholder={
             activeTab === 'favorites'
               ? language === 'fr'
@@ -771,7 +778,19 @@ export const SearchSuggestionsPopover: React.FC<SearchSuggestionsPopoverProps> =
                             key={pill.id}
                             type="button"
                             onClick={() => {
-                              onSelectQuery(pill.query);
+                              if (onSelectPill) {
+                                onSelectPill({
+                                  id: pill.id,
+                                  label: pill.label[language] || pill.label.en,
+                                  labelArabic: pill.label.ar,
+                                  category: catGroup.category,
+                                  query: pill.query,
+                                  iconName: pill.id,
+                                  description: pill.query,
+                                });
+                              } else {
+                                onSelectQuery(pill.query, catGroup.category);
+                              }
                               onClose();
                             }}
                             className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 text-slate-800 dark:text-[#F5F7F2] hover:bg-[#006D53] hover:text-white dark:hover:bg-[#006D53] dark:hover:text-white hover:border-[#006D53] transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"

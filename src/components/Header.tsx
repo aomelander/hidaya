@@ -9,7 +9,7 @@
 
 import React, { useState, useRef } from 'react';
 import { BookOpen, SlidersHorizontal, Search, X } from 'lucide-react';
-import { Language, QuickPill } from '../types';
+import { Language, QuickPill, EntryMode } from '../types';
 import { getDictionary } from '../lib/i18n/dictionaries';
 import { VoiceSearchButton } from './VoiceSearchButton';
 import { SearchSuggestionsPopover } from './SearchSuggestionsPopover';
@@ -23,7 +23,7 @@ export interface HeaderProps {
   // Search Bar Integration (X-Style)
   searchQuery?: string;
   onSearchChange?: (val: string) => void;
-  onSubmitSearch?: (e: React.FormEvent) => void;
+  onSubmitSearch?: (e?: React.FormEvent, overrideQuery?: string, modeOverride?: EntryMode) => void;
   isAnalyzing?: boolean;
   isListening?: boolean;
   onToggleVoice?: () => void;
@@ -184,26 +184,32 @@ export const Header: React.FC<HeaderProps> = ({
             isOpen={isSuggestionsOpen}
             onClose={() => setIsSuggestionsOpen(false)}
             language={language}
-            onSelectQuery={(q) => {
+            onSelectQuery={(q, mode) => {
               onSearchChange?.(q);
               setIsSuggestionsOpen(false);
-              onSubmitSearch?.({ preventDefault: () => {} } as React.FormEvent);
+              inputRef.current?.blur();
+              onSubmitSearch?.(undefined, q, mode);
             }}
             onSelectPill={(pill) => {
-              onSelectPill?.(pill);
+              onSearchChange?.(pill.query);
               setIsSuggestionsOpen(false);
+              inputRef.current?.blur();
+              onSelectPill?.(pill);
             }}
             onSelectTodayFocus={(id) => {
               onSelectTodayFocus?.(id);
               setIsSuggestionsOpen(false);
+              inputRef.current?.blur();
             }}
             onSelectSurah={(surahNumber, ayahNumber) => {
               onSelectSurah?.(surahNumber, ayahNumber);
               setIsSuggestionsOpen(false);
+              inputRef.current?.blur();
             }}
             onSelectBookmark={(verseId) => {
               onSelectBookmark?.(verseId);
               setIsSuggestionsOpen(false);
+              inputRef.current?.blur();
             }}
           />
         </div>
