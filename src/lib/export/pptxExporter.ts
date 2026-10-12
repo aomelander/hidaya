@@ -1,4 +1,3 @@
-import pptxgen from 'pptxgenjs';
 import { QuranVerseFixture, UserReflection, Language } from '../../types';
 
 // Helper to prevent layout breaks from exceedingly long texts
@@ -13,6 +12,7 @@ export const exportSessionToPPTX = async (
   language: Language,
   reflection?: UserReflection | null
 ): Promise<void> => {
+  const { default: pptxgen } = await import('pptxgenjs');
   const pptx = new pptxgen();
   pptx.layout = 'LAYOUT_16x9';
 

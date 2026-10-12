@@ -74,7 +74,7 @@
 - [x] Milestone 44: Space Optimization, Mushaf Inline Extenders, Tafsir Expert Mode & Universal Sequential Continuation — (1) Removed the bottom navigation bar to maximize viewing space; (2) Replaced bulky multi-line adjacent-verse banners with subtle inline symbols (`+` / `✓`) placed directly at the beginning and end of recited Arabic verses inside the Mushaf text without consuming vertical space; (3) Concealed the top `h2` and `p` Surah header in normal mode to gain vertical space, preserving accessible screen-reader headers and full academic display in Expert Mode; (4) Added the Surah name to the progress bar subtitle (`Al-Baqarah 2:155-156`) with 1-tap sequential reading initiation; (5) Streamlined Level 3 Tafsir disclosure by hiding technical scholar provenance and raw Arabic quote excerpts unless Expert Mode is active; (6) Built the Sequential Reading Continuation engine (`/api/quran/sequence`) with user customization in Preferences (`Finish Surah`, `Next 15 verses`, `Next 100 verses`), allowing continuous sequential navigation and recitation from any selected Ayah. Verified with `npm run typecheck`, `npm run lint`, `npm test` (9/9 passed), and `npm run build`.
 
 **Live Production URL:** https://hidaya.hidaya.workers.dev
-**Cloudflare Worker:** hidaya (Version 9543ffab-03f4-4ca9-afa3-2a9cb1e22c40)
+**Cloudflare Worker:** hidaya (Version 7ae2011d-54d4-4a41-a3d0-bcb7cf820715)
 **GEMINI_API_KEY:** Configured as Cloudflare secret ✓
 
 

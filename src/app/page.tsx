@@ -35,14 +35,17 @@ import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { Header } from '../components/Header';
 import { DailyNorthStar } from '../components/DailyNorthStar';
 import { OffTopicBanner } from '../components/OffTopicBanner';
-import { ContinuousSessionAudioPlayer } from '../components/ContinuousSessionAudioPlayer';
 import { expandPassage, PassageSelection } from '../services/passageSelection';
 import { VerseCard } from '../components/VerseCard';
-import { CustomizationSheet } from '../components/CustomizationSheet';
-import { JournalDrawer } from '../components/JournalDrawer';
-import { QuranReaderPage, QuranReaderTarget } from '../components/QuranReaderPage';
+import type { QuranReaderTarget } from '../components/QuranReaderPage';
 import { type BottomNavTab } from '../components/BottomNav';
 import { Footer } from '../components/Footer';
+import { HIDAYA_EVENTS } from '../config/events';
+
+const ContinuousSessionAudioPlayer = React.lazy(() => import('../components/ContinuousSessionAudioPlayer').then(m => ({ default: m.ContinuousSessionAudioPlayer })));
+const QuranReaderPage = React.lazy(() => import('../components/QuranReaderPage').then(m => ({ default: m.QuranReaderPage })));
+const CustomizationSheet = React.lazy(() => import('../components/CustomizationSheet').then(m => ({ default: m.CustomizationSheet })));
+const JournalDrawer = React.lazy(() => import('../components/JournalDrawer').then(m => ({ default: m.JournalDrawer })));
 
 export default function App() {
   const [passageSelections, setPassageSelections] = useState<Record<string, PassageSelection>>({});
@@ -95,21 +98,21 @@ export default function App() {
         setActiveAudioVerseId(detail.ayahId);
       }
     };
-    window.addEventListener('hidaya-playback-state', handlePlaybackState);
-    return () => window.removeEventListener('hidaya-playback-state', handlePlaybackState);
+    window.addEventListener(HIDAYA_EVENTS.PLAYBACK_STATE, handlePlaybackState);
+    return () => window.removeEventListener(HIDAYA_EVENTS.PLAYBACK_STATE, handlePlaybackState);
   }, []);
 
   const handleToggleGlobalPlay = () => {
     if (isGlobalPlaying) {
       window.dispatchEvent(
-        new CustomEvent('hidaya-global-toggle-play', { detail: { action: 'pause' } })
+        new CustomEvent(HIDAYA_EVENTS.GLOBAL_TOGGLE_PLAY, { detail: { action: 'pause' } })
       );
     } else {
       if (!activeAudioVerseId && displayedPassages.length > 0) {
         setActiveAudioVerseId(displayedPassages[0].id);
       }
       window.dispatchEvent(
-        new CustomEvent('hidaya-global-toggle-play', { detail: { action: 'play' } })
+        new CustomEvent(HIDAYA_EVENTS.GLOBAL_TOGGLE_PLAY, { detail: { action: 'play' } })
       );
     }
   };
@@ -225,46 +228,28 @@ export default function App() {
     document.documentElement.setAttribute('lang', lang);
   }, [lang]);
 
-  // Persist Preferences
+  // Consolidated Preferences Persistence
   useEffect(() => {
     if (!mounted) return;
     StorageService.setLanguage(language);
-  }, [language, mounted]);
-
-  useEffect(() => {
-    if (!mounted) return;
     StorageService.setFontSizeMultiplier(arabicScale);
-  }, [arabicScale, mounted]);
-
-  useEffect(() => {
-    if (!mounted) return;
     StorageService.setShowTransliteration(showTransliteration);
-  }, [showTransliteration, mounted]);
-
-  useEffect(() => {
-    if (!mounted) return;
     StorageService.setHighContrast(isHighContrast);
-  }, [isHighContrast, mounted]);
-
-  useEffect(() => {
-    if (!mounted) return;
     StorageService.setReaderProfile(readerProfile);
-  }, [readerProfile, mounted]);
-
-  useEffect(() => {
-    if (!mounted) return;
     StorageService.setPreferredScholar(preferredScholar);
-  }, [preferredScholar, mounted]);
-
-  useEffect(() => {
-    if (!mounted) return;
     StorageService.setShowReadPage(showReadPage);
-  }, [showReadPage, mounted]);
-
-  useEffect(() => {
-    if (!mounted) return;
     StorageService.setShowNorthStarPage(showNorthStarPage);
-  }, [showNorthStarPage, mounted]);
+  }, [
+    mounted,
+    language,
+    arabicScale,
+    showTransliteration,
+    isHighContrast,
+    readerProfile,
+    preferredScholar,
+    showReadPage,
+    showNorthStarPage,
+  ]);
 
   // Default Verse Load
   useEffect(() => {
@@ -312,7 +297,7 @@ export default function App() {
     // Only trigger playback for new verse if global play was ALREADY actively playing
     if (isGlobalPlaying) {
       window.dispatchEvent(
-        new CustomEvent('hidaya-global-toggle-play', {
+        new CustomEvent(HIDAYA_EVENTS.GLOBAL_TOGGLE_PLAY, {
           detail: { action: 'play', ayahId: targetVerse.id },
         })
       );
@@ -758,31 +743,35 @@ export default function App() {
 
         {/* TAB 2: AUDIO (Dedicated Continuous Audio Player Page) */}
         {activeNavTab === 'audio' && (
-          <ContinuousSessionAudioPlayer
-            inlinePage
-            verses={audioPassages}
-            language={language}
-            onActiveVerseChange={(verseId) => setActiveAudioVerseId(verseId)}
-            onNavigateToRead={handleNavigateToRead}
-          />
+          <React.Suspense fallback={<div className="py-12 text-center text-xs text-emerald-800/60 dark:text-[#9BAFA7]/60 animate-pulse">Loading audio session...</div>}>
+            <ContinuousSessionAudioPlayer
+              inlinePage
+              verses={audioPassages}
+              language={language}
+              onActiveVerseChange={(verseId) => setActiveAudioVerseId(verseId)}
+              onNavigateToRead={handleNavigateToRead}
+            />
+          </React.Suspense>
         )}
 
         {/* TAB 3: READ (Dedicated Read the Quran Page — Sourates, Juz', Favoris & Focused Verse Reader) */}
         {activeNavTab === 'read' && (
-          <QuranReaderPage
-            language={language}
-            arabicScale={arabicScale}
-            readingScale={readingScale}
-            showTransliteration={showTransliteration}
-            bookmarks={bookmarks}
-            onToggleBookmark={handleToggleBookmark}
-            preferredScholar={preferredScholar}
-            readerProfile={readerProfile}
-            initialTarget={readTarget}
-            onTargetChange={setReadTarget}
-            onOpenJournal={() => switchTab('journal')}
-            onOpenUniversalVerse={handleNavigateToRead}
-          />
+          <React.Suspense fallback={<div className="py-12 text-center text-xs text-emerald-800/60 dark:text-[#9BAFA7]/60 animate-pulse">Loading Quran reader...</div>}>
+            <QuranReaderPage
+              language={language}
+              arabicScale={arabicScale}
+              readingScale={readingScale}
+              showTransliteration={showTransliteration}
+              bookmarks={bookmarks}
+              onToggleBookmark={handleToggleBookmark}
+              preferredScholar={preferredScholar}
+              readerProfile={readerProfile}
+              initialTarget={readTarget}
+              onTargetChange={setReadTarget}
+              onOpenJournal={() => switchTab('journal')}
+              onOpenUniversalVerse={handleNavigateToRead}
+            />
+          </React.Suspense>
         )}
 
         {/* TAB 4: NORTH STAR (Dedicated Daily Passage Page) */}
@@ -801,63 +790,67 @@ export default function App() {
 
         {/* TAB 5: JOURNAL (Dedicated Saved Verses & Reflections Page) */}
         {activeNavTab === 'journal' && (
-          <JournalDrawer
-            isOpen
-            inlinePage
-            allVerses={QURAN_FIXTURES}
-            language={language}
-            onSelectVerse={handleSelectVerseAndGoToGuidance}
-            onRemoveBookmark={handleToggleBookmark}
-            onNavigateToRead={handleNavigateToRead}
-          />
+          <React.Suspense fallback={<div className="py-12 text-center text-xs text-emerald-800/60 dark:text-[#9BAFA7]/60 animate-pulse">Loading journal...</div>}>
+            <JournalDrawer
+              isOpen
+              inlinePage
+              allVerses={QURAN_FIXTURES}
+              language={language}
+              onSelectVerse={handleSelectVerseAndGoToGuidance}
+              onRemoveBookmark={handleToggleBookmark}
+              onNavigateToRead={handleNavigateToRead}
+            />
+          </React.Suspense>
         )}
 
         {/* TAB 6: PREFERENCES (Dedicated Settings & Depth Page) */}
         {activeNavTab === 'preferences' && (
-          <CustomizationSheet
-            isOpen
-            inlinePage
-            onClose={() => switchTab('guidance')}
-            language={language}
-            onLanguageChange={setLanguage}
-            isDark={isDark}
-            onToggleDark={() => setIsDark(!isDark)}
-            readerProfile={readerProfile}
-            onReaderProfileChange={setReaderProfile}
-            activeMode={activeMode}
-            onEntryModeChange={setActiveMode}
-            preferredScholar={preferredScholar}
-            onPreferredScholarChange={setPreferredScholar}
-            sessionDepth={sessionDepth}
-            onSessionDepthChange={setSessionDepth}
-            explanationDepth={explanationDepth}
-            onExplanationDepthChange={setExplanationDepth}
-            activeSphere={activeSphere}
-            onSphereChange={setActiveSphere}
-            arabicScale={arabicScale}
-            onArabicScaleChange={setArabicScale}
-            readingScale={readingScale}
-            onReadingScaleChange={(scale) => {
-              setReadingScale(scale);
-              StorageService.setReadingScale(scale);
-            }}
-            showTransliteration={showTransliteration}
-            onToggleTransliteration={() => setShowTransliteration(!showTransliteration)}
-            isHighContrast={isHighContrast}
-            onToggleHighContrast={() => setIsHighContrast(!isHighContrast)}
-            perspectiveMode={perspectiveMode}
-            onTogglePerspective={() =>
-              setPerspectiveMode((prev) => (prev === 'devotional' ? 'inquirer' : 'devotional'))
-            }
-            showReadPage={showReadPage}
-            onToggleShowReadPage={() => setShowReadPage((prev) => !prev)}
-            showNorthStarPage={showNorthStarPage}
-            onToggleShowNorthStarPage={() => setShowNorthStarPage((prev) => !prev)}
-            cardPreferences={cardPreferences}
-            onCardPreferencesChange={(updates) => setCardPreferences((prev) => ({ ...prev, ...updates }))}
-            isFullscreenActive={isFullscreenActive}
-            onToggleFullscreenTv={toggleFullscreenTv}
-          />
+          <React.Suspense fallback={<div className="py-12 text-center text-xs text-emerald-800/60 dark:text-[#9BAFA7]/60 animate-pulse">Loading preferences...</div>}>
+            <CustomizationSheet
+              isOpen
+              inlinePage
+              onClose={() => switchTab('guidance')}
+              language={language}
+              onLanguageChange={setLanguage}
+              isDark={isDark}
+              onToggleDark={() => setIsDark(!isDark)}
+              readerProfile={readerProfile}
+              onReaderProfileChange={setReaderProfile}
+              activeMode={activeMode}
+              onEntryModeChange={setActiveMode}
+              preferredScholar={preferredScholar}
+              onPreferredScholarChange={setPreferredScholar}
+              sessionDepth={sessionDepth}
+              onSessionDepthChange={setSessionDepth}
+              explanationDepth={explanationDepth}
+              onExplanationDepthChange={setExplanationDepth}
+              activeSphere={activeSphere}
+              onSphereChange={setActiveSphere}
+              arabicScale={arabicScale}
+              onArabicScaleChange={setArabicScale}
+              readingScale={readingScale}
+              onReadingScaleChange={(scale) => {
+                setReadingScale(scale);
+                StorageService.setReadingScale(scale);
+              }}
+              showTransliteration={showTransliteration}
+              onToggleTransliteration={() => setShowTransliteration(!showTransliteration)}
+              isHighContrast={isHighContrast}
+              onToggleHighContrast={() => setIsHighContrast(!isHighContrast)}
+              perspectiveMode={perspectiveMode}
+              onTogglePerspective={() =>
+                setPerspectiveMode((prev) => (prev === 'devotional' ? 'inquirer' : 'devotional'))
+              }
+              showReadPage={showReadPage}
+              onToggleShowReadPage={() => setShowReadPage((prev) => !prev)}
+              showNorthStarPage={showNorthStarPage}
+              onToggleShowNorthStarPage={() => setShowNorthStarPage((prev) => !prev)}
+              cardPreferences={cardPreferences}
+              onCardPreferencesChange={(updates) => setCardPreferences((prev) => ({ ...prev, ...updates }))}
+              isFullscreenActive={isFullscreenActive}
+              onToggleFullscreenTv={toggleFullscreenTv}
+            />
+          </React.Suspense>
         )}
 
         {/* Ethical Boundaries & Al-Isra 17:105 Footer */}

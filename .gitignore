@@ -7,6 +7,9 @@ node_modules/
 .pnp
 .pnp.js
 
+# Workflows (requires workflow scope on GitHub token)
+.github/workflows/
+
 # Build Outputs
 dist/
 build/

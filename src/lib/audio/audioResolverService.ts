@@ -46,18 +46,20 @@ export async function fetchAyahAudioMetadata(params: {
 }): Promise<StoredAudioMetadata> {
   const { surahNumber, ayahNumber, language, type, ayahId, signal } = params;
 
-  if (String(ayahNumber).includes('-') || !params.source) return { status: 'unavailable' };
-
   // Primary verse number for lookup
   const cleanAyah = String(ayahNumber).split('-')[0].trim();
+  if (!cleanAyah) return { status: 'unavailable' };
 
   const queryParams = new URLSearchParams({
     surah: String(surahNumber),
     verse: cleanAyah,
     lang: (language || 'en').toLowerCase(),
     type,
-    source: params.source,
   });
+
+  if (params.source) {
+    queryParams.set('source', params.source);
+  }
 
   if (ayahId && UUID_REGEX.test(ayahId.trim())) {
     queryParams.set('ayahId', ayahId.trim());
@@ -161,9 +163,10 @@ export async function fetchAyahAudioPlaylist(params: Parameters<typeof fetchAyah
   );
 
   if (params.signal?.aborted) return { status: 'unavailable' };
-  if (records.some((metadata) => metadata.status !== 'available' || !metadata.record)) {
+  const validRecords = records.filter((metadata) => metadata.status === 'available' && metadata.record);
+  if (!validRecords.length) {
     return { status: 'unavailable' };
   }
 
-  return { ...records[0], audioUrls: records.map((metadata) => metadata.record!.audioUrl) };
+  return { ...validRecords[0], audioUrls: validRecords.map((metadata) => metadata.record!.audioUrl) };
 }

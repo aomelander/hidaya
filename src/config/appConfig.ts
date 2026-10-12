@@ -46,7 +46,7 @@ export const APP_CONFIG = {
       loopVerse: false,
       includeRecitationByDefault: true,
       includeTranslationByDefault: true,
-      includeTafsirByDefault: false,
+      includeTafsirByDefault: true,
       playbackSpeed: 1,
       showTajweedColors: false,
       tvMode: false,

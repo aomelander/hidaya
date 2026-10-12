@@ -39,6 +39,7 @@ import {
   fetchAyahAudioPlaylist,
   StoredAudioMetadata,
 } from '../lib/audio/audioResolverService';
+import { HIDAYA_EVENTS } from '../config/events';
 
 export type AudioStreamMode = 'recitation' | 'translation' | 'tafsir';
 export type ActivePhase = 'idle' | 'recitation' | 'translation' | 'tafsir';
@@ -305,18 +306,20 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [includeTranslationInRead, setIncludeTranslationInRead] = useState<boolean>(() =>
     defaultIncludeTranslation !== undefined
       ? defaultIncludeTranslation && hasTranslationText
-      : StorageService.getCardPreferences().includeTranslationByDefault && hasTranslationText
+      : StorageService.getCardPreferences().includeTranslationByDefault !== false && hasTranslationText
   );
   const [includeTafsirInRead, setIncludeTafsirInRead] = useState<boolean>(() =>
     defaultIncludeTafsir !== undefined
       ? defaultIncludeTafsir
-      : StorageService.getCardPreferences().includeTafsirByDefault
+      : StorageService.getCardPreferences().includeTafsirByDefault !== false
   );
 
   const [isAudioCached, setIsAudioCached] = useState(false);
   const [isCachingAudio, setIsCachingAudio] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const translationMetaRef = useRef<StoredAudioMetadata | null>(null);
+  const tafsirMetaRef = useRef<StoredAudioMetadata | null>(null);
   const blobUrlCacheRef = useRef<Map<string, string>>(new Map());
   const wakeLockRef = useRef<{ release?: () => Promise<void> } | null>(null);
   const metadataRequestIdRef = useRef(0);
@@ -408,6 +411,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           return;
         }
 
+        translationMetaRef.current = transMeta;
+        tafsirMetaRef.current = tafMeta;
         setTranslationMetadata(transMeta);
         setTafsirMetadata(tafMeta);
 
@@ -505,11 +510,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setActivePhase('idle');
       onPlaybackProgress?.(0, false, 'idle');
     };
-    window.addEventListener('hidaya-playback-owner', stop);
+    window.addEventListener(HIDAYA_EVENTS.PLAYBACK_OWNER, stop);
     return () => {
       playSeqRef.current += 1;
       audio?.pause();
-      window.removeEventListener('hidaya-playback-owner', stop);
+      window.removeEventListener(HIDAYA_EVENTS.PLAYBACK_OWNER, stop);
     };
   }, []);
 
@@ -519,8 +524,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         OfflineCacheService.isAudioCached(effectiveActiveUrl).then(setIsAudioCached);
       }
     };
-    window.addEventListener('hidaya-offline-cache-updated', syncCacheStatus);
-    return () => window.removeEventListener('hidaya-offline-cache-updated', syncCacheStatus);
+    window.addEventListener(HIDAYA_EVENTS.OFFLINE_CACHE_UPDATED, syncCacheStatus);
+    return () => window.removeEventListener(HIDAYA_EVENTS.OFFLINE_CACHE_UPDATED, syncCacheStatus);
   }, [effectiveActiveUrl]);
 
   const handleToggleOfflineAudio = async () => {
@@ -787,13 +792,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!audio || !url) { stopPlayback(); return; }
     const request = ++playSeqRef.current;
     SpeechService.cancel();
-    window.dispatchEvent(new CustomEvent('hidaya-playback-owner', { detail: audio }));
+    window.dispatchEvent(new CustomEvent(HIDAYA_EVENTS.PLAYBACK_OWNER, { detail: audio }));
     audio.pause();
-    const resolvedBlobOrUrl = blobUrlCacheRef.current.get(url) || url;
-    const targetHref = resolvedBlobOrUrl.startsWith('blob:')
-      ? resolvedBlobOrUrl
-      : new URL(resolvedBlobOrUrl, window.location.href).href;
-    if (audio.src !== targetHref) audio.src = targetHref;
+    const targetHref = new URL(url, window.location.href).href;
+    if (audio.src !== targetHref) {
+      audio.src = targetHref;
+      try { audio.load(); } catch {}
+    }
     audio.playbackRate = playbackRate;
     audio.muted = isMuted;
     setActivePhase(phase);
@@ -824,12 +829,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       finishVersePlaybackOrAdvance();
       return;
     }
-    if (tafsirMetadata?.status === 'available' && tafsirMetadata.record?.audioUrl) {
+    const currentTafMeta = tafsirMetaRef.current || tafsirMetadata;
+    if (currentTafMeta?.status === 'available' && currentTafMeta.record?.audioUrl) {
       storedTrackIndex.current = 0;
-      playUrl(tafsirMetadata.record.audioUrl, 'tafsir');
+      playUrl(currentTafMeta.record.audioUrl, 'tafsir');
     } else {
       const request = ++playSeqRef.current;
-      window.dispatchEvent(new CustomEvent('hidaya-playback-owner', { detail: audioRef.current }));
+      window.dispatchEvent(new CustomEvent(HIDAYA_EVENTS.PLAYBACK_OWNER, { detail: audioRef.current }));
       setActivePhase('tafsir');
       setIsPlaying(true);
       onPlayingStateChange?.(true);
@@ -859,8 +865,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const playTranslationStep = () => {
+    const currentTafMeta = tafsirMetaRef.current || tafsirMetadata;
+    const currentTransMeta = translationMetaRef.current || translationMetadata;
     if (includeTafsirInRead && hasTafsirText) {
-      const tafUrls = tafsirMetadata?.audioUrls || (tafsirMetadata?.record?.audioUrl ? [tafsirMetadata.record.audioUrl] : []);
+      const tafUrls = currentTafMeta?.audioUrls || (currentTafMeta?.record?.audioUrl ? [currentTafMeta.record.audioUrl] : []);
       if (tafUrls.length > 0) {
         tafUrls.forEach((u) => { fetch(u, { method: 'GET' }).catch(() => {}); });
       } else {
@@ -869,12 +877,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         });
       }
     }
-    if (translationMetadata?.status === 'available' && translationMetadata.record?.audioUrl) {
+    if (currentTransMeta?.status === 'available' && currentTransMeta.record?.audioUrl) {
       storedTrackIndex.current = 0;
-      playUrl(translationMetadata.record.audioUrl, 'translation');
+      playUrl(currentTransMeta.record.audioUrl, 'translation');
     } else if (hasTranslationText) {
       const request = ++playSeqRef.current;
-      window.dispatchEvent(new CustomEvent('hidaya-playback-owner', { detail: audioRef.current }));
+      window.dispatchEvent(new CustomEvent(HIDAYA_EVENTS.PLAYBACK_OWNER, { detail: audioRef.current }));
       setActivePhase('translation');
       setIsPlaying(true);
       onPlayingStateChange?.(true);
@@ -954,7 +962,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   // Broadcast playback state globally for the Header and app
   useEffect(() => {
     window.dispatchEvent(
-      new CustomEvent('hidaya-playback-state', {
+      new CustomEvent(HIDAYA_EVENTS.PLAYBACK_STATE, {
         detail: { isPlaying, ayahId, activePhase },
       })
     );
@@ -982,12 +990,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           const next = !audioRef.current.muted;
           audioRef.current.muted = next;
           setIsMuted(next);
-          window.dispatchEvent(new CustomEvent('hidaya-mute-state', { detail: { isMuted: next } }));
+          window.dispatchEvent(new CustomEvent(HIDAYA_EVENTS.MUTE_STATE, { detail: { isMuted: next } }));
         }
       }
     };
-    window.addEventListener('hidaya-global-toggle-play', handleGlobalToggle);
-    return () => window.removeEventListener('hidaya-global-toggle-play', handleGlobalToggle);
+    window.addEventListener(HIDAYA_EVENTS.GLOBAL_TOGGLE_PLAY, handleGlobalToggle);
+    return () => window.removeEventListener(HIDAYA_EVENTS.GLOBAL_TOGGLE_PLAY, handleGlobalToggle);
   }, [isActive, isPlaying, togglePlay]);
 
   // Synchronize playback state when card becomes active or inactive

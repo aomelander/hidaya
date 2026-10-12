@@ -60,7 +60,7 @@ import { getLocalizedVerseDetails } from '../data/localizedVerseContent';
 import { getAgeAdaptiveContent } from '../data/ageAdaptiveContent';
 import { ScholarProvenanceModal } from './ScholarProvenanceModal';
 import { AyahCartouche } from './AyahCartouche';
-import { SocialCreationStudio } from './SocialCreationStudio';
+const SocialCreationStudio = React.lazy(() => import('./SocialCreationStudio').then(m => ({ default: m.SocialCreationStudio })));
 import { VerseWordByWordView } from './audio/VerseWordByWordView';
 import { VerseMemorizationView } from './audio/VerseMemorizationView';
 import { ThumbActionRail } from './mobile/ThumbActionRail';
@@ -1917,18 +1917,20 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                 ✕
               </button>
             </div>
-            <SocialCreationStudio
-              verse={verse}
-              surahDisplayTitle={`${localizedDetails.surahPrefix} ${localizedDetails.surahNameDisplay} (${verse.id})`}
-              arabicText={verse.arabicText}
-              translationText={translationObj?.text || ''}
-              translatorName={translationObj?.translator || ''}
-              tafsirText={currentCitation?.text || ''}
-              tafsirScholar={currentCitation?.scholar || ''}
-              audioUrl={verse.audioUrl || ''}
-              language={language}
-              reflection={StorageService.getReflection(verse.id)}
-            />
+            <React.Suspense fallback={<div className="p-4 text-center text-xs text-emerald-800/60 dark:text-[#9BAFA7]/60 animate-pulse">Loading Studio...</div>}>
+              <SocialCreationStudio
+                verse={verse}
+                surahDisplayTitle={`${localizedDetails.surahPrefix} ${localizedDetails.surahNameDisplay} (${verse.id})`}
+                arabicText={verse.arabicText}
+                translationText={translationObj?.text || ''}
+                translatorName={translationObj?.translator || ''}
+                tafsirText={currentCitation?.text || ''}
+                tafsirScholar={currentCitation?.scholar || ''}
+                audioUrl={verse.audioUrl || ''}
+                language={language}
+                reflection={StorageService.getReflection(verse.id)}
+              />
+            </React.Suspense>
           </div>
         )}
 

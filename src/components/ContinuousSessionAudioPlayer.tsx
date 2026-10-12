@@ -134,7 +134,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
   const [isPlaying, setIsPlaying] = useState(false);
   const [includeRecitation, setIncludeRecitation] = useState(true);
   const [includeTranslation, setIncludeTranslation] = useState(true);
-  const [includeTafsir, setIncludeTafsir] = useState(false);
+  const [includeTafsir, setIncludeTafsir] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [playbackPhase, setPlaybackPhase] = useState<PlaybackPhase>('idle');
@@ -531,6 +531,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           let index = 0;
           const urls = meta.audioUrls || [meta.record.audioUrl];
           sec.src = urls[index];
+          try { sec.load(); } catch {}
           sec.playbackRate = playbackRate;
           sec.muted = isMuted;
 
@@ -564,6 +565,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
             index += 1;
             if (index < urls.length) {
               sec.src = urls[index];
+              try { sec.load(); } catch {}
               void playCurrent();
               return;
             }

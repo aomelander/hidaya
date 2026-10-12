@@ -47,7 +47,17 @@ export function useGuidanceSearch(activeLanguage: Language = 'en') {
       }
     }
 
-    // Only apply session depth slice if we are in general guidance mode with more than 5 results and not a direct passage sequence
+    // When in continuous Quran reading mode (all passages belong to the same Surah or sequential reading),
+    // never truncate to 5 cards: allow continuous reading of the whole Surah, 15, or 100 verses according to user preferences!
+    const isConsecutiveSurahSequence =
+      baseList.length > 1 &&
+      baseList.every((p) => p.surahNumber === baseList[0].surahNumber);
+
+    if (isConsecutiveSurahSequence) {
+      return baseList;
+    }
+
+    // Only apply session depth slice if we are in general guidance situation search
     if (baseList.length > 5) {
       switch (sessionDepth) {
         case '2min':

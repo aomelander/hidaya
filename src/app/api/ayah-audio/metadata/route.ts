@@ -14,15 +14,13 @@ export async function GET(request: NextRequest) {
 
   const surahNumber = surahStr ? parseInt(surahStr, 10) : undefined;
   let ayahNumber: number | undefined;
-  if (verseStr) {
-    // If range like "5-6", use the primary (first) verse
-    const firstNum = parseInt(verseStr.split('-')[0].trim(), 10);
-    if (!isNaN(firstNum)) {
-      ayahNumber = firstNum;
-    }
+  const cleanVerse = verseStr ? verseStr.split('-')[0].trim() : undefined;
+  const firstNum = cleanVerse ? parseInt(cleanVerse, 10) : undefined;
+  if (firstNum && !isNaN(firstNum)) {
+    ayahNumber = firstNum;
   }
 
-  if (!['en', 'sv', 'fr', 'ar'].includes(lang) || !['translation', 'tafsir'].includes(typeStr) || (verseStr && !/^\d+$/.test(verseStr)) || (surahStr && !/^\d+$/.test(surahStr))) {
+  if (!['en', 'sv', 'fr', 'ar'].includes(lang) || !['translation', 'tafsir'].includes(typeStr) || (cleanVerse && !/^\d+$/.test(cleanVerse)) || (surahStr && !/^\d+$/.test(surahStr))) {
     return NextResponse.json({ status: 'unavailable' }, { status: 400 });
   }
 

@@ -267,7 +267,7 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
               aria-label={t.prevStar}
               className="p-1.5 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
             </button>
 
             <button
@@ -284,7 +284,7 @@ export const DailyNorthStar: React.FC<DailyNorthStarProps> = ({
               aria-label={t.nextStar}
               className="p-1.5 rounded-xl border border-emerald-900/10 dark:border-emerald-700/30 hover:bg-emerald-900/10 dark:hover:bg-emerald-800/30 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4B900]"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 rtl:rotate-180" />
             </button>
 
             <button

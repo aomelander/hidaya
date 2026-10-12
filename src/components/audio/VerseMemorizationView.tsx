@@ -311,7 +311,7 @@ export const VerseMemorizationView: React.FC<VerseMemorizationViewProps> = ({
                 onClick={handleRevealNext}
                 className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-amber-500/15 text-amber-900 dark:text-[#F4B900] border border-amber-500/30 hover:bg-amber-500/25 inline-flex items-center gap-1 cursor-pointer"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
                 <span>{labels.revealNext}</span>
               </button>
 

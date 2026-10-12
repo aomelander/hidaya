@@ -266,7 +266,7 @@ export async function lookupAyahAudio(params: {
   source?: string;
 }): Promise<AyahAudioLookupResult> {
   const { languageCode, audioType } = params;
-  if (!['en', 'sv', 'fr', 'ar'].includes(languageCode) || !['translation', 'tafsir'].includes(audioType) || !params.source) {
+  if (!['en', 'sv', 'fr', 'ar'].includes(languageCode) || !['translation', 'tafsir'].includes(audioType)) {
     return { status: 'unavailable' };
   }
   const rawAyahId = params.ayahId?.trim();
@@ -321,30 +321,23 @@ export async function lookupAyahAudio(params: {
 
       if (!error && data && data.length > 0) {
         // 1. Try to find candidate matching the requested source/scholar
-        let row: any = data.find((candidate: any) => {
-          return candidate.ayah_id === ayahId &&
-            candidate.language_code === languageCode.toLowerCase() &&
-            candidate.audio_type === audioType &&
-            matchesAttributionSource(candidate.attribution, params.source, audioType);
-        });
+        let row: any = undefined;
+        if (params.source) {
+          row = data.find((candidate: any) => {
+            return candidate.ayah_id === ayahId &&
+              candidate.language_code === languageCode.toLowerCase() &&
+              candidate.audio_type === audioType &&
+              matchesAttributionSource(candidate.attribution, params.source, audioType);
+          });
+        }
 
-        // 2. Fallback for tafsir: If the user requested a verified classical scholar/tafsir
-        // but that specific scholar is not recorded for this ayah, fall back to any available
-        // verified classical tafsir recording available for that ayah in the target language.
-        if (!row && audioType === 'tafsir' && isKnownClassicalScholar(params.source)) {
+        // 2. Fallback for translation: Use the available translation recording for that ayah in the target language.
+        if (!row && audioType === 'translation') {
           row = data.find((candidate: any) => {
             return candidate.ayah_id === ayahId &&
               candidate.language_code === languageCode.toLowerCase() &&
               candidate.audio_type === audioType;
           });
-        }
-
-        // 3. Fallback for translation: if source was loosely specified and only one translation recording exists
-        if (!row && audioType === 'translation' && data.length === 1) {
-          const onlyRow: any = data[0];
-          if (onlyRow.ayah_id === ayahId && onlyRow.language_code === languageCode.toLowerCase() && onlyRow.audio_type === audioType) {
-            row = onlyRow;
-          }
         }
 
         if (!row) return { status: 'unavailable' };
