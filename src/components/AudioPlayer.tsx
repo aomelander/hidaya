@@ -700,11 +700,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     prefetchSingleTrack,
   ]);
 
-  // Selectively pre-warm the next track only when actively playing to conserve bandwidth
+  // Selectively pre-warm the next track only AFTER current track has played smoothly for 2.5s
   useEffect(() => {
-    if (isPlaying) {
+    if (!isPlaying) return;
+    const timer = setTimeout(() => {
       warmUpNextPhase();
-    }
+    }, 2500);
+    return () => clearTimeout(timer);
   }, [isPlaying, warmUpNextPhase]);
 
   // iOS Lock-Screen MediaSession + Screen WakeLock for uninterrupted continuous playback when iPhone sleeps
@@ -790,7 +792,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     window.dispatchEvent(new CustomEvent(HIDAYA_EVENTS.PLAYBACK_OWNER, { detail: audio }));
     audio.pause();
     const targetHref = new URL(url, window.location.href).href;
-    if (audio.src !== targetHref) {
+    const isNewSrc = audio.src !== targetHref;
+    if (isNewSrc) {
       audio.src = targetHref;
       try { audio.load(); } catch {}
     }
@@ -803,28 +806,72 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     onPlaybackProgress?.(0, true, phase);
     setHasPlaybackError(false);
     setPlaybackNotice(null);
-    warmUpNextPhase();
 
-    void audio.play().then(() => {
-      if (request === playSeqRef.current) {
-        setIsLoadingAudio(false);
-      }
-    }).catch((error) => {
+    const executePlay = () => {
       if (request !== playSeqRef.current) return;
-      setIsLoadingAudio(false);
-      if (error?.name === 'NotAllowedError') {
-        setIsPlaying(false);
-        onPlayingStateChange?.(false);
-        setPlaybackNotice('blocked');
-        return;
-      }
-      if (error?.name === 'AbortError') {
-        // Interrupted by rapid track switching or pause; do not show failure
-        return;
-      }
-      setHasPlaybackError(true);
-      stopPlayback();
-    });
+      void audio.play().then(() => {
+        if (request === playSeqRef.current) {
+          setIsLoadingAudio(false);
+        }
+      }).catch((error) => {
+        if (request !== playSeqRef.current) return;
+        setIsLoadingAudio(false);
+        if (error?.name === 'NotAllowedError') {
+          setIsPlaying(false);
+          onPlayingStateChange?.(false);
+          setPlaybackNotice('blocked');
+          return;
+        }
+        if (error?.name === 'AbortError') {
+          // Interrupted by rapid track switching or pause; do not show failure
+          return;
+        }
+        setHasPlaybackError(true);
+        stopPlayback();
+      });
+    };
+
+    // Buffer audio before playback to eliminate the 1-2s recitation audio stutter
+    const hasEnoughBuffer =
+      !isNewSrc &&
+      audio.readyState >= 3 &&
+      audio.buffered.length > 0 &&
+      (audio.buffered.end(0) - audio.currentTime >= 2.5 || audio.buffered.end(0) >= (audio.duration || 1) - 0.1);
+
+    if (hasEnoughBuffer) {
+      executePlay();
+    } else {
+      let started = false;
+      let fallbackTimer: NodeJS.Timeout | null = null;
+
+      const triggerPlayback = () => {
+        if (started) return;
+        started = true;
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+        audio.removeEventListener('canplaythrough', onCanPlayThrough);
+        audio.removeEventListener('canplay', onCanPlay);
+        executePlay();
+      };
+
+      const onCanPlayThrough = () => {
+        triggerPlayback();
+      };
+
+      const onCanPlay = () => {
+        // If canplay fired and we have buffered at least 2s or complete verse audio
+        if (audio.buffered.length > 0 && (audio.buffered.end(0) >= 2 || (audio.duration && audio.buffered.end(0) >= audio.duration - 0.2))) {
+          triggerPlayback();
+        }
+      };
+
+      audio.addEventListener('canplaythrough', onCanPlayThrough, { once: true });
+      audio.addEventListener('canplay', onCanPlay);
+
+      // Safety fallback timer (max 1200ms) so slow connections or mobile restrictions never freeze indefinitely
+      fallbackTimer = setTimeout(() => {
+        triggerPlayback();
+      }, 1200);
+    }
   };
 
   // Sync playback state when returning from mobile browser background
@@ -1204,7 +1251,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       <div className="sr-only" aria-hidden="true">
         <audio
           ref={audioRef}
-          preload="metadata"
+          preload="auto"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onWaiting={() => setIsLoadingAudio(true)}
@@ -1234,7 +1281,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     >
       <audio
         ref={audioRef}
-        preload="metadata"
+        preload="auto"
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onWaiting={() => setIsLoadingAudio(true)}

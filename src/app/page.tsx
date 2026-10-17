@@ -61,7 +61,9 @@ export default function App() {
   const [showTransliteration, setShowTransliteration] = useState<boolean>(
     APP_CONFIG.DEFAULTS.SHOW_TRANSLITERATION
   );
-  const [isDark, setIsDark] = useState<boolean>(APP_CONFIG.DEFAULTS.DARK_MODE);
+  const [isDark, setIsDark] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? StorageService.getDarkMode() : true
+  );
   const [isHighContrast, setIsHighContrast] = useState<boolean>(
     APP_CONFIG.DEFAULTS.HIGH_CONTRAST
   );
@@ -328,32 +330,76 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeVerseIndex, displayedPassages.length, language]);
 
-  // Touch Swipe Gesture Detection on Guidance Viewport
+  // Global Touch Swipe Gesture Detection across the entire viewport (inside & outside the card)
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
+  const lastGlobalSwipeTimeRef = useRef<number>(0);
 
-  const handleContainerTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
+  // Listen for card-level handled swipes to prevent double advancement
+  useEffect(() => {
+    const handleCardSwipeDone = () => {
+      lastGlobalSwipeTimeRef.current = Date.now();
+    };
+    window.addEventListener('hidaya-verse-swipe-handled', handleCardSwipeDone);
+    return () => window.removeEventListener('hidaya-verse-swipe-handled', handleCardSwipeDone);
+  }, []);
 
-  const handleContainerTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
-    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
-    touchStartX.current = null;
-    touchStartY.current = null;
+  // Global window swipe listener for touches outside the card
+  useEffect(() => {
+    if (activeNavTab !== 'guidance' || displayedPassages.length <= 1) return;
 
-    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
-      const isRtl = language === 'ar';
-      const isNext = isRtl ? deltaX > 0 : deltaX < 0;
-      if (isNext) {
-        handleAdvanceToVerse(activeVerseIndex + 1);
-      } else {
-        handleAdvanceToVerse(activeVerseIndex - 1);
+    const handleWindowTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest(
+          'input, textarea, select, button, a, [role="slider"], [role="dialog"], [data-creation-studio="true"], [data-comments-thread="true"], aside'
+        )
+      ) {
+        touchStartX.current = null;
+        touchStartY.current = null;
+        return;
       }
-    }
-  };
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleWindowTouchEnd = (e: TouchEvent) => {
+      if (touchStartX.current === null || touchStartY.current === null) return;
+      if (e.changedTouches.length !== 1) return;
+
+      const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+      const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+      touchStartX.current = null;
+      touchStartY.current = null;
+
+      const now = Date.now();
+      if (now - lastGlobalSwipeTimeRef.current < 450) return;
+
+      if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25) {
+        lastGlobalSwipeTimeRef.current = now;
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try { navigator.vibrate(15); } catch {}
+        }
+        const isRtl = language === 'ar';
+        const isNext = isRtl ? deltaX > 0 : deltaX < 0;
+        if (isNext) {
+          handleAdvanceToVerse(activeVerseIndex + 1);
+        } else {
+          handleAdvanceToVerse(activeVerseIndex - 1);
+        }
+      }
+    };
+
+    window.addEventListener('touchstart', handleWindowTouchStart, { passive: true });
+    window.addEventListener('touchend', handleWindowTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', handleWindowTouchStart);
+      window.removeEventListener('touchend', handleWindowTouchEnd);
+    };
+  }, [activeNavTab, displayedPassages.length, activeVerseIndex, language]);
+
+
 
   // Universal Sanctuary Reader: Clicking Ayah Cartouche loads sequential reading in universal reels
   const handleNavigateToRead = async (surahNumber: number, ayahNumber: number) => {
@@ -614,8 +660,6 @@ export default function App() {
                   id="passages-section"
                   aria-label="Quranic Passages"
                   className="space-y-2.5 sm:space-y-3"
-                  onTouchStart={handleContainerTouchStart}
-                  onTouchEnd={handleContainerTouchEnd}
                 >
                   {/* Surah Name & Ayah Indicator Bar (Multi-verse segmented bar or single-verse banner) */}
                   {totalVerses > 1 ? (

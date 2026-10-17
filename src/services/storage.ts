@@ -237,6 +237,9 @@ export const StorageService = {
   getDarkMode(): boolean {
     try {
       const val = localStorage.getItem(STORAGE_KEYS.DARK_MODE);
+      if (val === null) {
+        return DEFAULTS.DARK_MODE; // Default is true
+      }
       return val === 'true';
     } catch {
       return DEFAULTS.DARK_MODE;

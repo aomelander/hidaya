@@ -72,77 +72,77 @@ export const ThumbActionRail: React.FC<ThumbActionRailProps> = ({
   return (
     <aside
       aria-label="Thumb Action Controls"
-      className="fixed bottom-6 right-3 sm:right-6 z-40 flex flex-col items-center gap-2 select-none pointer-events-auto"
+      className="fixed top-1/2 right-3 sm:right-5 z-40 flex flex-col items-center gap-2.5 select-none pointer-events-auto"
     >
-      {/* 1. Play / Pause Controller (34px, 100% transparent interior) */}
+      {/* 1. Play / Pause Controller (44px, 30% larger, top aligned at screen midpoint) */}
       <button
         type="button"
         onClick={handlePlay}
         aria-label={isPlaying ? 'Pause' : 'Play'}
-        className={`w-[34px] h-[34px] rounded-full flex items-center justify-center bg-transparent border transition-transform active:scale-90 cursor-pointer drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] ${
+        className={`w-[44px] h-[44px] rounded-full flex items-center justify-center bg-black/40 dark:bg-black/50 backdrop-blur-[2px] border transition-transform active:scale-90 cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] ${
           isPlaying
-            ? 'border-amber-400 text-amber-400'
-            : 'border-white/40 dark:border-white/30 text-white/90 hover:border-white hover:text-white'
+            ? 'border-amber-400 text-amber-400 ring-2 ring-amber-400/30'
+            : 'border-white/40 dark:border-white/30 text-white/95 hover:border-white hover:text-white'
         }`}
       >
-        {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ms-0.5" />}
+        {isPlaying ? <Pause className="w-[18px] h-[18px] fill-current" /> : <Play className="w-[18px] h-[18px] fill-current ms-0.5" />}
       </button>
 
-      {/* 2. Mute / Unmute Button (34px, 100% transparent interior) */}
+      {/* 2. Mute / Unmute Button (44px, 30% larger) */}
       <button
         type="button"
         onClick={handleMute}
         aria-label={isMuted ? 'Unmute audio' : 'Mute audio'}
-        className={`w-[34px] h-[34px] rounded-full flex items-center justify-center bg-transparent border transition-transform active:scale-90 cursor-pointer drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] ${
+        className={`w-[44px] h-[44px] rounded-full flex items-center justify-center bg-black/40 dark:bg-black/50 backdrop-blur-[2px] border transition-transform active:scale-90 cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] ${
           isMuted
-            ? 'border-red-400 text-red-400'
-            : 'border-white/40 dark:border-white/30 text-white/90 hover:border-white hover:text-white'
+            ? 'border-red-400 text-red-400 ring-2 ring-red-400/30'
+            : 'border-white/40 dark:border-white/30 text-white/95 hover:border-white hover:text-white'
         }`}
       >
-        {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+        {isMuted ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px] text-emerald-400" />}
       </button>
 
-      {/* 3. Like (♥) Button (34px, 100% transparent interior) */}
+      {/* 3. Like (♥) Button (44px, 30% larger) */}
       <button
         type="button"
         onClick={handleBookmark}
         aria-label={isBookmarked ? 'Liked' : 'Like'}
         aria-pressed={isBookmarked}
-        className={`w-[34px] h-[34px] rounded-full flex items-center justify-center bg-transparent border transition-transform active:scale-90 cursor-pointer drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] ${
+        className={`w-[44px] h-[44px] rounded-full flex items-center justify-center bg-black/40 dark:bg-black/50 backdrop-blur-[2px] border transition-transform active:scale-90 cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] ${
           isBookmarked
-            ? 'border-red-400 text-red-400'
-            : 'border-white/40 dark:border-white/30 text-white/90 hover:border-white hover:text-white'
+            ? 'border-red-400 text-red-400 ring-2 ring-red-400/30'
+            : 'border-white/40 dark:border-white/30 text-white/95 hover:border-white hover:text-white'
         }`}
       >
-        <Heart className={`w-3.5 h-3.5 transition-transform ${isBookmarked ? 'fill-current scale-110' : ''}`} />
+        <Heart className={`w-[18px] h-[18px] transition-transform ${isBookmarked ? 'fill-current scale-110' : ''}`} />
       </button>
 
-      {/* 4. Comments (💬) Trigger (34px, 100% transparent interior) */}
+      {/* 4. Comments (💬) Trigger (44px, 30% larger) */}
       <button
         type="button"
         onClick={onOpenComments}
         aria-label="Comments and reflections"
-        className="w-[34px] h-[34px] rounded-full flex flex-col items-center justify-center bg-transparent border border-white/40 dark:border-white/30 text-white/90 hover:border-white hover:text-white transition-transform active:scale-90 cursor-pointer drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+        className="w-[44px] h-[44px] rounded-full flex flex-col items-center justify-center bg-black/40 dark:bg-black/50 backdrop-blur-[2px] border border-white/40 dark:border-white/30 text-white/95 hover:border-white hover:text-white transition-transform active:scale-90 cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
       >
-        <MessageCircle className="w-3.5 h-3.5" />
+        <MessageCircle className="w-[18px] h-[18px]" />
         {commentsCount > 0 && (
-          <span className="text-[9px] font-bold font-mono -mt-0.5 leading-none tabular-nums text-emerald-300">
+          <span className="text-[10px] font-bold font-mono -mt-0.5 leading-none tabular-nums text-emerald-300">
             {commentsCount}
           </span>
         )}
       </button>
 
-      {/* 5. Share / Studio Trigger (↗) (34px, 100% transparent interior) */}
+      {/* 5. Share / Studio Trigger (↗) (44px, 30% larger) */}
       <button
         type="button"
         onClick={onShare}
         aria-label="Share verse and open studio"
-        className="w-[34px] h-[34px] rounded-full flex items-center justify-center bg-transparent border border-white/40 dark:border-white/30 text-white/90 hover:border-white hover:text-white transition-transform active:scale-90 cursor-pointer drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+        className="w-[44px] h-[44px] rounded-full flex items-center justify-center bg-black/40 dark:bg-black/50 backdrop-blur-[2px] border border-white/40 dark:border-white/30 text-white/95 hover:border-white hover:text-white transition-transform active:scale-90 cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
       >
-        <Share2 className="w-3.5 h-3.5" />
+        <Share2 className="w-[18px] h-[18px]" />
       </button>
 
-      {/* 6. Mode Lecture Continue du Coran (📖) (34px, 100% transparent interior, with active state) */}
+      {/* 6. Mode Lecture Continue du Coran (📖) (44px, 30% larger) */}
       {onToggleContinuousReading && (
         <button
           type="button"
@@ -169,13 +169,13 @@ export const ThumbActionRail: React.FC<ThumbActionRailProps> = ({
               : 'Enter continuous Quran reading'
           }
           aria-pressed={isContinuousReading}
-          className={`w-[34px] h-[34px] rounded-full flex items-center justify-center bg-transparent border transition-all active:scale-90 cursor-pointer drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] ${
+          className={`w-[44px] h-[44px] rounded-full flex items-center justify-center bg-black/40 dark:bg-black/50 backdrop-blur-[2px] border transition-all active:scale-90 cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] ${
             isContinuousReading
               ? 'border-emerald-400 text-emerald-400 ring-2 ring-emerald-400/40 scale-105'
-              : 'border-white/40 dark:border-white/30 text-white/90 hover:border-white hover:text-white'
+              : 'border-white/40 dark:border-white/30 text-white/95 hover:border-white hover:text-white'
           }`}
         >
-          <BookOpen className="w-3.5 h-3.5" />
+          <BookOpen className="w-[18px] h-[18px]" />
         </button>
       )}
     </aside>

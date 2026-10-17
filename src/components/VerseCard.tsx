@@ -625,11 +625,12 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     );
 
     // 1. Horizontal swipe gesture
-    if (Math.abs(deltaX) > 55 && Math.abs(deltaX) > Math.abs(deltaY) * 1.35) {
+    if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25) {
       if (tapTimeoutRef.current) {
         clearTimeout(tapTimeoutRef.current);
         tapTimeoutRef.current = null;
       }
+      window.dispatchEvent(new CustomEvent('hidaya-verse-swipe-handled'));
       triggerHaptic(18);
       const isRtl = language === 'ar';
       const isNext = isRtl ? deltaX > 0 : deltaX < 0;

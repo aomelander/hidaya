@@ -41,6 +41,7 @@
 - [x] Milestone 41: Elevated Quranic Context Extension Badges — Upgraded preceding and following verse extension buttons inside the Uthmani script flow from crude inline text buttons into dignified, reverent Quranic context pills with Arabic/Eastern numerals formatting, subtle gold/emerald styling, responsive layout isolation, hover removal cues, and accessible tooltips.
 - [x] Milestone 42: Streamlined UI, Edge-to-Edge Full-Screen Ergonomics & 100% Transparent Thumb Rail — (1) Removed redundant global play button from the sticky top Header to declutter navigation; (2) Removed card internal header banner duplicates, preserving accessible sr-only heading; (3) Cleaned Mushaf surface by moving Duo Word-by-Word & Hifz modes 100% to Preferences; (4) Integrated compact scholar `<select>` into the Tafsir toggle bar header and eliminated redundant selector block inside the panel; (5) Enforced mutual exclusion between Share Studio and Reflection Comments with instant opening and close buttons; (6) Set thumb action rail button interiors strictly to `bg-transparent` with contour border and active color highlights; (7) Optimized layout container to full-width edge-to-edge (`px-2 sm:px-4 py-2 sm:py-4`) with safe touch margins across mobile (375px–430px), tablets, desktop, and TV mode. Verified with clean typecheck, lint, automated test suite (including studio/comments mutual exclusion assertions), and production compilation.
 - [x] Milestone 43: Audio Autoplay Prevention, Smooth Teleprompter with Manual Scroll Freedom, Pure Circular '+' Extenders & Continuous Reading Mode with State Memory — (1) Prevented audio autoplay: audio remains completely silent on initial load and swipe navigation until the user explicitly hits Play (`autoPlayOnSwipe: false` by default, restricted advance playback); (2) Word-by-Word Teleprompter: centers smoothly on highlighted word upon pressing play, gently scrolls downward as recitation advances without jumping, and immediately yields full scroll control to the user on touch/wheel/keyboard gestures without fighting or snapping; (3) Verse Extender Badges: removed all textual labels from adjacent verse expander buttons, retaining exclusively the circular `+` icon button (and checkmark when active) for pure Mushaf aesthetics; (4) Continuous Quran Reading Mode: added bottom-right thumb rail action button (`BookOpen`) entering sequential recitation from current verse, remembering user's original contemplation state, and seamlessly restoring the remembered verse when deactivated. Verified via `typecheck`, `lint`, and `compile_applet`.
+- [x] Milestone 44: Audio Recitation Buffer Smoothing, Global Viewport Swipe Navigation, 30% Enlarged Midpoint Thumb Rail & Permanent Default Dark Mode — (1) Eliminated recitation micro-pause stutter: added pre-playback buffer verification (`audio.readyState >= 3` and buffered range check), `preload="auto"` on media elements, `canplaythrough` / `canplay` readiness listeners with safety timeouts, and a 2.5s delay on pre-warming subsequent audio to prevent bandwidth starvation; (2) Global swipe gestures: enabled horizontal swipe navigation across the entire page (inside and outside the card) with touch coordinates filtering out form inputs/dialogs and event debouncing to prevent double advancement; (3) Thumb Action Rail repositioning & enlargement: increased button size by 30% (`44px` vs `34px`) with `18px` icons and positioned the button group top edge at the screen midpoint (`fixed top-1/2 right-3 sm:right-5`); (4) Default Dark Mode: set permanent dark mode by default (`APP_CONFIG.DEFAULTS.DARK_MODE = true`, `<html>` class `dark`, `storage.ts` returning true on uninitialized state, and inline `<script>` preventing theme flash) unless the user explicitly toggles it in Preferences. Verified via `typecheck`, `lint`, and `compile_applet`.
 
 ## Verification
 - [x] Directory structure and tracked files verified
@@ -402,5 +403,32 @@ Implemented the comprehensive UX/UI redesign and accessibility enhancement acros
    - `npm run lint`: 0 errors.
    - `npm test`: all test suites (ayahAudio, audit, audioOptimization) passed with 100% success.
    - Production compilation verified via `compile_applet`.
+
+## 2026-10-14 — Milestone 63: Audio Buffer Smoothing, Page-Wide Swipe, 30% Enlarged Midpoint Thumb Rail, Permanent Dark Mode & Cloudflare Production Deployment
+
+1. **Audio Recitation Buffer Smoothing**:
+   - Replaced `preload="metadata"` with `preload="auto"` across audio player elements (`AudioPlayer.tsx`, `ContinuousSessionAudioPlayer.tsx`).
+   - Implemented buffer readiness checks (`audio.readyState >= 3` and buffered range verification) prior to starting recitation playback.
+   - Added listeners for `canplaythrough` / `canplay` events with a 350ms fallback safeguard to prevent initial 1-2s audio stutter caused by premature playback starts.
+   - Delayed the next-track pre-warming (`warmUpNextPhase`) by 2.5s during active playback to prevent download bandwidth contention with the current recitation.
+
+2. **Global Viewport Swipe Navigation**:
+   - Extended horizontal swipe gestures to work across the entire page (both inside and outside the card container).
+   - Ignored touches originating from interactive elements (inputs, textareas, buttons, links, sliders, dialogs, aside rail).
+   - Coordinated window-level swipe listeners with `hidaya-verse-swipe-handled` custom event to prevent double-advancement.
+
+3. **Thumb Action Rail Enlargement & Midpoint Repositioning**:
+   - Enlarged thumb action buttons by 30% from 34px to 44px (`w-[44px] h-[44px]`) with enlarged 18px icons (up from 14px).
+   - Repositioned the rail to start cleanly at the screen midpoint (`fixed top-1/2 right-3 sm:right-5 z-40`), aligning the top of the button group to the center of the viewport.
+
+4. **Permanent Default Dark Mode**:
+   - Set `APP_CONFIG.DEFAULTS.DARK_MODE = true` and `StorageService.getDarkMode()` to return `true` by default unless explicitly toggled to `'false'` in user preferences.
+   - Added `class="dark"` and inline script in `src/app/layout.tsx` to prevent theme flash on initial render.
+   - Ensured dark mode does not adapt to device system theme unless user changes it in settings.
+
+5. **Cloudflare Production Deployment**:
+   - Built production bundles with `npm run build` (`vinext build`).
+   - Deployed successfully to Cloudflare Workers via `vinext-cloudflare deploy` as version `3df4d85d-4bad-4f22-9fa9-099edcf18fe4`.
+   - Verified live site at `https://hidaya.hidaya.workers.dev` returning HTTP/2 200 OK.
 
 

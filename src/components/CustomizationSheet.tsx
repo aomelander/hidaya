@@ -140,7 +140,7 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   onClose,
   language,
   onLanguageChange,
-  isDark = false,
+  isDark = true,
   onToggleDark,
   readerProfile = 'adult',
   onReaderProfileChange,
@@ -214,6 +214,9 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
     onPreferredScholarChange?.('Ibn Kathir');
     handleReciterSelect('alafasy');
     updatePref(APP_CONFIG.DEFAULTS.CARD_PREFS);
+    if (!isDark && onToggleDark) {
+      onToggleDark();
+    }
   };
 
   const labels = {

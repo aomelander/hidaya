@@ -17,7 +17,7 @@ export const APP_CONFIG = {
     ARABIC_SCALE: 1.15,
     READING_SCALE: 1.0,
     SHOW_TRANSLITERATION: true,
-    DARK_MODE: false,
+    DARK_MODE: true,
     HIGH_CONTRAST: false,
     SESSION_DEPTH: '10min' as SessionDepth,
     EXPLANATION_DEPTH: 'context' as ExplanationDepth,

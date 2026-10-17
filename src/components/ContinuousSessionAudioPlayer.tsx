@@ -825,7 +825,7 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
     >
       <audio
         ref={audioRef}
-        preload="metadata"
+        preload="auto"
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleAudioEnded}
         onError={() => { if (phaseRef.current !== 'recitation') return; stopAllSpeech(); setIsPlaying(false); setPlaybackPhase('idle'); setPlaybackNotice('missing'); }}
