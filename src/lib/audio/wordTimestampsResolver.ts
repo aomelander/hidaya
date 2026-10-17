@@ -31,20 +31,44 @@ const MEMORY_CACHE = new Map<string, ResolvedVerseWordTimestamps>();
 const STORAGE_PREFIX = 'hidaya_wbw_ts_v1:';
 
 /**
- * Estimates relative acoustic weight of an Arabic or Latin word based on character length
- * and Madd (long vowel) letters so fallback timing still respects natural elongation.
+ * Estimates relative acoustic weight and natural punctuation pause of an Arabic or Latin word.
+ * For Arabic: weights long vowels (Madd) and Waqf (stop) marks.
+ * For English/French/Swedish TTS: weights syllable clusters and pauses on commas/periods.
  */
-export function computeWordAcousticWeight(word: string): number {
-  if (!word) return 1;
-  const clean = word.replace(/[\u064B-\u0652\u06DF-\u06ED]/g, '');
-  // Count Arabic long vowels (Alif, Waw, Ya, Maddah, Dagger Alif) for Madd weighting
-  const maddCount = (word.match(/[اويى\u0670\u0653~]/g) || []).length;
-  return Math.max(1, clean.length + maddCount * 1.4);
+export function computeWordAcousticWeight(word: string): { wordWeight: number; pauseMs: number } {
+  if (!word) return { wordWeight: 1, pauseMs: 0 };
+
+  const isArabic = /[\u0600-\u06FF]/.test(word);
+
+  if (isArabic) {
+    const clean = word.replace(/[\u064B-\u0652\u06DF-\u06ED]/g, '');
+    const maddCount = (word.match(/[اويى\u0670\u0653~]/g) || []).length;
+    const hasStop = /[\u06D6-\u06DC\u06E9\u06DA]/.test(word);
+    return {
+      wordWeight: Math.max(1, clean.length + maddCount * 1.5),
+      pauseMs: hasStop ? 250 : 30,
+    };
+  }
+
+  // Latin / Western speech (en, fr, sv) generated via TTS
+  const cleanWord = word.replace(/[^a-zA-Z\u00C0-\u017F]/g, '');
+  const vowelMatches = cleanWord.match(/[aeiouy\u00E0-\u00FF]+/gi);
+  const syllables = vowelMatches ? vowelMatches.length : Math.max(1, Math.round(cleanWord.length / 3));
+
+  let pauseMs = 30; // standard inter-word gap
+  if (/[,;:\u2014-]/.test(word)) {
+    pauseMs = 180;
+  } else if (/[.!?\n]/.test(word)) {
+    pauseMs = 340;
+  }
+
+  const wordWeight = Math.max(1, syllables * 1.6 + cleanWord.length * 0.35);
+  return { wordWeight, pauseMs };
 }
 
 /**
- * Builds a deterministic syllable/Madd-weighted WordTimestamp[] array for any list of words
- * and total audio duration in milliseconds.
+ * Builds a deterministic syllable/cadence-weighted WordTimestamp[] array for any list of words
+ * and total audio duration in milliseconds, factoring in natural punctuation breathing pauses.
  */
 export function buildWeightedWordTimestamps(
   words: string[],
@@ -54,15 +78,20 @@ export function buildWeightedWordTimestamps(
 ): WordTimestamp[] {
   if (!words.length) return [];
   const effectiveDuration = durationMs > 0 ? durationMs : words.length * 650;
-  const weights = words.map((w) => computeWordAcousticWeight(w));
-  const totalWeight = weights.reduce((acc, w) => acc + w, 0) || 1;
+
+  const analysis = words.map((w) => computeWordAcousticWeight(w));
+  const totalPause = analysis.reduce((acc, a) => acc + a.pauseMs, 0);
+  const availableSpeechTime = Math.max(effectiveDuration * 0.5, effectiveDuration - totalPause);
+  const totalWeight = analysis.reduce((acc, a) => acc + a.wordWeight, 0) || 1;
 
   let cursorMs = 0;
   return words.map((word, idx) => {
-    const share = (weights[idx] / totalWeight) * effectiveDuration;
+    const { wordWeight, pauseMs } = analysis[idx];
+    const wordDuration = (wordWeight / totalWeight) * availableSpeechTime;
     const start_ms = Math.round(cursorMs);
-    cursorMs += share;
-    const end_ms = idx === words.length - 1 ? Math.round(effectiveDuration) : Math.round(cursorMs);
+    const end_ms = Math.round(cursorMs + wordDuration);
+    cursorMs += wordDuration + pauseMs;
+
     return {
       position: idx + 1,
       word_arabic: word,
@@ -70,7 +99,7 @@ export function buildWeightedWordTimestamps(
       transliteration: transliterationWords?.[idx] || '',
       translation: translationWords?.[idx] || '',
       start_ms,
-      end_ms: Math.max(start_ms + 50, end_ms),
+      end_ms: Math.max(start_ms + 60, end_ms),
     };
   });
 }

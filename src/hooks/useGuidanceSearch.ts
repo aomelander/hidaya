@@ -20,6 +20,7 @@ import { QURAN_FIXTURES } from '../data/quranFixtures';
 import { GuidanceService } from '../services/guidanceService';
 import { StorageService } from '../services/storage';
 import { OfflineCacheService } from '../services/offlineCacheService';
+import { getDictionary } from '../lib/i18n/dictionaries';
 
 export function useGuidanceSearch(activeLanguage: Language = 'en') {
   const [activeMode, setActiveMode] = useState<EntryMode>('moment');
@@ -145,15 +146,6 @@ export function useGuidanceSearch(activeLanguage: Language = 'en') {
     }
   }, [activeLanguage, searchQuery, selectedPassages.length, activeMode, executeSearch]);
 
-  const handleQuickPillSelect = useCallback(
-    (pill: QuickPill, language: Language) => {
-      setSearchQuery(pill.query);
-      setActiveMode(pill.category);
-      executeSearch(pill.query, language, pill.category);
-    },
-    [executeSearch]
-  );
-
   const handleSelectSpecificVerse = useCallback((verse: QuranVerseFixture) => {
     requestIdRef.current += 1;
     if (abortControllerRef.current) {
@@ -172,6 +164,55 @@ export function useGuidanceSearch(activeLanguage: Language = 'en') {
       relevanceExplanation: verse.whyThisVerse.mappingExplanation,
     });
   }, []);
+
+  const PILL_TO_VERSE_MAP: Record<string, string> = useMemo(
+    () => ({
+      'anger-work': '3:134',
+      'burnout-anxiety': '94:5-6',
+      'grief-loss': '2:155-156',
+      'restless-heart': '13:28',
+      'lonely-abandoned': '93:3-5',
+      'career-decisions': '65:2-3',
+      'exams-future': '65:2-3',
+      'guilt-regret': '21:87-88',
+      'gratitude-joy': '14:7',
+      'purpose-existence': '67:2',
+      'suffering-tragedy': '57:22-23',
+      'justice-oppression': '45:22',
+      'responding-to-hostility': '41:34',
+      'humility-daily-life': '25:63',
+      'purifying-speech': '49:12',
+      'patience-provocation': '31:17-18',
+      'generosity-money': '2:286',
+      'family-parents': '17:23-24',
+    }),
+    []
+  );
+
+  const handleQuickPillSelect = useCallback(
+    (pill: QuickPill, language: Language) => {
+      const dict = getDictionary(language);
+      const localizedQuery =
+        language === 'ar' && pill.labelArabic
+          ? pill.labelArabic
+          : dict.quickPills?.[pill.id] || pill.label || pill.query;
+
+      setSearchQuery(localizedQuery);
+      setActiveMode(pill.category);
+
+      const targetVerseId = PILL_TO_VERSE_MAP[pill.id];
+      const directFixture = targetVerseId
+        ? QURAN_FIXTURES.find((f) => f.id === targetVerseId)
+        : null;
+
+      if (directFixture) {
+        handleSelectSpecificVerse(directFixture);
+      } else {
+        executeSearch(pill.query, language, pill.category);
+      }
+    },
+    [PILL_TO_VERSE_MAP, executeSearch, handleSelectSpecificVerse]
+  );
 
   return {
     activeMode,

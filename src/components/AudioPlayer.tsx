@@ -831,12 +831,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       });
     };
 
-    // Buffer audio before playback to eliminate the 1-2s recitation audio stutter
+    // Buffer audio before playback to eliminate the 1-2s recitation audio stutter on slow networks
     const hasEnoughBuffer =
       !isNewSrc &&
       audio.readyState >= 3 &&
       audio.buffered.length > 0 &&
-      (audio.buffered.end(0) - audio.currentTime >= 2.5 || audio.buffered.end(0) >= (audio.duration || 1) - 0.1);
+      (audio.buffered.end(0) - audio.currentTime >= 3.5 || audio.buffered.end(0) >= (audio.duration || 1) - 0.1);
 
     if (hasEnoughBuffer) {
       executePlay();
@@ -858,8 +858,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       };
 
       const onCanPlay = () => {
-        // If canplay fired and we have buffered at least 2s or complete verse audio
-        if (audio.buffered.length > 0 && (audio.buffered.end(0) >= 2 || (audio.duration && audio.buffered.end(0) >= audio.duration - 0.2))) {
+        // If canplay fired and we have buffered at least 3s or complete verse audio
+        if (
+          audio.buffered.length > 0 &&
+          (audio.buffered.end(0) >= 3.0 || (audio.duration && audio.buffered.end(0) >= audio.duration - 0.2))
+        ) {
           triggerPlayback();
         }
       };
@@ -867,10 +870,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       audio.addEventListener('canplaythrough', onCanPlayThrough, { once: true });
       audio.addEventListener('canplay', onCanPlay);
 
-      // Safety fallback timer (max 1200ms) so slow connections or mobile restrictions never freeze indefinitely
+      // Safety fallback timer (max 3200ms) ensuring weak connections have ample buffer time before playback begins
       fallbackTimer = setTimeout(() => {
         triggerPlayback();
-      }, 1200);
+      }, 3200);
     }
   };
 

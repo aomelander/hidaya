@@ -457,47 +457,51 @@ export const SearchSuggestionsPopover: React.FC<SearchSuggestionsPopoverProps> =
       aria-modal="false"
       aria-label="Universal search suggestions, bookmarks, comments, and Surah index"
     >
-      {/* FILTER TABS: Tout, Coran, Favoris, Commentaires */}
-      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-emerald-950/5 dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40 overflow-x-auto">
+      {/* FILTER TABS: Tout (Icon), Coran (Icon), Favoris (Red Heart Icon), Commentaires (Icon) */}
+      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-emerald-950/5 dark:bg-[#0B3027] border border-emerald-900/10 dark:border-emerald-800/40">
         <button
           type="button"
           onClick={() => setActiveTab('all')}
           aria-pressed={activeTab === 'all'}
-          className={`flex-1 min-w-[70px] py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap text-center ${
+          title={t.tabAll}
+          aria-label={t.tabAll}
+          className={`flex-1 min-h-[38px] py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center justify-center ${
             activeTab === 'all'
               ? 'bg-[#006D53] text-white shadow-2xs'
               : 'text-slate-700 dark:text-[#9BAFA7] hover:text-emerald-950 dark:hover:text-[#F5F7F2]'
           }`}
         >
-          {t.tabAll}
+          <Sparkles className="w-4 h-4 shrink-0" />
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('quran')}
           aria-pressed={activeTab === 'quran'}
-          className={`flex-1 min-w-[70px] py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap text-center inline-flex items-center justify-center gap-1.5 ${
+          title={t.tabQuran}
+          aria-label={t.tabQuran}
+          className={`flex-1 min-h-[38px] py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center justify-center ${
             activeTab === 'quran'
               ? 'bg-[#006D53] text-white shadow-2xs'
               : 'text-slate-700 dark:text-[#9BAFA7] hover:text-emerald-950 dark:hover:text-[#F5F7F2]'
           }`}
         >
-          <BookOpen className="w-3.5 h-3.5 shrink-0" />
-          <span>{t.tabQuran}</span>
+          <BookOpen className="w-4 h-4 shrink-0" />
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('favorites')}
           aria-pressed={activeTab === 'favorites'}
-          className={`flex-1 min-w-[80px] py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap text-center inline-flex items-center justify-center gap-1.5 ${
+          title={t.tabFavorites}
+          aria-label={t.tabFavorites}
+          className={`flex-1 min-h-[38px] py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 ${
             activeTab === 'favorites'
               ? 'bg-[#006D53] text-white shadow-2xs'
               : 'text-slate-700 dark:text-[#9BAFA7] hover:text-emerald-950 dark:hover:text-[#F5F7F2]'
           }`}
         >
-          <Bookmark className="w-3.5 h-3.5 shrink-0" />
-          <span>{t.tabFavorites}</span>
+          <Heart className="w-4 h-4 shrink-0 text-red-500 fill-red-500" />
           {bookmarkedIds.length > 0 && (
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-900 dark:text-[#F4B900]">
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-red-500/20 text-red-700 dark:text-red-300 font-bold">
               {bookmarkedIds.length}
             </span>
           )}
@@ -506,14 +510,15 @@ export const SearchSuggestionsPopover: React.FC<SearchSuggestionsPopoverProps> =
           type="button"
           onClick={() => setActiveTab('comments')}
           aria-pressed={activeTab === 'comments'}
-          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap text-center inline-flex items-center justify-center gap-1.5 ${
+          title={t.tabComments}
+          aria-label={t.tabComments}
+          className={`flex-1 min-h-[38px] py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center justify-center ${
             activeTab === 'comments'
               ? 'bg-[#006D53] text-white shadow-2xs'
               : 'text-slate-700 dark:text-[#9BAFA7] hover:text-emerald-950 dark:hover:text-[#F5F7F2]'
           }`}
         >
-          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-          <span>{t.tabComments}</span>
+          <MessageSquare className="w-4 h-4 shrink-0" />
         </button>
       </div>
 

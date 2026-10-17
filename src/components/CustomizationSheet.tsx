@@ -2,12 +2,10 @@
 
 /**
  * @file src/components/CustomizationSheet.tsx
- * @description Intuitively structured 5-section Preferences & Personalization Hub:
- * 1. Language, Theme & LG TV / Fullscreen Sanctuary Mode
- * 2. Video-Style Auto-Play on Swipe & Continuous Audio Settings (Recitation, Translation, Tafsir, Next Verse vs Loop)
- * 3. Universal Verse Card Customization (Choose exactly which layers appear on the card + font scales)
- * 4. Reader Profile & Explanation Depth (Standard, Teen 13-17, Kids & Family 8+)
- * 5. Offline Cache & PWA App Installation
+ * @description Accessible & Intuitive Preferences Hub tailored for all ages (kids, seniors, daily readers):
+ * - Primary Essentials (Large visual cards, direct font size buttons with live Ayah preview, theme & language)
+ * - Tactile, generous hitboxes (>= 48px) with visual cues
+ * - Collapsible "Advanced Settings" section keeping technical parameters tidy and accessible
  */
 
 import React, { useEffect, useState } from 'react';
@@ -36,6 +34,11 @@ import {
   Film,
   ShieldCheck,
   Heart,
+  ChevronDown,
+  ChevronUp,
+  Minus,
+  Plus,
+  Eye,
 } from 'lucide-react';
 import {
   Language,
@@ -95,11 +98,11 @@ export interface CustomizationSheetProps {
   isFullscreenActive?: boolean;
 }
 
-const LANGUAGE_OPTIONS: { code: Language; label: string; native: string }[] = [
-  { code: 'fr', label: 'French', native: 'Français' },
-  { code: 'en', label: 'English', native: 'English' },
-  { code: 'sv', label: 'Swedish', native: 'Svenska' },
-  { code: 'ar', label: 'Arabic', native: 'العربية' },
+const LANGUAGE_OPTIONS: { code: Language; label: string; native: string; flag: string }[] = [
+  { code: 'ar', label: 'Arabic', native: 'العربية', flag: '📖' },
+  { code: 'en', label: 'English', native: 'English', flag: '🇬🇧' },
+  { code: 'fr', label: 'French', native: 'Français', flag: '🇫🇷' },
+  { code: 'sv', label: 'Swedish', native: 'Svenska', flag: '🇸🇪' },
 ];
 
 const SCHOLARS: { id: PreferredScholar; label: string; sub: Record<Language, string> }[] = [
@@ -135,6 +138,19 @@ const SCHOLARS: { id: PreferredScholar; label: string; sub: Record<Language, str
   },
 ];
 
+const ARABIC_SIZE_PRESETS = [
+  { label: 'Normal', scale: 1.0, sub: '100%' },
+  { label: 'Confort', scale: 1.25, sub: '125%' },
+  { label: 'Grand', scale: 1.45, sub: '145%' },
+  { label: 'Maxi', scale: 1.65, sub: '165%' },
+];
+
+const READING_SIZE_PRESETS = [
+  { label: 'Normal', scale: 1.0, sub: '100%' },
+  { label: 'Grand', scale: 1.2, sub: '120%' },
+  { label: 'Maxi', scale: 1.4, sub: '140%' },
+];
+
 export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   isOpen,
   onClose,
@@ -162,6 +178,7 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
   const [reciterId, setReciterId] = useState<ReciterId>(() => StorageService.getPreferredReciter());
   const [isCachingBookmarks, setIsCachingBookmarks] = useState(false);
   const [cachedSuccess, setCachedSuccess] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const prefs: VerseCardPreferences = {
     ...StorageService.getCardPreferences(),
@@ -219,357 +236,231 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
     }
   };
 
+  // Step adjustment helpers
+  const handleStepArabicScale = (delta: number) => {
+    const next = Math.min(1.7, Math.max(0.9, Number((arabicScale + delta).toFixed(2))));
+    onArabicScaleChange(next);
+  };
+
+  const handleStepReadingScale = (delta: number) => {
+    const current = readingScale || 1.0;
+    const next = Math.min(1.5, Math.max(0.85, Number((current + delta).toFixed(2))));
+    onReadingScaleChange?.(next);
+  };
+
   const labels = {
     fr: {
-      pageTitle: 'Préférences & Personnalisation',
-      pageSub: 'Configurez votre langue, le déclenchement audio au swipe, l’affichage de la carte universelle et le Mode Écran TV.',
-      backBtn: 'Retour aux Versets',
-      resetBtn: 'Réinitialiser',
-      sec1Title: '1. Langue, Thème & Mode Écran TV',
-      sec1Sub: 'Choisissez la langue de traduction, l’ambiance visuelle et l’affichage grand écran (TV LG / PC / Tablette).',
-      langLabel: 'Langue de l’application & des traductions',
-      themeLabel: 'Apparence du Sanctuaire',
-      lightMode: 'Parchemin Clair',
-      darkMode: 'Sanctuaire Sombre',
-      highContrast: 'Contraste Élevé',
-      tvTitle: 'Mode Écran TV / Plein Écran (LG TV, PC, Tablette)',
-      tvDesc: 'Agrandit la calligraphie pour une lecture à distance, active le pilotage par flèches télécommande et empêche la mise en veille.',
+      pageTitle: 'Mes Préférences de Lecture',
+      pageSub: 'Adaptez l’affichage et l’écoute à votre confort en quelques touches simples.',
+      backBtn: 'Lire le Coran',
+      resetBtn: 'Par défaut',
+      themeTitle: 'Ambiance Visuelle',
+      darkModeTitle: 'Sanctuaire Sombre',
+      darkModeSub: 'Reposant pour les yeux (Recommandé)',
+      lightModeTitle: 'Parchemin Clair',
+      lightModeSub: 'Lumineux et chaleureux',
+      highContrastTitle: 'Contraste renforcé pour la vision',
+      highContrastSub: 'Contours nets et visibilité maximale',
+      textSizeTitle: 'Taille du Texte & Calligraphie',
+      arabicTextSize: 'Texte Arabe (Coran)',
+      readingTextSize: 'Traduction & Explications',
+      previewTitle: 'Aperçu en direct',
+      previewArabic: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+      previewTranslation: 'Au nom d’Allah, le Tout Miséricordieux, le Très Miséricordieux.',
+      langTitle: 'Langue de Traduction',
+      reciterTitle: 'Voix de Récitation',
+      reciterSub: 'Choisissez la voix qui vous touche le plus',
+      helpersTitle: 'Aides à l’Apprentissage',
+      translitTitle: 'Translittération phonétique',
+      translitSub: 'Lire la prononciation en lettres latines (idéal pour débuter)',
+      tajweedTitle: 'Couleurs de récitation (Tajweed)',
+      tajweedSub: 'Colore les règles de prononciation pour apprendre à réciter',
+      advancedTitle: 'Paramètres Avancés & Audio',
+      advancedSub: 'Vitesse de lecture, grand écran TV, options de mémorisation et cache hors-ligne',
+      tvTitle: 'Mode Plein Écran / Télévision (LG TV, PC)',
+      tvDesc: 'Agrandit la calligraphie pour une lecture à distance.',
       tvBtnActive: 'Quitter le Plein Écran TV',
-      tvBtnInactive: 'Activer le Mode Plein Écran / TV',
-      sec2Title: '2. Expérience Audio & Lecture Automatique (Façon Vidéo)',
-      sec2Sub: 'Comportement de la lecture quand vous glissez (swipe) d’un verset à l’autre et préparation en cache sans lag.',
-      autoSwipeTitle: 'Lecture automatique au swipe (Expérience Vidéo / Reels)',
-      autoSwipeDesc: 'Dès que vous glissez vers le verset suivant ou précédent, la récitation démarre immédiatement.',
-      afterVerseTitle: 'À la fin de la lecture complète du verset',
-      nextVerseOpt: 'Passer automatiquement au verset suivant',
-      loopVerseOpt: 'Répéter le même verset en boucle',
-      defaultPhasesTitle: 'Parties lues par défaut (avec pré-cache automatique zéro lag)',
-      phaseRecitation: 'Récitation Arabe',
-      phaseTranslation: 'Traduction',
-      phaseTafsir: 'Tafsir Classique (si disponible dans la langue)',
-      audioSpeedLabel: 'Vitesse de récitation audio',
-      tajweedLabel: 'Couleurs des règles de Tajweed (Texte Uthmani)',
-      tajweedDesc: 'Colore les règles de récitation (Ghunnah, Qalqalah, Ikhfa, Madd) sur les lettres arabes.',
-      reciterLabel: 'Voix du Récitateur Coranique',
-      scholarLabel: 'Exégète (Tafsir) préféré',
-      sec3Title: '3. Personnalisation de la Carte Universelle',
-      sec3Sub: 'Choisissez quels éléments apparaissent sur la carte du verset pour la garder épurée et adaptée à vos besoins.',
-      arabicSize: 'Taille du texte coranique (Arabe)',
-      readingSize: 'Taille de la traduction, du tafsir et des notes',
-      cardLayersLabel: 'Sections affichées sur la carte du verset',
-      layerTranslit: 'Translittération phonétique',
-      layerTranslation: 'Traduction humaine (Niveau 2)',
-      layerTafsir: 'Tafsir classique ouvert par défaut (Niveau 3)',
-      layerComments: 'Fil de commentaires & réflexions façon réseau social (💬)',
-      layerStudio: 'Studio de création Image / Vidéo / PowerPoint (🎬)',
-      layerRoots: 'Racines linguistiques arabes',
-      layerAudioBadge: 'Indicateur de source Audio (GitHub / Server / Browser)',
-      layerWordByWordDuo: 'Mode Coran Duo / Mot-à-Mot (Arabe + Phonétique sous chaque mot)',
-      layerWordByWordDuoDesc: 'Affiche chaque mot coranique avec sa translittération phonétique et sa signification synchronisée au milliseconde.',
-      layerMemorization: 'Mode Mémorisation (Hifz : Flou, 1ère Lettre, Masqué & Vérification Vocale)',
-      layerMemorizationDesc: 'Masque progressivement les mots (Flou, 1ère lettre, Masqué) et vérifie votre récitation au micro.',
-      layerThumbRail: 'Boutons de contrôle au pouce (Rail ergonomique bas-droit)',
-      layerThumbRailDesc: 'Boutons tactiles d\'accès rapide sous le pouce droit (Mute, Like, Commentaires, Partage, Play).',
-      layerTapGestures: 'Raccourcis tactiles à une main (Tap = Mute/Unmute, Double-Tap = Like ♥)',
-      layerTapGesturesDesc: 'Touchez la carte une fois pour couper/activer le son, ou deux fois pour aimer avec animation.',
-      layerExpertMode: 'Mode Expert / Académique (Tafsir détaillé, provenance & citations)',
-      layerExpertModeDesc: 'Affiche la classification de provenance, la citation arabe brute et les indicateurs techniques audio.',
-      seqReadingTitle: 'Lecture séquentielle au clic d\'un verset',
-      seqReadingDesc: 'Nombre de versets suivants chargés dans les cartes lors du clic sur un numéro de verset.',
-      seqSurah: 'Terminer la sourate',
-      seq15: '15 versets suivants',
-      seq100: '100 versets suivants',
-      sec4Title: '4. Profil du Lecteur & Famille',
-      sec4Sub: 'Adapte le vocabulaire des réflexions et explications selon l’âge.',
-      sec5Title: '5. Mode Hors-Ligne & Continuité iPhone',
-      sec5Sub: 'Les audios en cours sont maintenus actifs même lorsque l’écran de l’iPhone se met en veille.',
+      tvBtnInactive: 'Activer le Plein Écran TV',
+      autoSwipeTitle: 'Lecture automatique au glissement (Swipe)',
+      autoSwipeDesc: 'La récitation commence dès que vous passez au verset suivant.',
+      audioSpeedLabel: 'Vitesse de récitation',
+      loopVerseOpt: 'Répéter le verset en boucle',
+      nextVerseOpt: 'Passer au verset suivant',
+      scholarLabel: 'Exégète (Tafsir) classique',
+      cacheTitle: 'Mode Hors-Ligne',
       cacheBookmarksBtn: 'Mettre en cache les versets aimés (♥)',
-      cachedDone: 'Audios mis en cache !',
-      clearCacheBtn: 'Vider le cache audio',
+      cachedDone: 'Enregistré hors-ligne !',
+      clearCacheBtn: 'Vider le cache',
+      wordByWordTitle: 'Mode Mot-à-Mot (Coran Duo)',
+      memorizationTitle: 'Mode Mémorisation interactive (Hifz)',
+      thumbRailTitle: 'Boutons rapides sous le pouce',
     },
     en: {
-      pageTitle: 'Preferences & Personalization',
-      pageSub: 'Configure language, video-style auto-play on swipe, universal card layers, and LG TV Fullscreen Mode.',
-      backBtn: 'Back to Verses',
-      resetBtn: 'Reset Defaults',
-      sec1Title: '1. Language, Theme & TV Screen Mode',
-      sec1Sub: 'Select your translation language, visual atmosphere, and large-screen TV presentation mode.',
-      langLabel: 'Application & Translation Language',
-      themeLabel: 'Sanctuary Appearance',
-      lightMode: 'Warm Parchment',
-      darkMode: 'Dark Sanctuary',
-      highContrast: 'High Contrast',
-      tvTitle: 'TV Screen / Fullscreen Sanctuary Mode (LG TV, Desktop, Tablet)',
-      tvDesc: 'Enlarges typography for 10-foot viewing, enables remote/keyboard arrow navigation, and keeps the screen awake.',
+      pageTitle: 'Reading Preferences',
+      pageSub: 'Customize your text and recitation easily with simple, comfortable controls.',
+      backBtn: 'Read Quran',
+      resetBtn: 'Reset',
+      themeTitle: 'Visual Theme',
+      darkModeTitle: 'Dark Sanctuary',
+      darkModeSub: 'Gentle on the eyes (Recommended)',
+      lightModeTitle: 'Warm Parchment',
+      lightModeSub: 'Bright & warm reading mode',
+      highContrastTitle: 'High Contrast Mode',
+      highContrastSub: 'Sharper borders and maximum clarity',
+      textSizeTitle: 'Text Size & Typography',
+      arabicTextSize: 'Arabic Quran Text',
+      readingTextSize: 'Translation & Insights',
+      previewTitle: 'Live Preview',
+      previewArabic: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+      previewTranslation: 'In the name of Allah, the Entirely Merciful, the Especially Merciful.',
+      langTitle: 'Translation Language',
+      reciterTitle: 'Recitation Voice',
+      reciterSub: 'Select the reciter that brings you peace',
+      helpersTitle: 'Learning Helpers',
+      translitTitle: 'Phonetic Transliteration',
+      translitSub: 'Shows pronunciation in Latin script (great for beginners)',
+      tajweedTitle: 'Tajweed Recitation Colors',
+      tajweedSub: 'Highlights pronunciation rules on Arabic letters',
+      advancedTitle: 'Advanced Settings & Audio',
+      advancedSub: 'Playback speed, large-screen TV mode, memorization tools, and offline cache',
+      tvTitle: 'TV Screen / Fullscreen Mode (LG TV, PC)',
+      tvDesc: 'Enlarges typography for viewing across the room.',
       tvBtnActive: 'Exit TV Fullscreen',
-      tvBtnInactive: 'Launch Fullscreen / TV Mode',
-      sec2Title: '2. Audio Experience & Video-Style Auto-Play',
-      sec2Sub: 'Control how audio starts when swiping between verses and zero-lag background pre-caching.',
-      autoSwipeTitle: 'Auto-Play on Swipe (Video / Reels Experience)',
-      autoSwipeDesc: 'Automatically start reciting as soon as you swipe left or right to a new verse.',
-      afterVerseTitle: 'When all active parts of a verse finish playing',
-      nextVerseOpt: 'Automatically advance to the next verse',
-      loopVerseOpt: 'Loop / repeat the current verse',
-      defaultPhasesTitle: 'Default audio phases (with automatic zero-lag pre-caching)',
-      phaseRecitation: 'Arabic Recitation',
-      phaseTranslation: 'Translation',
-      phaseTafsir: 'Classical Tafsir (when available in chosen language)',
-      audioSpeedLabel: 'Recitation Playback Speed',
-      tajweedLabel: 'Color-Coded Tajweed Rules (Uthmani Text)',
-      tajweedDesc: 'Subtly colors recitation rules (Ghunnah, Qalqalah, Ikhfa, Madd) on Arabic letters.',
-      reciterLabel: 'Quranic Reciter Voice',
-      scholarLabel: 'Preferred Tafsir Scholar',
-      sec3Title: '3. Universal Verse Card Customization',
-      sec3Sub: 'Choose which elements appear on the unified verse card to keep your reading view clean and personal.',
-      arabicSize: 'Quranic Arabic Font Scale',
-      readingSize: 'Translation, Tafsir & Notes Font Scale',
-      cardLayersLabel: 'Visible layers on the verse card',
-      layerTranslit: 'Phonetic Transliteration',
-      layerTranslation: 'Human Translation (Level 2)',
-      layerTafsir: 'Expand Classical Tafsir by default (Level 3)',
-      layerComments: 'Social Comment & Reflection Thread (💬)',
-      layerStudio: 'Image / Video / PowerPoint Creation Studio (🎬)',
-      layerRoots: 'Arabic Linguistic Roots',
-      layerAudioBadge: 'Audio Source Badge (GitHub / Server / Browser)',
-      layerWordByWordDuo: 'Quran Duo / Word-by-Word Mode (Arabic + Phonetics under each word)',
-      layerWordByWordDuoDesc: 'Displays each Quranic word with its phonetic badge and word meaning with millisecond synchronization.',
-      layerMemorization: 'Interactive Memorization Mode (Hifz: Blur, First Letter, Hidden & Voice Verify)',
-      layerMemorizationDesc: 'Applies progressive CSS masks and native Arabic voice verification for active memorization.',
-      layerThumbRail: 'Ergonomic Thumb Rail (Bottom-Right)',
-      layerThumbRailDesc: 'Quick action floating rail placed naturally under your right thumb for 1-handed mobile use.',
-      layerTapGestures: '1-Handed Tap Shortcuts (Single Tap = Mute/Unmute, Double Tap = Like ♥)',
-      layerTapGesturesDesc: 'Tap the card once to toggle mute, double tap to like with animated heart.',
-      layerExpertMode: 'Expert & Scholarly Mode (Detailed Tafsir provenance & citations)',
-      layerExpertModeDesc: 'Displays scholarly provenance, raw Arabic quote excerpts, and technical audio tier badges.',
-      seqReadingTitle: 'Sequential Reading on Ayah Click',
-      seqReadingDesc: 'Number of consecutive following verses loaded into cards when clicking a verse number.',
-      seqSurah: 'Finish Surah',
-      seq15: 'Next 15 verses',
-      seq100: 'Next 100 verses',
-      sec4Title: '4. Reader & Family Profile',
-      sec4Sub: 'Adapts companion reflections for adults, teens, or family study.',
-      sec5Title: '5. Offline Storage & iPhone Sleep Continuity',
-      sec5Sub: 'Continuous playback stays active even when your iPhone screen locks or goes to sleep.',
-      cacheBookmarksBtn: 'Cache Liked Verses Audio (♥)',
-      cachedDone: 'Audio Cached!',
-      clearCacheBtn: 'Clear Audio Cache',
+      tvBtnInactive: 'Launch TV Fullscreen',
+      autoSwipeTitle: 'Auto-Play on Swipe',
+      autoSwipeDesc: 'Starts reciting as soon as you swipe to a new verse.',
+      audioSpeedLabel: 'Recitation speed',
+      loopVerseOpt: 'Loop current verse',
+      nextVerseOpt: 'Advance to next verse',
+      scholarLabel: 'Preferred Tafsir scholar',
+      cacheTitle: 'Offline Reading',
+      cacheBookmarksBtn: 'Download liked verses for offline listening (♥)',
+      cachedDone: 'Saved offline!',
+      clearCacheBtn: 'Clear cache',
+      wordByWordTitle: 'Word-by-Word Mode (Quran Duo)',
+      memorizationTitle: 'Interactive Memorization Mode (Hifz)',
+      thumbRailTitle: 'Thumb quick-action rail',
     },
     sv: {
-      pageTitle: 'Inställningar & Anpassning',
-      pageSub: 'Konfigurera språk, automatisk uppspelning vid svep, verskortets innehåll och TV-helskärmsläge.',
-      backBtn: 'Tillbaka till verser',
+      pageTitle: 'Mina Läsningsinställningar',
+      pageSub: 'Anpassa textstorlek och recitation enkelt med tydliga knappar.',
+      backBtn: 'Läs Koranen',
       resetBtn: 'Återställ',
-      sec1Title: '1. Språk, Tema & TV-skärmsläge',
-      sec1Sub: 'Välj översättningsspråk, färgtema och helskärmsläge för TV/dator.',
-      langLabel: 'App- och översättningsspråk',
-      themeLabel: 'Visuellt tema',
-      lightMode: 'Ljust pergament',
-      darkMode: 'Mörk helgedom',
-      highContrast: 'Hög kontrast',
-      tvTitle: 'TV-läge / Helskärm (LG TV, PC, Surfplatta)',
-      tvDesc: 'Förstorar texten för avståndsläsning, aktiverar fjärrkontroll/piltangenter och håller skärmen vaken.',
+      themeTitle: 'Färgtema',
+      darkModeTitle: 'Mörk Helgedom',
+      darkModeSub: 'Skonsamt för ögonen (Rekommenderas)',
+      lightModeTitle: 'Ljust Pergament',
+      lightModeSub: 'Ljust och behagligt',
+      highContrastTitle: 'Hög kontrast',
+      highContrastSub: 'Tydligare konturer och text',
+      textSizeTitle: 'Textstorlek',
+      arabicTextSize: 'Arabisk Korantext',
+      readingTextSize: 'Översättning & Förklaring',
+      previewTitle: 'Direkt förhandsgranskning',
+      previewArabic: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+      previewTranslation: 'I Guds, den Nåderikes, den Barmhärtiges namn.',
+      langTitle: 'Översättningsspråk',
+      reciterTitle: 'Recitatör',
+      reciterSub: 'Välj rösten du föredrar',
+      helpersTitle: 'Läshjälpmedel',
+      translitTitle: 'Fonetisk translitterering',
+      translitSub: 'Uttal i latinska bokstäver (utmärkt för nybörjare)',
+      tajweedTitle: 'Tajweed-färger',
+      tajweedSub: 'Färgmarkerar uttalsregler på arabiska bokstäver',
+      advancedTitle: 'Avancerade Inställningar & Ljud',
+      advancedSub: 'Uppspelningshastighet, TV-läge, memorering och offlinelagring',
+      tvTitle: 'TV-läge / Helskärm',
+      tvDesc: 'Förstorar texten för bekväm läsning på avstånd.',
       tvBtnActive: 'Avsluta TV-helskärm',
-      tvBtnInactive: 'Aktivera Helskärm / TV-läge',
-      sec2Title: '2. Ljudupplevelse & Automatisk Uppspelning (Video-stil)',
-      sec2Sub: 'Styr hur ljudet startar när du sveper mellan verser med förladdad cache utan fördröjning.',
-      autoSwipeTitle: 'Spela automatiskt vid svep (Reels / Video-känsla)',
-      autoSwipeDesc: 'Starta recitationen direkt när du sveper till nästa eller föregående vers.',
-      afterVerseTitle: 'När versens alla valda delar har lästs klart',
-      nextVerseOpt: 'Gå automatiskt vidare till nästa vers',
-      loopVerseOpt: 'Upprepa versen i loop',
-      defaultPhasesTitle: 'Delar som läses upp som standard (förladdas utan lagg)',
-      phaseRecitation: 'Arabisk recitation',
-      phaseTranslation: 'Översättning',
-      phaseTafsir: 'Klassisk Tafsir (om tillgänglig på valt språk)',
+      tvBtnInactive: 'Aktivera TV-helskärm',
+      autoSwipeTitle: 'Spela automatiskt vid svep',
+      autoSwipeDesc: 'Startar recitation direkt vid svep till nästa vers.',
       audioSpeedLabel: 'Uppspelningshastighet',
-      tajweedLabel: 'Färgkodade Tajweed-regler (Uthmani)',
-      tajweedDesc: 'Subtil färgläggning av recitationsregler (Ghunnah, Qalqalah, Ikhfa, Madd).',
-      reciterLabel: 'Recitatör',
-      scholarLabel: 'Föredragen Tafsir-lärd',
-      sec3Title: '3. Anpassa det Universella Verskortet',
-      sec3Sub: 'Välj vilka sektioner som ska visas på verskortet.',
-      arabicSize: 'Arabisk textstorlek',
-      readingSize: 'Textstorlek för översättning & tafsir',
-      cardLayersLabel: 'Synliga delar på verskortet',
-      layerTranslit: 'Fonetisk translitterering',
-      layerTranslation: 'Mänsklig översättning (Nivå 2)',
-      layerTafsir: 'Visa Tafsir öppet som standard (Nivå 3)',
-      layerComments: 'Kommentarer & reflektionstråd (💬)',
-      layerStudio: 'Bild-, Video- & PowerPoint-studio (🎬)',
-      layerRoots: 'Arabiska ordstammar',
-      layerAudioBadge: 'Ljudkälleindikator (GitHub / Server / Browser)',
-      layerWordByWordDuo: 'Koran Duo / Ord-för-Ord-läge (Arabiska + Fonetik under varje ord)',
-      layerWordByWordDuoDesc: 'Visar varje koraniskt ord med fonetisk translitterering och ord-för-ord-betydelse i realtid.',
-      layerMemorization: 'Interaktivt Memoreringsläge (Hifz: Suddig, Första bokstav, Dold & Röstkontroll)',
-      layerMemorizationDesc: 'Maskerar ord stegvis och verifierar ditt uttal via röstigenkänning.',
-      layerThumbRail: 'Ergonomiska tumknappar (Nere till höger)',
-      layerThumbRailDesc: 'Snabba touchknappar under högra tummen för smidig enhandsnavigering.',
-      layerTapGestures: 'Enhands gester (Tryck = Ljud av/på, Dubbeltryck = Gilla ♥)',
-      layerTapGesturesDesc: 'Klicka på kortet för att tysta/aktivera ljudet, dubbelklicka för att gilla.',
-      layerExpertMode: 'Expert- & akademiskt läge (Tafsir-proveniens & citat)',
-      layerExpertModeDesc: 'Visar akademisk proveniens, råa arabiska tafsir-citat och tekniska ljudkällor.',
-      seqReadingTitle: 'Sekventiell läsning vid klick på vers',
-      seqReadingDesc: 'Antal efterföljande verser som laddas på korten vid klick på ett versnummer.',
-      seqSurah: 'Slutför suran',
-      seq15: 'Nästa 15 verser',
-      seq100: 'Nästa 100 verser',
-      sec4Title: '4. Läsar- & Familjeprofil',
-      sec4Sub: 'Anpassar reflektionsfrågor för vuxna, ungdomar eller familj.',
-      sec5Title: '5. Offlinelagring & iPhone Bakgrundsljud',
-      sec5Sub: ' Kontinuerlig uppspelning fortsätter även när iPhone-skärmen går i viloläge.',
-      cacheBookmarksBtn: 'Spara gillade versers ljud offline (♥)',
-      cachedDone: 'Ljud sparat!',
-      clearCacheBtn: 'Rensa ljudcache',
+      loopVerseOpt: 'Upprepa versen',
+      nextVerseOpt: 'Nästa vers',
+      scholarLabel: 'Tafsir-lärd',
+      cacheTitle: 'Offlinelagring',
+      cacheBookmarksBtn: 'Spara gillade verser offline (♥)',
+      cachedDone: 'Sparat offline!',
+      clearCacheBtn: 'Rensa cache',
+      wordByWordTitle: 'Ord-för-Ord-läge',
+      memorizationTitle: 'Interaktivt memoreringsläge',
+      thumbRailTitle: 'Snabba tumknappar',
     },
     ar: {
-      pageTitle: 'الإعدادات وتخصيص التجربة',
-      pageSub: 'تحكم في اللغة، والتشغيل التلقائي عند السحب، ومكونات بطاقة الآية الموحدة، ووضع شاشة التلفاز.',
-      backBtn: 'العودة إلى الآيات',
-      resetBtn: 'إعادة الضبط',
-      sec1Title: '١. اللغة والمظهر ووضع شاشة التلفاز (TV)',
-      sec1Sub: 'اختر لغة الترجمة، والمظهر البصري، ووضع العرض الكامل لشاشات التلفاز والحاسوب.',
-      langLabel: 'لغة التطبيق والتراجم',
-      themeLabel: 'المظهر البصري',
-      lightMode: 'الوضع النهاري',
-      darkMode: 'الوضع الليلي',
-      highContrast: 'تباين عالٍ',
-      tvTitle: 'وضع شاشة التلفاز والعرض الكامل (LG TV / حاسوب / جهاز لوحي)',
-      tvDesc: 'يكبّر الخطوط للقراءة عن بُعد، ويفعّل التنقل بأسهم جهاز التحكم، ويمنع انطفاء الشاشة.',
-      tvBtnActive: 'إنهاء وضع ملء الشاشة',
-      tvBtnInactive: 'تفعيل وضع التلفاز / ملء الشاشة',
-      sec2Title: '٢. تجربة الصوت والتشغيل التلقائي عند السحب (بأسلوب الفيديو)',
-      sec2Sub: 'تحكم في بدء التلاوة تلقائياً عند التمرير بين الآيات مع التحميل المسبق الفوري بدون تقطع.',
-      autoSwipeTitle: 'تشغيل تلقائي عند السحب بين الآيات',
-      autoSwipeDesc: 'تبدأ التلاوة فوراً بمجرد التمرير لليمين أو اليسار للانتقال إلى آية أخرى.',
-      afterVerseTitle: 'عند انتهاء قراءة جميع أجزاء الآية',
-      nextVerseOpt: 'الانتقال تلقائياً إلى الآية التالية',
-      loopVerseOpt: 'تكرار نفس الآية في حلقة مستمرة',
-      defaultPhasesTitle: 'الأجزاء المقروءة صوتياً (مع التخزين المسبق لمنع التأخير)',
-      phaseRecitation: 'التلاوة القرآنية (عربي)',
-      phaseTranslation: 'الترجمة الصوتية',
-      phaseTafsir: 'التفسير الكلاسيكي (إن توفر باللغة المختارة)',
-      audioSpeedLabel: 'سرعة التلاوة الصوتية',
-      tajweedLabel: 'ألوان أحكام التجويد (الرسم العثماني)',
-      tajweedDesc: 'تمييز لطيف لأحكام التجويد (الغنّة، القلقلة، الإخفاء، المدود) بألوان هادئة.',
-      reciterLabel: 'صوت القارئ المفضل',
-      scholarLabel: 'المفسر المفضل',
-      sec3Title: '٣. تخصيص بطاقة الآية الموحدة',
-      sec3Sub: 'حدد العناصر التي تود إظهارها أو إخفاءها على بطاقة الآية.',
-      arabicSize: 'حجم خط الرسم العثماني',
-      readingSize: 'حجم خط الترجمة والتفسير والتعليقات',
-      cardLayersLabel: 'الأقسام الظاهرة في البطاقة',
-      layerTranslit: 'اللفظ اللاتيني (Transliteration)',
-      layerTranslation: 'الترجمة المعتمدة (المستوى ٢)',
-      layerTafsir: 'فتح التفسير تلقائياً (المستوى ٣)',
-      layerComments: 'قسم التعليقات والخواطر التفاعلية (💬)',
-      layerStudio: 'استوديو تصميم الصور والفيديو والعروض (🎬)',
-      layerRoots: 'الجذور اللغوية القرآنية',
-      layerAudioBadge: 'شارة مصدر الصوت (GitHub / Server / Browser)',
-      layerWordByWordDuo: 'وضع المصحف التفاعلي كلمة بكلمة (مع اللفظ الصوتي والمعنى)',
-      layerWordByWordDuoDesc: 'يعرض كل كلمة قرآنية مستقلة مع النطق الصوتي والترجمة الفورية المتزامنة بالملي ثانية.',
-      layerMemorization: 'وضع التحفيظ والتسميع الذكي (تمويه، أول حرف، إخفاء وتسميع صوتي)',
-      layerMemorizationDesc: 'إخفاء تدريجي للكلمات مع التحقق الصوتي الفوري من صحة التلاوة والحفظ.',
-      layerThumbRail: 'شريط الإبهام السريع بيد واحدة (أسفل اليمين)',
-      layerThumbRailDesc: 'أزرار عائمة تحت متناول الإبهام لكتم الصوت، الإعجاب، التعليق، والمشاركة.',
-      layerTapGestures: 'إيماءات اليد الواحدة (نقرة = كتم/تشغيل الصوت، نقرتان = إعجاب ♥)',
-      layerTapGesturesDesc: 'انقر نقرة واحدة لكتم أو تفعيل الصوت فورياً، ونقرتين للإعجاب مع حركة القلب.',
-      layerExpertMode: 'الوضع الأكاديمي والبحثي (توثيق السند، الاقتباسات ومصادر الصوت)',
-      layerExpertModeDesc: 'إظهار بيانات التوثيق الأكاديمي، والاقتباس العربي المباشر، ومصادر التسجيلات الصوتية.',
-      seqReadingTitle: 'التلاوة التتابعية عند النقر على الآية',
-      seqReadingDesc: 'تحديد نطاق الآيات المتتابعة التالية المحملة في البطاقات عند النقر على رقم الآية.',
-      seqSurah: 'إتمام السورة كاملة',
-      seq15: '١٥ آية تالية',
-      seq100: '١٠٠ آية تالية',
-      sec4Title: '٤. نمط القارئ والأسرة',
-      sec4Sub: 'مواءمة لغة التدبر للكبار أو الشباب أو الأسرة.',
-      sec5Title: '٥. التخزين دون إنترنت واستمرارية الصوت على iPhone',
-      sec5Sub: 'يستمر الصوت بالانتقال للآية التالية حتى عند قفل شاشة iPhone.',
-      cacheBookmarksBtn: 'حفظ صوتيات الآيات المفضلة (♥)',
-      cachedDone: 'تم الحفظ!',
-      clearCacheBtn: 'مسح ذاكرة الصوت',
+      pageTitle: 'إعدادات القراءة والتلاوة',
+      pageSub: 'اضبط حجم الخط والصوت بسهولة عبر أزرار واضحة ومريحة لجميع الأعمار.',
+      backBtn: 'متابعة القراءة',
+      resetBtn: 'الوضع الافتراضي',
+      themeTitle: 'المظهر البصري',
+      darkModeTitle: 'الوضع الليلي (الافتراضي)',
+      darkModeSub: 'مريح للعينين أثناء القراءة المطولة',
+      lightModeTitle: 'الوضع النهاري',
+      lightModeSub: 'ألوان دافئة ومشرقة',
+      highContrastTitle: 'تباين عالٍ ووضوح معزز',
+      highContrastSub: 'حدود بارزة ومقروئية فائقة',
+      textSizeTitle: 'حجم الخط والقراءة',
+      arabicTextSize: 'خط المصحف الشريف (الرسم العثماني)',
+      readingTextSize: 'التفسير والترجمة',
+      previewTitle: 'معاينة فورية للخط',
+      previewArabic: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+      previewTranslation: 'سورة الفاتحة — الآية الأولى',
+      langTitle: 'لغة التراجم والمعاني',
+      reciterTitle: 'صوت القارئ المفضل',
+      reciterSub: 'اختر التلاوة الخاشعة التي تناسبك',
+      helpersTitle: 'أدوات مساعدة للتعلّم',
+      translitTitle: 'اللفظ اللاتيني (Transliteration)',
+      translitSub: 'يساعد المبتدئين والأطفال على نطق الآيات بدقة',
+      tajweedTitle: 'ألوان أحكام التجويد',
+      tajweedSub: 'تمييز لطيف لأحكام الغنّة والإخفاء والقلقلة والمدود',
+      advancedTitle: 'الإعدادات المتقدمة والتقنية',
+      advancedSub: 'سرعة التلاوة، وضع شاشة التلفاز الكبيرة، التحفيظ والذاكرة المؤقتة',
+      tvTitle: 'وضع شاشة التلفاز والعرض الكامل (TV)',
+      tvDesc: 'يكبّر الخطوط للقراءة عن بُعد ويمنع انطفاء الشاشة.',
+      tvBtnActive: 'إنهاء وضع شاشة التلفاز',
+      tvBtnInactive: 'تفعيل وضع شاشة التلفاز',
+      autoSwipeTitle: 'تشغيل تلقائي عند التمرير بين الآيات',
+      autoSwipeDesc: 'تبدأ التلاوة فوراً عند الانتقال للآية التالية.',
+      audioSpeedLabel: 'سرعة التلاوة',
+      loopVerseOpt: 'تكرار نفس الآية',
+      nextVerseOpt: 'الانتقال للآية التالية',
+      scholarLabel: 'المفسر الكلاسيكي المعتمد',
+      cacheTitle: 'القراءة بدون اتصال بالإنترنت',
+      cacheBookmarksBtn: 'حفظ تلاوات الآيات المفضلة (♥) بدون إنترنت',
+      cachedDone: 'تم الحفظ بدون إنترنت!',
+      clearCacheBtn: 'تفريغ الذاكرة المؤقتة',
+      wordByWordTitle: 'المصحف كلمة بكلمة (Duo)',
+      memorizationTitle: 'وضع التحفيظ الذكي (Hifz)',
+      thumbRailTitle: 'شريط الإبهام السريع',
     },
   }[language];
 
-  const profileLabels = {
-    fr: [
-      { id: 'adult' as ReaderProfile, title: 'Standard', sub: 'Tafsir complet & méditation approfondie' },
-      { id: 'teen' as ReaderProfile, title: 'Ados (13–17)', sub: 'Essentiel & repères clés du quotidien' },
-      { id: 'kids' as ReaderProfile, title: 'Enfants & Famille (8+)', sub: 'Histoire simple & question en famille' },
-    ],
-    en: [
-      { id: 'adult' as ReaderProfile, title: 'Standard', sub: 'Full Tafsir & deep reflection' },
-      { id: 'teen' as ReaderProfile, title: 'Teen (13–17)', sub: 'Key takeaway & concept guide' },
-      { id: 'kids' as ReaderProfile, title: 'Kids & Family (8+)', sub: 'Simple story & family question' },
-    ],
-    sv: [
-      { id: 'adult' as ReaderProfile, title: 'Standard', sub: 'Full Tafsir & fördjupad reflektion' },
-      { id: 'teen' as ReaderProfile, title: 'Ungdom (13–17)', sub: 'Kärnbudskap & ordlista' },
-      { id: 'kids' as ReaderProfile, title: 'Barn & Familj (8+)', sub: 'Enkel berättelse & familjefråga' },
-    ],
-    ar: [
-      { id: 'adult' as ReaderProfile, title: 'الوضع الكامل', sub: 'التفسير والتدبر المعمق' },
-      { id: 'teen' as ReaderProfile, title: 'الشباب (١٣–١٧)', sub: 'خلاصة ملهمة ودليل مفاهيم' },
-      { id: 'kids' as ReaderProfile, title: 'الناشئة والأسرة (٨+)', sub: 'قصة مبسطة وسؤال عائلي' },
-    ],
-  }[language];
-
-  const renderToggleRow = (
-    checked: boolean,
-    onChange: () => void,
-    title: string,
-    subtitle?: string,
-    icon?: React.ReactNode
-  ) => (
-    <button
-      type="button"
-      onClick={onChange}
-      aria-pressed={checked}
-      className={`w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl border text-start transition-all cursor-pointer ${
-        checked
-          ? 'bg-[#006D53]/10 dark:bg-[#006D53]/25 border-[#006D53]/40 text-emerald-950 dark:text-[#F5F7F2]'
-          : 'bg-[#FAF8F5] dark:bg-[#061B16]/60 border-emerald-900/10 dark:border-emerald-800/35 text-slate-700 dark:text-[#9BAFA7] hover:border-emerald-700/40'
-      }`}
-    >
-      <div className="flex items-start gap-3 min-w-0">
-        {icon && <div className="mt-0.5 text-[#006D53] dark:text-[#F4B900] shrink-0">{icon}</div>}
-        <div className="min-w-0">
-          <div className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
-            {title}
-          </div>
-          {subtitle && (
-            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5 leading-relaxed">
-              {subtitle}
-            </p>
-          )}
-        </div>
-      </div>
-      <div
-        className={`w-11 h-6 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
-          checked ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
-        }`}
-      >
-        <span className="w-5 h-5 rounded-full bg-white shadow-xs block transition-transform" />
-      </div>
-    </button>
-  );
+  // Arabic reciter voice badges
+  const reciterHighlights: Record<string, { tag: string; emoji: string }> = {
+    alafasy: { tag: language === 'ar' ? 'عذب ومؤثر' : 'Melodic & Reverent', emoji: '🎙️' },
+    abdulbasit: { tag: language === 'ar' ? 'هادئ ومفصل' : 'Calm & Majestic', emoji: '🌟' },
+    husary: { tag: language === 'ar' ? 'معلم ومتقن' : 'Educational & Crystal Clear', emoji: '✨' },
+    minshawi: { tag: language === 'ar' ? 'خاشع وباكٍ' : 'Heartfelt & Tender', emoji: '🌿' },
+    ghamadi: { tag: language === 'ar' ? 'سلس ومتواصل' : 'Smooth Pace', emoji: '🕊️' },
+  };
 
   return (
     <section
       aria-label={labels.pageTitle}
       dir={language === 'ar' ? 'rtl' : 'ltr'}
-      className="space-y-6 pb-12"
+      className="space-y-6 pb-16 max-w-4xl mx-auto"
     >
-      {/* Top Header Banner of Preferences */}
+      {/* Top Header Card */}
       <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 text-xs font-bold text-[#006D53] dark:text-[#F4B900]">
             <SlidersHorizontal className="w-4 h-4" />
-            <span>Hidaya Sanctuary</span>
+            <span>Hidaya</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-emerald-950 dark:text-[#F5F7F2]">
             {labels.pageTitle}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-[#9BAFA7] max-w-2xl">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-[#9BAFA7] max-w-xl">
             {labels.pageSub}
           </p>
         </div>
@@ -578,9 +469,10 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
           <button
             type="button"
             onClick={handleResetDefaults}
-            className="min-h-[42px] px-3.5 py-2 rounded-xl border border-emerald-900/15 dark:border-emerald-800/40 text-xs font-semibold text-slate-600 dark:text-[#9BAFA7] hover:text-emerald-950 dark:hover:text-white inline-flex items-center gap-1.5 cursor-pointer"
+            className="min-h-[44px] px-3.5 py-2.5 rounded-xl border border-emerald-900/15 dark:border-emerald-800/40 text-xs font-semibold text-slate-600 dark:text-[#9BAFA7] hover:text-emerald-950 dark:hover:text-white inline-flex items-center gap-1.5 cursor-pointer transition-colors active:scale-95"
+            title="Reset to default settings"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-4 h-4" />
             <span>{labels.resetBtn}</span>
           </button>
 
@@ -588,7 +480,7 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[42px] px-5 py-2.5 rounded-xl bg-[#006D53] hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs inline-flex items-center gap-2 cursor-pointer"
+              className="min-h-[44px] px-5 py-2.5 rounded-xl bg-[#006D53] hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs inline-flex items-center gap-2 cursor-pointer transition-transform active:scale-95"
             >
               <Check className="w-4 h-4" />
               <span>{labels.backBtn}</span>
@@ -597,608 +489,740 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
         </div>
       </div>
 
-      {/* SECTION 1: LANGUAGE, THEME & LG TV / FULLSCREEN MODE */}
-      <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-5">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
-            <Globe className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
-              {labels.sec1Title}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">{labels.sec1Sub}</p>
-          </div>
-        </div>
-
-        {/* Language Grid */}
-        <div className="space-y-2">
-          <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
-            {labels.langLabel}
-          </span>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            {LANGUAGE_OPTIONS.map((opt) => {
-              const active = language === opt.code;
-              return (
-                <button
-                  key={opt.code}
-                  type="button"
-                  onClick={() => onLanguageChange?.(opt.code)}
-                  aria-pressed={active}
-                  className={`min-h-[48px] px-4 py-2.5 rounded-2xl border text-start transition-all flex items-center justify-between cursor-pointer ${
-                    active
-                      ? 'bg-[#006D53] text-white border-[#006D53] font-bold shadow-xs'
-                      : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2] hover:border-[#006D53]'
-                  }`}
-                >
-                  <div>
-                    <div className="text-sm font-bold">{opt.native}</div>
-                    <div className={`text-[11px] ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
-                      {opt.label}
-                    </div>
-                  </div>
-                  {active && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Theme & High Contrast */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-          <button
-            type="button"
-            onClick={() => isDark && onToggleDark?.()}
-            aria-pressed={!isDark}
-            className={`min-h-[48px] px-4 py-3 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
-              !isDark
-                ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
-                : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
-            }`}
-          >
-            <span className="inline-flex items-center gap-2 text-xs sm:text-sm">
-              <Sun className="w-4 h-4 text-[#F4B900]" />
-              <span>{labels.lightMode}</span>
+      {/* ESSENTIAL 1: THEME & CONTRAST (LARGE TOUCH CARDS) */}
+      <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900]">
+              <Moon className="w-4 h-4" />
             </span>
-            {!isDark && <Check className="w-4 h-4 text-[#F4B900]" />}
-          </button>
+            <span>{labels.themeTitle}</span>
+          </h2>
+        </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {/* Dark Sanctuary Card */}
           <button
             type="button"
             onClick={() => !isDark && onToggleDark?.()}
             aria-pressed={isDark}
-            className={`min-h-[48px] px-4 py-3 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+            className={`min-h-[64px] p-4 rounded-2xl border text-start transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99] ${
               isDark
-                ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
-                : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+                ? 'bg-[#061B16] text-[#F5F7F2] border-emerald-500 shadow-sm ring-2 ring-emerald-500/30'
+                : 'bg-[#F7F0E2] dark:bg-[#0C2920] text-emerald-950 dark:text-[#F5F7F2] border-emerald-900/10 dark:border-emerald-800/40 hover:border-emerald-500/50'
             }`}
           >
-            <span className="inline-flex items-center gap-2 text-xs sm:text-sm">
-              <Moon className="w-4 h-4 text-[#F4B900]" />
-              <span>{labels.darkMode}</span>
-            </span>
-            {isDark && <Check className="w-4 h-4 text-[#F4B900]" />}
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-950 border border-emerald-700/40 flex items-center justify-center text-[#F4B900] shrink-0 shadow-inner">
+                <Moon className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-sm sm:text-base font-bold flex items-center gap-2">
+                  <span>{labels.darkModeTitle}</span>
+                </div>
+                <div className="text-xs text-[#9BAFA7] mt-0.5">
+                  {labels.darkModeSub}
+                </div>
+              </div>
+            </div>
+            {isDark && (
+              <div className="w-6 h-6 rounded-full bg-[#006D53] flex items-center justify-center text-white shrink-0">
+                <Check className="w-4 h-4" />
+              </div>
+            )}
           </button>
 
+          {/* Warm Parchment Card */}
           <button
             type="button"
-            onClick={onToggleHighContrast}
-            aria-pressed={isHighContrast}
-            className={`min-h-[48px] px-4 py-3 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
-              isHighContrast
-                ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
-                : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+            onClick={() => isDark && onToggleDark?.()}
+            aria-pressed={!isDark}
+            className={`min-h-[64px] p-4 rounded-2xl border text-start transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99] ${
+              !isDark
+                ? 'bg-amber-50 text-emerald-950 border-amber-600 shadow-sm ring-2 ring-amber-500/30'
+                : 'bg-[#F7F0E2] dark:bg-[#0C2920] text-emerald-950 dark:text-[#F5F7F2] border-emerald-900/10 dark:border-emerald-800/40 hover:border-amber-500/50'
             }`}
           >
-            <span className="text-xs sm:text-sm">{labels.highContrast}</span>
-            {isHighContrast && <Check className="w-4 h-4 text-[#F4B900]" />}
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100/80 border border-amber-400/50 flex items-center justify-center text-amber-700 shrink-0 shadow-inner">
+                <Sun className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-sm sm:text-base font-bold flex items-center gap-2">
+                  <span>{labels.lightModeTitle}</span>
+                </div>
+                <div className="text-xs text-slate-600 dark:text-[#9BAFA7] mt-0.5">
+                  {labels.lightModeSub}
+                </div>
+              </div>
+            </div>
+            {!isDark && (
+              <div className="w-6 h-6 rounded-full bg-amber-600 flex items-center justify-center text-white shrink-0">
+                <Check className="w-4 h-4" />
+              </div>
+            )}
           </button>
         </div>
 
-        {/* Dedicated TV Screen / Fullscreen Sanctuary Mode Card */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-amber-500/30 dark:border-[#F4B900]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#006D53] text-[#F4B900] flex items-center justify-center shrink-0">
-              <Tv className="w-5 h-5" />
-            </div>
+        {/* High Contrast Toggle (Easy for Seniors) */}
+        <button
+          type="button"
+          onClick={onToggleHighContrast}
+          aria-pressed={isHighContrast}
+          className={`w-full min-h-[50px] p-3.5 rounded-2xl border text-start transition-all cursor-pointer flex items-center justify-between gap-3 ${
+            isHighContrast
+              ? 'bg-[#006D53]/15 dark:bg-[#006D53]/30 border-[#006D53] text-emerald-950 dark:text-[#F5F7F2]'
+              : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-[#9BAFA7]'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Eye className="w-5 h-5 text-[#006D53] dark:text-[#F4B900] shrink-0" />
             <div>
-              <h3 className="text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
-                {labels.tvTitle}
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-[#9BAFA7] mt-0.5 leading-relaxed">
-                {labels.tvDesc}
+              <span className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
+                {labels.highContrastTitle}
+              </span>
+              <p className="text-[11px] text-slate-500 dark:text-[#9BAFA7]">
+                {labels.highContrastSub}
               </p>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              updatePref({ tvMode: !prefs.tvMode });
-              onToggleFullscreenTv?.();
-            }}
-            className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold inline-flex items-center gap-2 shrink-0 cursor-pointer transition-all ${
-              prefs.tvMode || isFullscreenActive
-                ? 'bg-amber-500 text-slate-950 shadow-sm'
-                : 'bg-[#006D53] hover:bg-emerald-700 text-white shadow-xs'
+          <div
+            className={`w-12 h-6.5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
+              isHighContrast ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
             }`}
           >
-            {prefs.tvMode || isFullscreenActive ? (
-              <>
-                <Minimize2 className="w-4 h-4" />
-                <span>{labels.tvBtnActive}</span>
-              </>
-            ) : (
-              <>
-                <Maximize2 className="w-4 h-4" />
-                <span>{labels.tvBtnInactive}</span>
-              </>
-            )}
-          </button>
-        </div>
+            <span className="w-5 h-5 rounded-full bg-white shadow-xs block" />
+          </div>
+        </button>
       </div>
 
-      {/* SECTION 2: AUDIO EXPERIENCE & VIDEO-STYLE AUTO-PLAY ON SWIPE */}
+      {/* ESSENTIAL 2: TEXT SIZING WITH LIVE REAL-TIME ARABIC PREVIEW */}
       <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-5">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
-            <Headphones className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
-              {labels.sec2Title}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">{labels.sec2Sub}</p>
-          </div>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900]">
+              <Type className="w-4 h-4" />
+            </span>
+            <span>{labels.textSizeTitle}</span>
+          </h2>
         </div>
 
-        {/* Auto-Play on Swipe Toggle */}
-        {renderToggleRow(
-          prefs.autoPlayOnSwipe,
-          () => updatePref({ autoPlayOnSwipe: !prefs.autoPlayOnSwipe }),
-          labels.autoSwipeTitle,
-          labels.autoSwipeDesc,
-          <Play className="w-4 h-4" />
-        )}
-
-        {/* Default Audio Phases Included */}
-        <div className="space-y-2">
-          <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
-            {labels.defaultPhasesTitle}
-          </span>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            {renderToggleRow(
-              prefs.includeRecitationByDefault,
-              () => updatePref({ includeRecitationByDefault: !prefs.includeRecitationByDefault }),
-              labels.phaseRecitation
-            )}
-            {renderToggleRow(
-              prefs.includeTranslationByDefault,
-              () => updatePref({ includeTranslationByDefault: !prefs.includeTranslationByDefault }),
-              labels.phaseTranslation
-            )}
-            {renderToggleRow(
-              prefs.includeTafsirByDefault,
-              () => updatePref({ includeTafsirByDefault: !prefs.includeTafsirByDefault }),
-              labels.phaseTafsir
-            )}
+        {/* Live Interactive Quranic Preview Box */}
+        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#061B16] border border-emerald-900/15 dark:border-emerald-800/50 shadow-inner space-y-3 transition-all text-center">
+          <div className="text-[11px] font-bold text-emerald-800/70 dark:text-emerald-400/80 uppercase tracking-wider flex items-center justify-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-[#F4B900]" />
+            <span>{labels.previewTitle}</span>
           </div>
+
+          {/* Arabic Ayah Preview (scales in real time) */}
+          <div
+            dir="rtl"
+            style={{ fontSize: `${arabicScale * 26}px`, lineHeight: 1.65 }}
+            className="font-arabic text-emerald-950 dark:text-[#F5F7F2] transition-all duration-200 select-none py-1"
+          >
+            {labels.previewArabic}
+          </div>
+
+          {/* Translation Preview (scales in real time) */}
+          <p
+            dir={language === 'ar' ? 'rtl' : 'ltr'}
+            style={{ fontSize: `${(readingScale || 1.0) * 15}px`, lineHeight: 1.5 }}
+            className="text-slate-600 dark:text-[#9BAFA7] transition-all duration-200 italic"
+          >
+            {labels.previewTranslation}
+          </p>
         </div>
 
-        {/* End of Verse Behavior: Auto-Advance vs Loop */}
-        <div className="space-y-2">
-          <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
-            {labels.afterVerseTitle}
-          </span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        {/* 1. Arabic Text Size: Steppers + Preset Cards */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
+            <span>{labels.arabicTextSize}</span>
+            <span className="font-mono text-emerald-700 dark:text-[#F4B900] bg-emerald-100/50 dark:bg-emerald-950/70 px-2.5 py-0.5 rounded-full text-xs">
+              {Math.round(arabicScale * 100)}%
+            </span>
+          </div>
+
+          {/* Steppers A- / A+ and Direct Buttons */}
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
             <button
               type="button"
-              onClick={() => updatePref({ loopVerse: false })}
-              aria-pressed={!prefs.loopVerse}
-              className={`min-h-[48px] px-4 py-3 rounded-2xl border flex items-center justify-between text-start cursor-pointer transition-all ${
-                !prefs.loopVerse
-                  ? 'bg-[#006D53] text-white border-[#006D53] font-bold shadow-xs'
-                  : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
-              }`}
+              onClick={() => handleStepArabicScale(-0.1)}
+              className="min-h-[48px] min-w-[48px] rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-white font-bold flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900/50 active:scale-95 transition-all cursor-pointer shadow-xs"
+              aria-label="Decrease Arabic font size"
             >
-              <span className="text-xs sm:text-sm">{labels.nextVerseOpt}</span>
-              {!prefs.loopVerse && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
+              <Minus className="w-5 h-5" />
             </button>
 
+            <div className="grid grid-cols-4 gap-1.5 flex-1 w-full">
+              {ARABIC_SIZE_PRESETS.map((p) => {
+                const active = Math.abs(arabicScale - p.scale) < 0.08;
+                return (
+                  <button
+                    key={p.scale}
+                    type="button"
+                    onClick={() => onArabicScaleChange(p.scale)}
+                    aria-pressed={active}
+                    className={`min-h-[48px] px-2 py-1.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center active:scale-95 ${
+                      active
+                        ? 'bg-[#006D53] text-white border-[#006D53] font-bold shadow-xs'
+                        : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2] hover:border-[#006D53]'
+                    }`}
+                  >
+                    <span className="text-xs sm:text-sm font-bold">{p.label}</span>
+                    <span className={`text-[10px] ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
+                      {p.sub}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
             <button
               type="button"
-              onClick={() => updatePref({ loopVerse: true })}
-              aria-pressed={prefs.loopVerse}
-              className={`min-h-[48px] px-4 py-3 rounded-2xl border flex items-center justify-between text-start cursor-pointer transition-all ${
-                prefs.loopVerse
-                  ? 'bg-[#006D53] text-white border-[#006D53] font-bold shadow-xs'
-                  : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
-              }`}
+              onClick={() => handleStepArabicScale(0.1)}
+              className="min-h-[48px] min-w-[48px] rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-white font-bold flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900/50 active:scale-95 transition-all cursor-pointer shadow-xs"
+              aria-label="Increase Arabic font size"
             >
-              <span className="inline-flex items-center gap-2 text-xs sm:text-sm">
-                <Repeat className="w-4 h-4 text-[#F4B900]" />
-                <span>{labels.loopVerseOpt}</span>
-              </span>
-              {prefs.loopVerse && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
+              <Plus className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Audio Playback Speed Selector */}
-        <div className="space-y-2 pt-1">
-          <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
-            {labels.audioSpeedLabel}
-          </span>
-          <div className="grid grid-cols-4 gap-2">
-            {[0.75, 1, 1.25, 1.5].map((speed) => {
-              const active = (prefs.playbackSpeed || 1) === speed;
-              return (
-                <button
-                  key={speed}
-                  type="button"
-                  onClick={() => updatePref({ playbackSpeed: speed })}
-                  aria-pressed={active}
-                  className={`min-h-[42px] px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border text-center flex items-center justify-center ${
-                    active
-                      ? 'bg-[#006D53] text-white border-transparent shadow-xs'
-                      : 'bg-[#F7F0E2] dark:bg-[#0C2920] text-emerald-950 dark:text-[#F5F7F2] border-emerald-900/10 dark:border-emerald-800/40 hover:border-[#006D53]'
-                  }`}
-                >
-                  <span>{speed}x</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Tajweed Colored Rules Switch */}
-        <div className="p-3.5 rounded-2xl bg-white dark:bg-[#061B16] border border-emerald-900/10 dark:border-emerald-800/40 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
-              {labels.tajweedLabel}
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-[#9BAFA7] mt-0.5">
-              {labels.tajweedDesc}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => updatePref({ showTajweedColors: !prefs.showTajweedColors })}
-            aria-pressed={prefs.showTajweedColors}
-            className={`w-12 h-6.5 rounded-full transition-colors relative cursor-pointer shrink-0 ${
-              prefs.showTajweedColors ? 'bg-[#006D53]' : 'bg-slate-300 dark:bg-slate-700'
-            }`}
-          >
-            <span
-              className={`block w-5 h-5 rounded-full bg-white shadow-xs transition-transform absolute top-0.5 ${
-                prefs.showTajweedColors ? 'start-6' : 'start-0.5'
-              }`}
-            />
-          </button>
-        </div>
-
-        {/* Reciter & Preferred Scholar */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-          <div className="space-y-2">
-            <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
-              {labels.reciterLabel}
+        {/* 2. Translation & Reading Text Size: Direct Buttons */}
+        <div className="space-y-2.5 pt-2 border-t border-emerald-900/10 dark:border-emerald-800/40">
+          <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
+            <span>{labels.readingTextSize}</span>
+            <span className="font-mono text-emerald-700 dark:text-[#F4B900] bg-emerald-100/50 dark:bg-emerald-950/70 px-2.5 py-0.5 rounded-full text-xs">
+              {Math.round((readingScale || 1.0) * 100)}%
             </span>
-            <div className="space-y-1.5">
-              {AVAILABLE_RECITERS.map((r) => {
-                const active = r.id === reciterId;
+          </div>
+
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleStepReadingScale(-0.1)}
+              className="min-h-[48px] min-w-[48px] rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-white font-bold flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900/50 active:scale-95 transition-all cursor-pointer shadow-xs"
+              aria-label="Decrease reading font size"
+            >
+              <Minus className="w-5 h-5" />
+            </button>
+
+            <div className="grid grid-cols-3 gap-1.5 flex-1 w-full">
+              {READING_SIZE_PRESETS.map((p) => {
+                const active = Math.abs((readingScale || 1.0) - p.scale) < 0.08;
                 return (
                   <button
-                    key={r.id}
+                    key={p.scale}
                     type="button"
-                    onClick={() => handleReciterSelect(r.id)}
+                    onClick={() => onReadingScaleChange?.(p.scale)}
                     aria-pressed={active}
-                    className={`w-full px-3.5 py-2.5 rounded-xl border text-start flex items-center justify-between cursor-pointer transition-all ${
+                    className={`min-h-[48px] px-2 py-1.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center active:scale-95 ${
                       active
-                        ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
-                        : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+                        ? 'bg-[#006D53] text-white border-[#006D53] font-bold shadow-xs'
+                        : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2] hover:border-[#006D53]'
                     }`}
                   >
-                    <div>
-                      <div className="text-xs sm:text-sm font-semibold">{r.name}</div>
-                      <div className={`text-[11px] ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
-                        {r.subname} · {r.style}
-                      </div>
-                    </div>
-                    {active && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
+                    <span className="text-xs sm:text-sm font-bold">{p.label}</span>
+                    <span className={`text-[10px] ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
+                      {p.sub}
+                    </span>
                   </button>
                 );
               })}
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
-              {labels.scholarLabel}
-            </span>
-            <div className="space-y-1.5">
-              {SCHOLARS.map((s) => {
-                const active = preferredScholar === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => onPreferredScholarChange?.(s.id)}
-                    aria-pressed={active}
-                    className={`w-full px-3.5 py-2.5 rounded-xl border text-start flex items-center justify-between cursor-pointer transition-all ${
-                      active
-                        ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
-                        : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
-                    }`}
-                  >
-                    <div>
-                      <div className="text-xs sm:text-sm font-semibold">{s.label}</div>
-                      <div className={`text-[11px] ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
-                        {s.sub[language]}
-                      </div>
-                    </div>
-                    {active && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
+            <button
+              type="button"
+              onClick={() => handleStepReadingScale(0.1)}
+              className="min-h-[48px] min-w-[48px] rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-white font-bold flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900/50 active:scale-95 transition-all cursor-pointer shadow-xs"
+              aria-label="Increase reading font size"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* SECTION 3: UNIVERSAL VERSE CARD CUSTOMIZATION */}
-      <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-5">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
-            <Layers className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
-              {labels.sec3Title}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">{labels.sec3Sub}</p>
-          </div>
-        </div>
-
-        {/* Font Scales */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-emerald-900/10 dark:border-emerald-800/40 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-emerald-950 dark:text-[#F5F7F2]">
-              <span className="inline-flex items-center gap-1.5">
-                <Type className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
-                <span>{labels.arabicSize}</span>
-              </span>
-              <span className="font-mono tabular-nums">{Math.round(arabicScale * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0.9}
-              max={1.7}
-              step={0.05}
-              value={arabicScale}
-              onChange={(e) => onArabicScaleChange(parseFloat(e.target.value))}
-              className="w-full accent-[#006D53] cursor-pointer"
-            />
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-emerald-900/10 dark:border-emerald-800/40 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold text-emerald-950 dark:text-[#F5F7F2]">
-              <span className="inline-flex items-center gap-1.5">
-                <Type className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
-                <span>{labels.readingSize}</span>
-              </span>
-              <span className="font-mono tabular-nums">{Math.round(readingScale * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0.85}
-              max={1.5}
-              step={0.05}
-              value={readingScale}
-              onChange={(e) => onReadingScaleChange?.(parseFloat(e.target.value))}
-              className="w-full accent-[#006D53] cursor-pointer"
-            />
-          </div>
-        </div>
-
-        {/* Card Layer Visibility Checkboxes */}
-        <div className="space-y-2">
-          <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
-            {labels.cardLayersLabel}
-          </span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {renderToggleRow(
-              prefs.showTransliteration,
-              () => updatePref({ showTransliteration: !prefs.showTransliteration }),
-              labels.layerTranslit
-            )}
-            {renderToggleRow(
-              prefs.showTranslation,
-              () => updatePref({ showTranslation: !prefs.showTranslation }),
-              labels.layerTranslation
-            )}
-            {renderToggleRow(
-              prefs.showTafsirByDefault,
-              () => updatePref({ showTafsirByDefault: !prefs.showTafsirByDefault }),
-              labels.layerTafsir,
-              undefined,
-              <BookOpen className="w-4 h-4" />
-            )}
-            {renderToggleRow(
-              prefs.showSocialComments,
-              () => updatePref({ showSocialComments: !prefs.showSocialComments }),
-              labels.layerComments,
-              undefined,
-              <MessageCircle className="w-4 h-4" />
-            )}
-            {renderToggleRow(
-              prefs.showCreationStudio,
-              () => updatePref({ showCreationStudio: !prefs.showCreationStudio }),
-              labels.layerStudio,
-              undefined,
-              <Film className="w-4 h-4" />
-            )}
-            {renderToggleRow(
-              prefs.showRootImagery,
-              () => updatePref({ showRootImagery: !prefs.showRootImagery }),
-              labels.layerRoots,
-              undefined,
-              <Sparkles className="w-4 h-4" />
-            )}
-            {renderToggleRow(
-              prefs.showAudioSourceBadge,
-              () => updatePref({ showAudioSourceBadge: !prefs.showAudioSourceBadge }),
-              labels.layerAudioBadge
-            )}
-            {renderToggleRow(
-              Boolean(prefs.showWordByWordDuo),
-              () => updatePref({ showWordByWordDuo: !prefs.showWordByWordDuo, enableMemorizationMode: false }),
-              labels.layerWordByWordDuo,
-              labels.layerWordByWordDuoDesc,
-              <Sparkles className="w-4 h-4" />
-            )}
-            {renderToggleRow(
-              Boolean(prefs.enableMemorizationMode),
-              () => updatePref({ enableMemorizationMode: !prefs.enableMemorizationMode, showWordByWordDuo: false }),
-              labels.layerMemorization,
-              labels.layerMemorizationDesc,
-              <BookOpen className="w-4 h-4" />
-            )}
-            {renderToggleRow(
-              prefs.showThumbRail !== false,
-              () => updatePref({ showThumbRail: prefs.showThumbRail === false }),
-              labels.layerThumbRail,
-              labels.layerThumbRailDesc,
-              <Sparkles className="w-4 h-4" />
-            )}
-            {renderToggleRow(
-              prefs.enableTapGestures !== false,
-              () => updatePref({ enableTapGestures: prefs.enableTapGestures === false }),
-              labels.layerTapGestures,
-              labels.layerTapGesturesDesc,
-              <Heart className="w-4 h-4" />
-            )}
-            {renderToggleRow(
-              Boolean(prefs.expertMode),
-              () => updatePref({ expertMode: !prefs.expertMode, showAudioSourceBadge: !prefs.expertMode }),
-              labels.layerExpertMode,
-              labels.layerExpertModeDesc,
-              <ShieldCheck className="w-4 h-4" />
-            )}
-          </div>
-
-          {/* Sequential Reading Scope Selection on Ayah Click */}
-          <div className="pt-4 border-t border-amber-900/10 dark:border-emerald-800/30 space-y-2.5">
-            <div>
-              <h3 className="text-sm font-semibold text-emerald-950 dark:text-[#F5F7F2]">
-                {labels.seqReadingTitle}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">
-                {labels.seqReadingDesc}
-              </p>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'surah' as const, label: labels.seqSurah },
-                { id: '15' as const, label: labels.seq15 },
-                { id: '100' as const, label: labels.seq100 },
-              ].map((opt) => {
-                const active = (prefs.sequentialReadingScope || 'surah') === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => updatePref({ sequentialReadingScope: opt.id })}
-                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border text-center flex items-center justify-center ${
-                      active
-                        ? 'bg-[#006D53] text-white border-transparent shadow-xs'
-                        : 'bg-white dark:bg-[#061B16] text-slate-700 dark:text-[#9BAFA7] border-amber-900/15 dark:border-emerald-800/40 hover:bg-emerald-900/10'
-                    }`}
-                  >
-                    <span>{opt.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 4: READER PROFILE */}
+      {/* ESSENTIAL 3: LANGUAGE SELECTION (LARGE TOUCH CARDS) */}
       <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
-              {labels.sec4Title}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">{labels.sec4Sub}</p>
-          </div>
-        </div>
+        <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900]">
+            <Globe className="w-4 h-4" />
+          </span>
+          <span>{labels.langTitle}</span>
+        </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          {profileLabels.map((prof) => {
-            const active = readerProfile === prof.id;
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {LANGUAGE_OPTIONS.map((opt) => {
+            const active = language === opt.code;
             return (
               <button
-                key={prof.id}
+                key={opt.code}
                 type="button"
-                onClick={() => onReaderProfileChange?.(prof.id)}
+                onClick={() => onLanguageChange?.(opt.code)}
                 aria-pressed={active}
-                className={`p-4 rounded-2xl border text-start transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                className={`min-h-[56px] p-3 rounded-2xl border text-start transition-all flex items-center justify-between cursor-pointer active:scale-95 ${
                   active
-                    ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
-                    : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+                    ? 'bg-[#006D53] text-white border-[#006D53] font-bold shadow-xs ring-2 ring-emerald-500/30'
+                    : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2] hover:border-[#006D53]'
                 }`}
               >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-sm font-bold">{prof.title}</span>
-                  {active && <Check className="w-4 h-4 text-[#F4B900]" />}
+                <div>
+                  <div className="text-base font-bold flex items-center gap-1.5">
+                    <span>{opt.flag}</span>
+                    <span>{opt.native}</span>
+                  </div>
+                  <div className={`text-xs ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
+                    {opt.label}
+                  </div>
                 </div>
-                <span className={`text-xs ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
-                  {prof.sub}
-                </span>
+                {active && <Check className="w-5 h-5 text-[#F4B900] shrink-0" />}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* SECTION 5: OFFLINE STORAGE & IPHONE BACKGROUND CONTINUITY */}
+      {/* ESSENTIAL 4: QURANIC RECITER (FRIENDLY CARDS) */}
       <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
-            <Smartphone className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2]">
-              {labels.sec5Title}
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">{labels.sec5Sub}</p>
-          </div>
+        <div className="space-y-1">
+          <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900]">
+              <Headphones className="w-4 h-4" />
+            </span>
+            <span>{labels.reciterTitle}</span>
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-[#9BAFA7]">{labels.reciterSub}</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {AVAILABLE_RECITERS.map((r) => {
+            const active = r.id === reciterId;
+            const highlight = reciterHighlights[r.id];
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => handleReciterSelect(r.id)}
+                aria-pressed={active}
+                className={`min-h-[58px] p-3.5 rounded-2xl border text-start flex items-center justify-between cursor-pointer transition-all active:scale-[0.99] ${
+                  active
+                    ? 'bg-[#006D53] text-white border-[#006D53] font-bold shadow-xs ring-2 ring-emerald-500/30'
+                    : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2] hover:border-[#006D53]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl shrink-0">{highlight?.emoji || '📖'}</span>
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold leading-snug">{r.name}</div>
+                    <div className={`text-[11px] ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
+                      {highlight?.tag || r.style}
+                    </div>
+                  </div>
+                </div>
+                {active && <Check className="w-5 h-5 text-[#F4B900] shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ESSENTIAL 5: LEARNING HELPERS (KIDS & SENIOR-FRIENDLY TOGGLES) */}
+      <div className="p-5 sm:p-7 rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs space-y-3.5">
+        <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900]">
+            <BookOpen className="w-4 h-4" />
+          </span>
+          <span>{labels.helpersTitle}</span>
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Transliteration */}
           <button
             type="button"
-            onClick={handleCacheBookmarkedAudio}
-            disabled={isCachingBookmarks}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#006D53] hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            onClick={() => updatePref({ showTransliteration: !prefs.showTransliteration })}
+            aria-pressed={prefs.showTransliteration}
+            className={`min-h-[58px] p-3.5 rounded-2xl border text-start transition-all cursor-pointer flex items-center justify-between gap-3 ${
+              prefs.showTransliteration
+                ? 'bg-[#006D53]/15 dark:bg-[#006D53]/30 border-[#006D53] text-emerald-950 dark:text-[#F5F7F2]'
+                : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-[#9BAFA7]'
+            }`}
           >
-            {cachedSuccess ? <Check className="w-4 h-4 text-[#F4B900]" /> : <Download className="w-4 h-4" />}
-            <span>{cachedSuccess ? labels.cachedDone : labels.cacheBookmarksBtn}</span>
+            <div>
+              <span className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2] block">
+                {labels.translitTitle}
+              </span>
+              <p className="text-[11px] text-slate-500 dark:text-[#9BAFA7] mt-0.5">
+                {labels.translitSub}
+              </p>
+            </div>
+            <div
+              className={`w-12 h-6.5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
+                prefs.showTransliteration ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
+              }`}
+            >
+              <span className="w-5 h-5 rounded-full bg-white shadow-xs block" />
+            </div>
           </button>
 
+          {/* Tajweed recitation rules */}
           <button
             type="button"
-            onClick={() => void OfflineCacheService.clearAudioCache()}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-emerald-900/15 dark:border-emerald-800/40 text-xs font-semibold text-slate-700 dark:text-[#9BAFA7] hover:text-red-600 inline-flex items-center gap-2 cursor-pointer"
+            onClick={() => updatePref({ showTajweedColors: !prefs.showTajweedColors })}
+            aria-pressed={prefs.showTajweedColors}
+            className={`min-h-[58px] p-3.5 rounded-2xl border text-start transition-all cursor-pointer flex items-center justify-between gap-3 ${
+              prefs.showTajweedColors
+                ? 'bg-[#006D53]/15 dark:bg-[#006D53]/30 border-[#006D53] text-emerald-950 dark:text-[#F5F7F2]'
+                : 'bg-[#F7F0E2] dark:bg-[#0C2920] border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-[#9BAFA7]'
+            }`}
           >
-            <Trash2 className="w-4 h-4" />
-            <span>{labels.clearCacheBtn}</span>
+            <div>
+              <span className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2] block">
+                {labels.tajweedTitle}
+              </span>
+              <p className="text-[11px] text-slate-500 dark:text-[#9BAFA7] mt-0.5">
+                {labels.tajweedSub}
+              </p>
+            </div>
+            <div
+              className={`w-12 h-6.5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
+                prefs.showTajweedColors ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
+              }`}
+            >
+              <span className="w-5 h-5 rounded-full bg-white shadow-xs block" />
+            </div>
           </button>
         </div>
+      </div>
+
+      {/* COLLAPSIBLE SECTION: ADVANCED & TECHNICAL SETTINGS */}
+      <div className="rounded-3xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 shadow-xs overflow-hidden transition-all">
+        {/* Accordion Header */}
+        <button
+          type="button"
+          onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+          aria-expanded={isAdvancedOpen}
+          className="w-full min-h-[58px] p-5 sm:p-6 text-start flex items-center justify-between gap-4 cursor-pointer hover:bg-emerald-900/5 dark:hover:bg-emerald-900/20 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#006D53]/15 dark:bg-[#0C2920] flex items-center justify-center text-[#006D53] dark:text-[#F4B900] shrink-0">
+              <SlidersHorizontal className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-sm sm:text-base font-bold text-emerald-950 dark:text-[#F5F7F2] flex items-center gap-2">
+                <span>{labels.advancedTitle}</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-[#9BAFA7] mt-0.5">
+                {labels.advancedSub}
+              </p>
+            </div>
+          </div>
+
+          <div className="w-8 h-8 rounded-full bg-emerald-900/10 dark:bg-emerald-800/30 flex items-center justify-center text-emerald-950 dark:text-[#F5F7F2] shrink-0">
+            {isAdvancedOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </div>
+        </button>
+
+        {/* Collapsible Content */}
+        {isAdvancedOpen && (
+          <div className="p-5 sm:p-7 pt-2 border-t border-emerald-900/10 dark:border-emerald-800/40 space-y-6 animate-fadeIn">
+            {/* TV Screen / Fullscreen Mode */}
+            <div className="p-4 rounded-2xl bg-[#F7F0E2] dark:bg-[#0C2920] border border-amber-500/30 dark:border-[#F4B900]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#006D53] text-[#F4B900] flex items-center justify-center shrink-0">
+                  <Tv className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
+                    {labels.tvTitle}
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-[#9BAFA7] mt-0.5 leading-relaxed">
+                    {labels.tvDesc}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  updatePref({ tvMode: !prefs.tvMode });
+                  onToggleFullscreenTv?.();
+                }}
+                className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 shrink-0 cursor-pointer transition-all ${
+                  prefs.tvMode || isFullscreenActive
+                    ? 'bg-amber-500 text-slate-950 shadow-sm'
+                    : 'bg-[#006D53] hover:bg-emerald-700 text-white shadow-xs'
+                }`}
+              >
+                {prefs.tvMode || isFullscreenActive ? (
+                  <>
+                    <Minimize2 className="w-4 h-4" />
+                    <span>{labels.tvBtnActive}</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="w-4 h-4" />
+                    <span>{labels.tvBtnInactive}</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Recitation Playback Speed */}
+            <div className="space-y-2">
+              <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                {labels.audioSpeedLabel}
+              </span>
+              <div className="grid grid-cols-4 gap-2">
+                {[0.75, 1, 1.25, 1.5].map((speed) => {
+                  const active = (prefs.playbackSpeed || 1) === speed;
+                  return (
+                    <button
+                      key={speed}
+                      type="button"
+                      onClick={() => updatePref({ playbackSpeed: speed })}
+                      aria-pressed={active}
+                      className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border text-center flex items-center justify-center ${
+                        active
+                          ? 'bg-[#006D53] text-white border-transparent shadow-xs'
+                          : 'bg-white dark:bg-[#061B16] text-emerald-950 dark:text-[#F5F7F2] border-emerald-900/10 dark:border-emerald-800/40 hover:border-[#006D53]'
+                      }`}
+                    >
+                      <span>{speed}x</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Auto-Play on Swipe & Loop Verse */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => updatePref({ autoPlayOnSwipe: !prefs.autoPlayOnSwipe })}
+                aria-pressed={prefs.autoPlayOnSwipe}
+                className={`p-3.5 rounded-2xl border text-start transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                  prefs.autoPlayOnSwipe
+                    ? 'bg-[#006D53]/15 dark:bg-[#006D53]/30 border-[#006D53] text-emerald-950 dark:text-[#F5F7F2]'
+                    : 'bg-white dark:bg-[#061B16] border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-[#9BAFA7]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Play className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
+                      {labels.autoSwipeTitle}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-[#9BAFA7]">
+                      {labels.autoSwipeDesc}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
+                    prefs.autoPlayOnSwipe ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
+                  }`}
+                >
+                  <span className="w-4 h-4 rounded-full bg-white shadow-xs block" />
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => updatePref({ loopVerse: !prefs.loopVerse })}
+                aria-pressed={prefs.loopVerse}
+                className={`p-3.5 rounded-2xl border text-start transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                  prefs.loopVerse
+                    ? 'bg-[#006D53]/15 dark:bg-[#006D53]/30 border-[#006D53] text-emerald-950 dark:text-[#F5F7F2]'
+                    : 'bg-white dark:bg-[#061B16] border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-[#9BAFA7]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Repeat className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-emerald-950 dark:text-[#F5F7F2]">
+                      {labels.loopVerseOpt}
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-[#9BAFA7]">
+                      {prefs.loopVerse ? labels.loopVerseOpt : labels.nextVerseOpt}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
+                    prefs.loopVerse ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
+                  }`}
+                >
+                  <span className="w-4 h-4 rounded-full bg-white shadow-xs block" />
+                </div>
+              </button>
+            </div>
+
+            {/* Classical Tafsir Scholar */}
+            <div className="space-y-2">
+              <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                {labels.scholarLabel}
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {SCHOLARS.map((s) => {
+                  const active = preferredScholar === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onPreferredScholarChange?.(s.id)}
+                      aria-pressed={active}
+                      className={`p-3 rounded-xl border text-start flex flex-col justify-between cursor-pointer transition-all ${
+                        active
+                          ? 'bg-[#006D53] text-white border-[#006D53] font-bold'
+                          : 'bg-white dark:bg-[#061B16] border-emerald-900/10 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs sm:text-sm font-semibold">{s.label}</span>
+                        {active && <Check className="w-4 h-4 text-[#F4B900] shrink-0" />}
+                      </div>
+                      <div className={`text-[10px] mt-1 ${active ? 'text-emerald-100' : 'text-slate-500 dark:text-[#9BAFA7]'}`}>
+                        {s.sub[language]}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Additional Interaction Modes (Word-by-word Duo, Memorization Hifz, Thumb Rail) */}
+            <div className="space-y-2 pt-2 border-t border-emerald-900/10 dark:border-emerald-800/40">
+              <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                Modes Spéciaux de Lecture & Ergonomie
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Word by word Duo */}
+                <button
+                  type="button"
+                  onClick={() => updatePref({ showWordByWordDuo: !prefs.showWordByWordDuo, enableMemorizationMode: false })}
+                  aria-pressed={Boolean(prefs.showWordByWordDuo)}
+                  className={`p-3 rounded-xl border text-start flex items-center justify-between gap-3 cursor-pointer ${
+                    prefs.showWordByWordDuo
+                      ? 'bg-[#006D53]/15 dark:bg-[#006D53]/30 border-[#006D53] text-emerald-950 dark:text-[#F5F7F2]'
+                      : 'bg-white dark:bg-[#061B16] border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-[#9BAFA7]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
+                    <span className="text-xs font-semibold">{labels.wordByWordTitle}</span>
+                  </div>
+                  <div
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
+                      prefs.showWordByWordDuo ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
+                    }`}
+                  >
+                    <span className="w-4 h-4 rounded-full bg-white shadow-xs block" />
+                  </div>
+                </button>
+
+                {/* Memorization Hifz */}
+                <button
+                  type="button"
+                  onClick={() => updatePref({ enableMemorizationMode: !prefs.enableMemorizationMode, showWordByWordDuo: false })}
+                  aria-pressed={Boolean(prefs.enableMemorizationMode)}
+                  className={`p-3 rounded-xl border text-start flex items-center justify-between gap-3 cursor-pointer ${
+                    prefs.enableMemorizationMode
+                      ? 'bg-[#006D53]/15 dark:bg-[#006D53]/30 border-[#006D53] text-emerald-950 dark:text-[#F5F7F2]'
+                      : 'bg-white dark:bg-[#061B16] border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-[#9BAFA7]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
+                    <span className="text-xs font-semibold">{labels.memorizationTitle}</span>
+                  </div>
+                  <div
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
+                      prefs.enableMemorizationMode ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
+                    }`}
+                  >
+                    <span className="w-4 h-4 rounded-full bg-white shadow-xs block" />
+                  </div>
+                </button>
+
+                {/* Thumb quick action rail */}
+                <button
+                  type="button"
+                  onClick={() => updatePref({ showThumbRail: prefs.showThumbRail === false })}
+                  aria-pressed={prefs.showThumbRail !== false}
+                  className={`p-3 rounded-xl border text-start flex items-center justify-between gap-3 cursor-pointer ${
+                    prefs.showThumbRail !== false
+                      ? 'bg-[#006D53]/15 dark:bg-[#006D53]/30 border-[#006D53] text-emerald-950 dark:text-[#F5F7F2]'
+                      : 'bg-white dark:bg-[#061B16] border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-[#9BAFA7]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
+                    <span className="text-xs font-semibold">{labels.thumbRailTitle}</span>
+                  </div>
+                  <div
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
+                      prefs.showThumbRail !== false ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
+                    }`}
+                  >
+                    <span className="w-4 h-4 rounded-full bg-white shadow-xs block" />
+                  </div>
+                </button>
+
+                {/* Social comments thread */}
+                <button
+                  type="button"
+                  onClick={() => updatePref({ showSocialComments: !prefs.showSocialComments })}
+                  aria-pressed={prefs.showSocialComments}
+                  className={`p-3 rounded-xl border text-start flex items-center justify-between gap-3 cursor-pointer ${
+                    prefs.showSocialComments
+                      ? 'bg-[#006D53]/15 dark:bg-[#006D53]/30 border-[#006D53] text-emerald-950 dark:text-[#F5F7F2]'
+                      : 'bg-white dark:bg-[#061B16] border-emerald-900/10 dark:border-emerald-800/40 text-slate-700 dark:text-[#9BAFA7]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-[#006D53] dark:text-[#F4B900]" />
+                    <span className="text-xs font-semibold">Fil de réflexions partagées</span>
+                  </div>
+                  <div
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${
+                      prefs.showSocialComments ? 'bg-[#006D53] justify-end' : 'bg-slate-300 dark:bg-emerald-950 justify-start'
+                    }`}
+                  >
+                    <span className="w-4 h-4 rounded-full bg-white shadow-xs block" />
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Offline Cache Controls */}
+            <div className="pt-2 border-t border-emerald-900/10 dark:border-emerald-800/40 space-y-2">
+              <span className="block text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                {labels.cacheTitle}
+              </span>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleCacheBookmarkedAudio}
+                  disabled={isCachingBookmarks}
+                  className="min-h-[44px] px-4 py-2 rounded-xl bg-[#006D53] hover:bg-emerald-700 text-white text-xs font-bold inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {cachedSuccess ? <Check className="w-4 h-4 text-[#F4B900]" /> : <Download className="w-4 h-4" />}
+                  <span>{cachedSuccess ? labels.cachedDone : labels.cacheBookmarksBtn}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void OfflineCacheService.clearAudioCache()}
+                  className="min-h-[44px] px-4 py-2 rounded-xl bg-white dark:bg-[#061B16] border border-emerald-900/15 dark:border-emerald-800/40 text-xs font-semibold text-slate-700 dark:text-[#9BAFA7] hover:text-red-500 inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{labels.clearCacheBtn}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

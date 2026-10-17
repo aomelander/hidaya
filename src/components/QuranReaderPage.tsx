@@ -447,14 +447,18 @@ export const QuranReaderPage: React.FC<QuranReaderPageProps> = ({
       ? getLocalizedVerseDetails(currentVerse, language)
       : null;
 
-    // Strictly use Tafsir citations that exist in the chosen language (do not read or fall back to another language; skip if absent)
-    const availableCitations = localizedDetails?.tafsirCitations || [];
+    // Use Tafsir citations that exist in the chosen language; if unavailable in current translation language, gracefully show authentic classical Arabic commentary (Al-Muyassar / Ibn Kathir)
+    let availableCitations = localizedDetails?.tafsirCitations || [];
+    let effectiveTafsirLang: Language = language;
+
+    if (availableCitations.length === 0 && currentVerse?.tafsirCitations && currentVerse.tafsirCitations.length > 0) {
+      availableCitations = currentVerse.tafsirCitations;
+      effectiveTafsirLang = 'ar';
+    }
 
     const currentCitation =
       availableCitations.find((c) => c.scholar.toLowerCase() === selectedScholar.toLowerCase()) ||
       availableCitations[0];
-
-    const effectiveTafsirLang: Language = language;
 
     const translationObj = currentVerse?.translations[language];
     const arabicWords = (currentVerse?.arabicText || '')

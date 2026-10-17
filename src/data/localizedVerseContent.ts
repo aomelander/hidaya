@@ -712,6 +712,23 @@ export function getLocalizedVerseDetails(
     }
   }
 
+  // Graceful canonical fallback: if no localized translation of Tafsir exists in this language (e.g. sv or fr),
+  // retain authentic canonical citations (Al-Muyassar or Ibn Kathir) so Tafsir NEVER disappears!
+  if (uniqueTafsirCitations.length === 0 && Array.isArray(verse.tafsirCitations) && verse.tafsirCitations.length > 0) {
+    for (const rawCit of verse.tafsirCitations) {
+      if (rawCit && rawCit.text && rawCit.text.trim()) {
+        const normScholar = rawCit.scholar.trim().toLowerCase();
+        if (!seenScholars.has(normScholar)) {
+          seenScholars.add(normScholar);
+          uniqueTafsirCitations.push({
+            ...rawCit,
+            languageCode: rawCit.languageCode || (isMostlyArabicScript(rawCit.text) ? 'ar' : 'en'),
+          });
+        }
+      }
+    }
+  }
+
   return {
     surahPrefix,
     surahNameDisplay,

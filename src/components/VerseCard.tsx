@@ -40,6 +40,7 @@ import {
   Pause,
   Volume2,
   VolumeX,
+  Palette,
 } from 'lucide-react';
 import {
   QuranVerseFixture,
@@ -63,6 +64,7 @@ import { AyahCartouche } from './AyahCartouche';
 const SocialCreationStudio = React.lazy(() => import('./SocialCreationStudio').then(m => ({ default: m.SocialCreationStudio })));
 import { VerseWordByWordView } from './audio/VerseWordByWordView';
 import { VerseMemorizationView } from './audio/VerseMemorizationView';
+import { TajweedText } from './audio/TajweedText';
 import { ThumbActionRail } from './mobile/ThumbActionRail';
 import {
   resolveArabicVerseWordTimestamps,
@@ -452,6 +454,12 @@ export const VerseCard: React.FC<VerseCardProps> = ({
     };
   }, []);
 
+  const handleUpdateCardPref = (updates: Partial<VerseCardPreferences>) => {
+    StorageService.setCardPreferences(updates);
+    window.dispatchEvent(new CustomEvent('hidaya-preferences-updated', { detail: updates }));
+    setCardPrefs((prev) => ({ ...prev, ...updates }));
+  };
+
   // Set default tafsir open if configured in preferences
   useEffect(() => {
     if (cardPrefs.showTafsirByDefault && activeSection === 'none') {
@@ -763,9 +771,12 @@ export const VerseCard: React.FC<VerseCardProps> = ({
   }, [verse.id, verse.surahNumber, baseRangeBounds.start, localizedDetails.tafsirCitations, language]);
 
   const availableCitations = useMemo(() => {
-    const base = localizedDetails.tafsirCitations.filter((c) =>
+    let base = localizedDetails.tafsirCitations.filter((c) =>
       Boolean(c.text && c.text.trim().length > 0)
     );
+    if (base.length === 0 && Array.isArray(verse.tafsirCitations)) {
+      base = verse.tafsirCitations.filter((c) => Boolean(c.text && c.text.trim().length > 0));
+    }
     if (
       dynamicShaarawiCitation &&
       language === 'ar' &&
@@ -774,7 +785,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
       return [...base, dynamicShaarawiCitation];
     }
     return base;
-  }, [localizedDetails.tafsirCitations, dynamicShaarawiCitation, language]);
+  }, [localizedDetails.tafsirCitations, verse.tafsirCitations, dynamicShaarawiCitation, language]);
 
   // If tafsir is not available in selected language, reset activeSection if it was opened
   useEffect(() => {
@@ -1444,7 +1455,7 @@ export const VerseCard: React.FC<VerseCardProps> = ({
                                 : ''
                             }`}
                           >
-                            {word}
+                            {cardPrefs.showTajweedColors ? <TajweedText text={word} /> : word}
                           </span>{' '}
                         </React.Fragment>
                       );
@@ -1521,6 +1532,81 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             )}
           </div>
 
+          {/* Quick Recitation Mode Toggles: Mot-à-Mot (Duo) & Mémorisation (Hifz) */}
+          <div className="flex items-center gap-2 pt-1 flex-wrap">
+            <button
+              type="button"
+              onClick={() =>
+                handleUpdateCardPref({
+                  showWordByWordDuo: !cardPrefs.showWordByWordDuo,
+                  enableMemorizationMode: false,
+                })
+              }
+              title={
+                language === 'ar'
+                  ? 'وضع المصحف التفاعلي كلمة بكلمة'
+                  : language === 'fr'
+                  ? 'Mode Coran Duo : mot-à-mot avec translittération et traduction'
+                  : language === 'sv'
+                  ? 'Ord-för-ord läge med fonetik'
+                  : 'Word-by-Word Duo mode with phonetics & meaning'
+              }
+              aria-pressed={Boolean(cardPrefs.showWordByWordDuo)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+                cardPrefs.showWordByWordDuo
+                  ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs ring-2 ring-emerald-500/20'
+                  : 'bg-white/80 dark:bg-[#061B16]/80 text-emerald-950 dark:text-[#9BAFA7] border-emerald-900/15 dark:border-emerald-800/40 hover:border-[#006D53]'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#F4B900]" />
+              <span>
+                {language === 'ar'
+                  ? 'كلمة بكلمة'
+                  : language === 'fr'
+                  ? 'Mot-à-Mot'
+                  : language === 'sv'
+                  ? 'Ord-för-Ord'
+                  : 'Word-by-Word'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                handleUpdateCardPref({
+                  enableMemorizationMode: !cardPrefs.enableMemorizationMode,
+                  showWordByWordDuo: false,
+                })
+              }
+              title={
+                language === 'ar'
+                  ? 'وضع التحفيظ والتسميع الذكي (Hifz)'
+                  : language === 'fr'
+                  ? 'Mode Mémorisation interactive (Hifz)'
+                  : language === 'sv'
+                  ? 'Interaktivt memoreringsläge (Hifz)'
+                  : 'Interactive Memorization Mode (Hifz)'
+              }
+              aria-pressed={Boolean(cardPrefs.enableMemorizationMode)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+                cardPrefs.enableMemorizationMode
+                  ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs ring-2 ring-emerald-500/20'
+                  : 'bg-white/80 dark:bg-[#061B16]/80 text-emerald-950 dark:text-[#9BAFA7] border-emerald-900/15 dark:border-emerald-800/40 hover:border-[#006D53]'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 text-[#F4B900]" />
+              <span>
+                {language === 'ar'
+                  ? 'تحفيظ (Hifz)'
+                  : language === 'fr'
+                  ? 'Mémorisation'
+                  : language === 'sv'
+                  ? 'Memorering'
+                  : 'Memorization'}
+              </span>
+            </button>
+          </div>
+
         </section>
 
         {/* LEVEL 2: Certified Human Translation with Word-by-Word Highlighting when Spoken */}
@@ -1560,16 +1646,6 @@ export const VerseCard: React.FC<VerseCardProps> = ({
             <p className="text-xs text-slate-500 dark:text-[#9BAFA7]">
               — {translationObj.translator}
             </p>
-            {isReciting && !hasExactCurrentPhaseTimestamps && (
-              <p className="text-[11px] text-slate-400 dark:text-[#9BAFA7]/70 italic pt-0.5" role="note">
-                {({
-                  en: 'Highlighting is approximate, based on playback duration; word timestamps are unavailable.',
-                  sv: 'Markeringen är ungefärlig och baseras på ljudets längd; tidsstämplar för ord saknas.',
-                  fr: 'Le surlignage est approximatif, basé sur la durée audio ; les horodatages des mots ne sont pas disponibles.',
-                  ar: 'تمييز الكلمات تقريبي حسب مدة التسجيل؛ لا تتوفر توقيتات الكلمات.',
-                })[language]}
-              </p>
-            )}
           </section>
         )}
 
@@ -1890,48 +1966,55 @@ export const VerseCard: React.FC<VerseCardProps> = ({
           </div>
         )}
 
-        {/* INLINE SOCIAL CREATION STUDIO (1:1 / 9:16 PNG, WebM/MP4 Recited Video, PPTX & PDF) */}
+        {/* CENTERED FLOATING POPUP MODAL: SOCIAL CREATION STUDIO (1:1 / 9:16 PNG, Video, PPTX & PDF) */}
         {showStudio && (
           <div
-            data-creation-studio="true"
-            className="p-4 sm:p-6 rounded-3xl bg-amber-50/40 dark:bg-[#061B16]/80 border border-amber-500/30 dark:border-amber-500/20 space-y-4 animate-in fade-in duration-300"
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={() => setShowStudio(false)}
           >
-            <div className="flex items-center justify-between pb-2 border-b border-amber-500/20">
-              <span className="text-xs font-bold text-amber-950 dark:text-[#F4B900] flex items-center gap-1.5">
-                <Film className="w-4 h-4 text-amber-600 dark:text-[#F4B900]" />
-                <span>
-                  {language === 'ar'
-                    ? 'استوديو المشاركة والتصميم'
-                    : language === 'fr'
-                    ? 'Studio de Partage & Création'
-                    : language === 'sv'
-                    ? 'Delnings- & Skaparstudio'
-                    : 'Share & Creation Studio'}
+            <div
+              data-creation-studio="true"
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-[#FAF8F5] dark:bg-[#082019] border border-amber-500/30 dark:border-amber-500/30 p-4 sm:p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-amber-500/20">
+                <span className="text-sm font-bold text-amber-950 dark:text-[#F4B900] flex items-center gap-2">
+                  <Film className="w-4 h-4 text-amber-600 dark:text-[#F4B900]" />
+                  <span>
+                    {language === 'ar'
+                      ? 'استوديو المشاركة والتصميم'
+                      : language === 'fr'
+                      ? 'Studio de Partage & Création'
+                      : language === 'sv'
+                      ? 'Delnings- & Skaparstudio'
+                      : 'Share & Creation Studio'}
+                  </span>
                 </span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowStudio(false)}
-                className="text-xs text-slate-500 hover:text-slate-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] p-1.5 rounded-lg hover:bg-amber-500/10 transition-colors cursor-pointer"
-                aria-label="Close studio"
-              >
-                ✕
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setShowStudio(false)}
+                  className="w-8 h-8 flex items-center justify-center text-sm font-bold text-slate-500 hover:text-slate-800 dark:text-[#9BAFA7] dark:hover:text-[#F5F7F2] rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  aria-label="Close studio"
+                  title="Fermer"
+                >
+                  ✕
+                </button>
+              </div>
+              <React.Suspense fallback={<div className="p-8 text-center text-xs text-emerald-800/60 dark:text-[#9BAFA7]/60 animate-pulse">Loading Studio...</div>}>
+                <SocialCreationStudio
+                  verse={verse}
+                  surahDisplayTitle={`${localizedDetails.surahPrefix} ${localizedDetails.surahNameDisplay} (${verse.id})`}
+                  arabicText={verse.arabicText}
+                  translationText={translationObj?.text || ''}
+                  translatorName={translationObj?.translator || ''}
+                  tafsirText={currentCitation?.text || ''}
+                  tafsirScholar={currentCitation?.scholar || ''}
+                  audioUrl={verse.audioUrl || ''}
+                  language={language}
+                  reflection={StorageService.getReflection(verse.id)}
+                />
+              </React.Suspense>
             </div>
-            <React.Suspense fallback={<div className="p-4 text-center text-xs text-emerald-800/60 dark:text-[#9BAFA7]/60 animate-pulse">Loading Studio...</div>}>
-              <SocialCreationStudio
-                verse={verse}
-                surahDisplayTitle={`${localizedDetails.surahPrefix} ${localizedDetails.surahNameDisplay} (${verse.id})`}
-                arabicText={verse.arabicText}
-                translationText={translationObj?.text || ''}
-                translatorName={translationObj?.translator || ''}
-                tafsirText={currentCitation?.text || ''}
-                tafsirScholar={currentCitation?.scholar || ''}
-                audioUrl={verse.audioUrl || ''}
-                language={language}
-                reflection={StorageService.getReflection(verse.id)}
-              />
-            </React.Suspense>
           </div>
         )}
 
