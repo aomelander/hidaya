@@ -1303,7 +1303,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         }}
       />
 
-      <p className="text-xs text-slate-500 dark:text-[#9BAFA7]" role="note">{({ en: 'Highlighting is approximate, based on playback duration; word timestamps are unavailable.', sv: 'Markeringen är ungefärlig och baseras på ljudets längd; tidsstämplar för ord saknas.', fr: 'Le surlignage est approximatif, basé sur la durée audio ; les horodatages des mots ne sont pas disponibles.', ar: 'تمييز الكلمات تقريبي حسب مدة التسجيل؛ لا تتوفر توقيتات الكلمات.' })[language]}</p>
       {/* Unified Top Div: Stream & Queue Selector with + / ✓ at the beginning of each button + Reciter / Offline / Loop Controls */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-900/10 dark:border-emerald-800/30 pb-2">
         <div

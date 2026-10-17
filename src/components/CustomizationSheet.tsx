@@ -228,8 +228,8 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
     onArabicScaleChange(APP_CONFIG.DEFAULTS.ARABIC_SCALE);
     onReadingScaleChange?.(APP_CONFIG.DEFAULTS.READING_SCALE);
     onReaderProfileChange?.('adult');
-    onPreferredScholarChange?.('Ibn Kathir');
-    handleReciterSelect('alafasy');
+    onPreferredScholarChange?.(APP_CONFIG.DEFAULTS.PREFERRED_SCHOLAR);
+    handleReciterSelect(APP_CONFIG.DEFAULTS.PREFERRED_RECITER);
     updatePref(APP_CONFIG.DEFAULTS.CARD_PREFS);
     if (!isDark && onToggleDark) {
       onToggleDark();
@@ -504,7 +504,13 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
           {/* Dark Sanctuary Card */}
           <button
             type="button"
-            onClick={() => !isDark && onToggleDark?.()}
+            onClick={() => {
+              if (!isDark && onToggleDark) {
+                onToggleDark();
+              }
+              document.documentElement.classList.add('dark');
+              StorageService.setDarkMode(true);
+            }}
             aria-pressed={isDark}
             className={`min-h-[64px] p-4 rounded-2xl border text-start transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99] ${
               isDark
@@ -535,7 +541,13 @@ export const CustomizationSheet: React.FC<CustomizationSheetProps> = ({
           {/* Warm Parchment Card */}
           <button
             type="button"
-            onClick={() => isDark && onToggleDark?.()}
+            onClick={() => {
+              if (isDark && onToggleDark) {
+                onToggleDark();
+              }
+              document.documentElement.classList.remove('dark');
+              StorageService.setDarkMode(false);
+            }}
             aria-pressed={!isDark}
             className={`min-h-[64px] p-4 rounded-2xl border text-start transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99] ${
               !isDark

@@ -21,6 +21,9 @@ import {
   Printer,
   Square,
   Smartphone,
+  Tv,
+  BookOpen,
+  FileText,
 } from 'lucide-react';
 import { QuranVerseFixture, Language, UserReflection } from '../types';
 import { ExportService } from '../services/exportService';
@@ -39,7 +42,7 @@ export interface SocialCreationStudioProps {
 }
 
 type StudioTab = 'image' | 'video' | 'presentation';
-type ImageAspect = '1:1' | '9:16';
+type ImageAspect = '1:1' | '9:16' | '16:9';
 type CardTheme = 'emerald' | 'parchment' | 'midnight';
 
 export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
@@ -157,8 +160,8 @@ export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
 
   const drawCardOnCanvas = useCallback(
     (canvas: HTMLCanvasElement, highlightRatio = -1) => {
-      const width = 1080;
-      const height = aspect === '1:1' ? 1080 : 1920;
+      const width = aspect === '16:9' ? 1920 : 1080;
+      const height = aspect === '1:1' ? 1080 : aspect === '9:16' ? 1920 : 1080;
       if (canvas.width !== width) canvas.width = width;
       if (canvas.height !== height) canvas.height = height;
       const ctx = canvas.getContext('2d');
@@ -186,14 +189,14 @@ export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
       // Border frame
       ctx.strokeStyle = isLight ? 'rgba(180, 83, 9, 0.28)' : 'rgba(244, 185, 0, 0.35)';
       ctx.lineWidth = 3;
-      const pad = aspect === '1:1' ? 48 : 64;
+      const pad = aspect === '1:1' ? 48 : aspect === '9:16' ? 64 : 52;
       ctx.strokeRect(pad, pad, width - pad * 2, height - pad * 2);
 
       // Header
       ctx.textAlign = 'center';
       ctx.fillStyle = isLight ? '#006D53' : '#F4B900';
       ctx.font = 'bold 28px sans-serif';
-      const topY = aspect === '1:1' ? 115 : 165;
+      const topY = aspect === '1:1' ? 115 : aspect === '9:16' ? 165 : 120;
       ctx.fillText('HIDAYA · هِدَايَة', width / 2, topY);
 
       ctx.fillStyle = isLight ? '#064E3B' : '#A7F3D0';
@@ -218,10 +221,11 @@ export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
       };
 
       // Arabic text
-      ctx.font = aspect === '1:1' ? '44px serif' : '52px serif';
-      const maxArabicLines = aspect === '1:1' ? 5 : 8;
-      const arabicLines = wrapText(arabicText, width - 200).slice(0, maxArabicLines);
-      let y = topY + (aspect === '1:1' ? 130 : 190);
+      ctx.font = aspect === '1:1' ? '44px serif' : aspect === '9:16' ? '52px serif' : '50px serif';
+      const maxArabicLines = aspect === '1:1' ? 5 : aspect === '9:16' ? 8 : 4;
+      const contentWidth = width - (aspect === '16:9' ? 360 : 200);
+      const arabicLines = wrapText(arabicText, contentWidth).slice(0, maxArabicLines);
+      let y = topY + (aspect === '1:1' ? 130 : aspect === '9:16' ? 190 : 130);
 
       arabicLines.forEach((line, idx) => {
         const lineRatio = arabicLines.length > 0 ? idx / arabicLines.length : 0;
@@ -232,7 +236,7 @@ export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
 
         if (isHighlightedLine) {
           ctx.fillStyle = isLight ? 'rgba(244, 185, 0, 0.25)' : 'rgba(244, 185, 0, 0.2)';
-          ctx.fillRect(100, y - 48, width - 200, 66);
+          ctx.fillRect(aspect === '16:9' ? 180 : 100, y - 48, contentWidth, 66);
         }
 
         ctx.fillStyle = isHighlightedLine
@@ -243,7 +247,7 @@ export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
           ? '#06281E'
           : '#FFFBEB';
         ctx.fillText(line, width / 2, y);
-        y += aspect === '1:1' ? 68 : 82;
+        y += aspect === '1:1' ? 68 : aspect === '9:16' ? 82 : 72;
       });
 
       // Divider
@@ -257,17 +261,17 @@ export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
 
       // Translation
       if (includeTrans && translationText.trim().length > 0) {
-        y += aspect === '1:1' ? 54 : 74;
+        y += aspect === '1:1' ? 54 : aspect === '9:16' ? 74 : 46;
         ctx.fillStyle = isLight ? '#1E293B' : '#ECFDF5';
-        ctx.font = aspect === '1:1' ? 'italic 30px sans-serif' : 'italic 35px sans-serif';
-        const maxTransLines = aspect === '1:1' ? 5 : 8;
-        const transLines = wrapText(`"${translationText.trim()}"`, width - 200).slice(
+        ctx.font = aspect === '1:1' ? 'italic 30px sans-serif' : aspect === '9:16' ? 'italic 35px sans-serif' : 'italic 30px sans-serif';
+        const maxTransLines = aspect === '1:1' ? 5 : aspect === '9:16' ? 8 : 4;
+        const transLines = wrapText(`"${translationText.trim()}"`, contentWidth).slice(
           0,
           maxTransLines
         );
         for (const line of transLines) {
           ctx.fillText(line, width / 2, y);
-          y += aspect === '1:1' ? 46 : 54;
+          y += aspect === '1:1' ? 46 : aspect === '9:16' ? 54 : 42;
         }
         if (translatorName) {
           y += 14;
@@ -279,11 +283,11 @@ export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
 
       // Tafsir Excerpt
       if (includeTafsir && tafsirText.trim().length > 0) {
-        y += aspect === '1:1' ? 46 : 64;
+        y += aspect === '1:1' ? 46 : aspect === '9:16' ? 64 : 40;
         ctx.fillStyle = isLight ? '#475569' : '#D1FAE5';
         ctx.font = '25px sans-serif';
-        const maxTafsirLines = aspect === '1:1' ? 3 : 5;
-        const tafLines = wrapText(tafsirText.trim(), width - 220).slice(0, maxTafsirLines);
+        const maxTafsirLines = aspect === '1:1' ? 3 : aspect === '9:16' ? 5 : 3;
+        const tafLines = wrapText(tafsirText.trim(), contentWidth - 40).slice(0, maxTafsirLines);
         for (const line of tafLines) {
           ctx.fillText(line, width / 2, y);
           y += 38;
@@ -302,7 +306,7 @@ export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
       ctx.fillText(
         'Verified Uthmani Script · Hidaya Sanctuary',
         width / 2,
-        height - (aspect === '1:1' ? 75 : 110)
+        height - (aspect === '1:1' ? 75 : aspect === '9:16' ? 110 : 54)
       );
     },
     [
@@ -534,80 +538,102 @@ export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
             <canvas
               ref={previewCanvasRef}
               className={`rounded-xl shadow-md border border-amber-500/30 ${
-                aspect === '1:1' ? 'w-56 h-56' : 'w-44 h-78'
-              } object-contain`}
+                aspect === '1:1' ? 'w-56 h-56' : aspect === '9:16' ? 'w-44 h-78' : 'w-72 h-40'
+              } object-contain transition-all`}
             />
           </div>
 
-          {/* Aspect Ratio, Theme & Layer Toggles */}
-          <div className="space-y-3 text-xs">
-            <div className="grid grid-cols-2 gap-2">
+          {/* Aspect Ratio, Theme & Layer Toggles (SVGs with tooltips, zero clutter) */}
+          <div className="space-y-2.5 text-xs">
+            {/* Aspect Formats: 1:1, 9:16, 16:9 (TV) */}
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setAspect('1:1')}
-                className={`px-3 py-2 rounded-xl border font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer ${
+                title={labels.squareFormat}
+                className={`px-3 py-2 rounded-xl border font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                   aspect === '1:1'
-                    ? 'bg-[#006D53] text-white border-[#006D53]'
+                    ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
                     : 'bg-[#FBF8F1] dark:bg-[#082019] border-emerald-900/15 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
                 }`}
               >
                 <Square className="w-3.5 h-3.5" />
-                <span>{labels.squareFormat}</span>
+                <span>1:1</span>
               </button>
               <button
                 type="button"
                 onClick={() => setAspect('9:16')}
-                className={`px-3 py-2 rounded-xl border font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer ${
+                title={labels.storyFormat}
+                className={`px-3 py-2 rounded-xl border font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                   aspect === '9:16'
-                    ? 'bg-[#006D53] text-white border-[#006D53]'
+                    ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
                     : 'bg-[#FBF8F1] dark:bg-[#082019] border-emerald-900/15 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
                 }`}
               >
                 <Smartphone className="w-3.5 h-3.5" />
-                <span>{labels.storyFormat}</span>
+                <span>9:16</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAspect('16:9')}
+                title="16:9 (TV / Presentation)"
+                className={`px-3 py-2 rounded-xl border font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                  aspect === '16:9'
+                    ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
+                    : 'bg-[#FBF8F1] dark:bg-[#082019] border-emerald-900/15 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+                }`}
+              >
+                <Tv className="w-3.5 h-3.5" />
+                <span>16:9</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5">
-              {(
-                [
-                  { id: 'emerald', label: labels.themeEmerald },
-                  { id: 'parchment', label: labels.themeParchment },
-                  { id: 'midnight', label: labels.themeMidnight },
-                ] as { id: CardTheme; label: string }[]
-              ).map((tItem) => (
+            {/* Theme Swatches (Clean Visual Palette Dots with Tooltips, no bulky text) */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'emerald', label: labels.themeEmerald, dot: 'bg-[#06281E] border-emerald-500' },
+                { id: 'parchment', label: labels.themeParchment, dot: 'bg-[#F7F0E2] border-amber-400' },
+                { id: 'midnight', label: labels.themeMidnight, dot: 'bg-[#090D16] border-sky-400' },
+              ].map((tItem) => (
                 <button
                   key={tItem.id}
                   type="button"
-                  onClick={() => setTheme(tItem.id)}
-                  className={`px-2.5 py-2 rounded-xl border font-semibold text-center truncate cursor-pointer ${
+                  onClick={() => setTheme(tItem.id as CardTheme)}
+                  title={tItem.label}
+                  className={`px-2.5 py-2 rounded-xl border font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
                     theme === tItem.id
-                      ? 'bg-[#006D53] text-white border-[#006D53]'
-                      : 'bg-[#FBF8F1] dark:bg-[#082019] border-emerald-900/15 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2]'
+                      ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs ring-2 ring-emerald-500/20'
+                      : 'bg-[#FBF8F1] dark:bg-[#082019] border-emerald-900/15 dark:border-emerald-800/40 text-emerald-950 dark:text-[#F5F7F2] opacity-80 hover:opacity-100'
                   }`}
                 >
-                  {tItem.label}
+                  <span className={`w-3.5 h-3.5 rounded-full border shadow-2xs ${tItem.dot}`} />
+                  {theme === tItem.id ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    <span className="text-[11px] capitalize">{tItem.id}</span>
+                  )}
                 </button>
               ))}
             </div>
 
-            <div className="space-y-1.5">
+            {/* Content Layer Toggles (Translation & Tafsir) */}
+            <div className="grid grid-cols-2 gap-2">
               {translationText && (
                 <button
                   type="button"
                   onClick={() => setIncludeTrans(!includeTrans)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 flex items-center justify-between cursor-pointer"
+                  title={labels.incTranslation}
+                  className={`px-3 py-2 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                    includeTrans
+                      ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
+                      : 'bg-[#FBF8F1] dark:bg-[#082019] border-emerald-900/15 dark:border-emerald-800/40 text-slate-600 dark:text-[#9BAFA7]'
+                  }`}
                 >
-                  <span className="font-semibold text-emerald-950 dark:text-[#F5F7F2]">
-                    {labels.incTranslation}
-                  </span>
-                  <span
-                    className={`w-4 h-4 rounded flex items-center justify-center ${
-                      includeTrans ? 'bg-[#006D53] text-white' : 'border border-slate-400'
-                    }`}
-                  >
-                    {includeTrans && <Check className="w-3 h-3" />}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-semibold">{language === 'fr' ? 'Traduction' : language === 'ar' ? 'الترجمة' : language === 'sv' ? 'Översättning' : 'Translation'}</span>
+                  </div>
+                  {includeTrans && <Check className="w-3 h-3" />}
                 </button>
               )}
 
@@ -615,18 +641,18 @@ export const SocialCreationStudio: React.FC<SocialCreationStudioProps> = ({
                 <button
                   type="button"
                   onClick={() => setIncludeTafsir(!includeTafsir)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#FBF8F1] dark:bg-[#082019] border border-emerald-900/10 dark:border-emerald-800/40 flex items-center justify-between cursor-pointer"
+                  title={labels.incTafsir}
+                  className={`px-3 py-2 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                    includeTafsir
+                      ? 'bg-[#006D53] text-white border-[#006D53] shadow-xs'
+                      : 'bg-[#FBF8F1] dark:bg-[#082019] border-emerald-900/15 dark:border-emerald-800/40 text-slate-600 dark:text-[#9BAFA7]'
+                  }`}
                 >
-                  <span className="font-semibold text-emerald-950 dark:text-[#F5F7F2]">
-                    {labels.incTafsir}
-                  </span>
-                  <span
-                    className={`w-4 h-4 rounded flex items-center justify-center ${
-                      includeTafsir ? 'bg-[#006D53] text-white' : 'border border-slate-400'
-                    }`}
-                  >
-                    {includeTafsir && <Check className="w-3 h-3" />}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-semibold">{language === 'fr' ? 'Tafsir' : language === 'ar' ? 'التفسير' : language === 'sv' ? 'Tafsir' : 'Tafsir'}</span>
+                  </div>
+                  {includeTafsir && <Check className="w-3 h-3" />}
                 </button>
               )}
             </div>

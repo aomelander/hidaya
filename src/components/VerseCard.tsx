@@ -41,6 +41,7 @@ import {
   Volume2,
   VolumeX,
   Palette,
+  Sparkles,
 } from 'lucide-react';
 import {
   QuranVerseFixture,

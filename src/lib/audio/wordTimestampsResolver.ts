@@ -90,7 +90,8 @@ export function buildWeightedWordTimestamps(
     const wordDuration = (wordWeight / totalWeight) * availableSpeechTime;
     const start_ms = Math.round(cursorMs);
     const end_ms = Math.round(cursorMs + wordDuration);
-    cursorMs += wordDuration + pauseMs;
+    const isLast = idx === words.length - 1;
+    const finalEnd = isLast && durationMs > 0 ? durationMs : Math.max(start_ms + 60, end_ms);
 
     return {
       position: idx + 1,
@@ -99,7 +100,7 @@ export function buildWeightedWordTimestamps(
       transliteration: transliterationWords?.[idx] || '',
       translation: translationWords?.[idx] || '',
       start_ms,
-      end_ms: Math.max(start_ms + 60, end_ms),
+      end_ms: finalEnd,
     };
   });
 }

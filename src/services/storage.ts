@@ -236,9 +236,9 @@ export const StorageService = {
    */
   getDarkMode(): boolean {
     try {
-      const val = localStorage.getItem(STORAGE_KEYS.DARK_MODE);
+      const val = localStorage.getItem(STORAGE_KEYS.DARK_MODE) ?? localStorage.getItem('hidaya_dark_mode');
       if (val === null) {
-        return DEFAULTS.DARK_MODE; // Default is true
+        return DEFAULTS.DARK_MODE; // Default is true (Emerald Sanctuary)
       }
       return val === 'true';
     } catch {
@@ -252,6 +252,7 @@ export const StorageService = {
   setDarkMode(isDark: boolean): void {
     try {
       localStorage.setItem(STORAGE_KEYS.DARK_MODE, String(isDark));
+      localStorage.setItem('hidaya_dark_mode', String(isDark));
     } catch {}
   },
 

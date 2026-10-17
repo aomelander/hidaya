@@ -1229,18 +1229,6 @@ export const ContinuousSessionAudioPlayer: React.FC<ContinuousSessionAudioPlayer
           )}
         </div>
       </div>
-
-      {/* Bottom of Page: Approximate Highlighting Note */}
-      <div className="pt-2 text-center">
-        <p className="text-xs text-slate-500 dark:text-slate-400" role="note">
-          {({
-            en: 'Highlighting is approximate, based on playback duration; word timestamps are unavailable.',
-            sv: 'Markeringen är ungefärlig och baseras på ljudets längd; tidsstämplar för ord saknas.',
-            fr: 'Le surlignage est approximatif, basé sur la durée audio ; les horodatages des mots ne sont pas disponibles.',
-            ar: 'تمييز الكلمات تقريبي حسب مدة التسجيل؛ لا تتوفر توقيتات الكلمات.',
-          })[language]}
-        </p>
-      </div>
     </div>
   );
 };
